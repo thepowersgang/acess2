@@ -6,6 +6,7 @@
  * - typeid and dynamic_cast
  */
 #include <typeinfo>
+#include <acess/sys.h>
 
 namespace std {
 
@@ -16,16 +17,19 @@ type_info::~type_info()
 
 bool type_info::operator==(const type_info& other) const
 {
+	_SysDebug("type_info::operator== - '%s' == '%s'", this->__type_name, other.__type_name);
 	return this->__type_name == other.__type_name;
 }
 
 bool type_info::operator!=(const type_info& other) const
 {
+	_SysDebug("type_info::operator!= - '%s' != '%s'", this->__type_name, other.__type_name);
 	return this->__type_name != other.__type_name;
 }
 
 bool type_info::before(const type_info& other) const
 {
+	_SysDebug("type_info::before - '%s' < '%s'", this->__type_name, other.__type_name);
 	return this->__type_name < other.__type_name;
 }
 
@@ -47,4 +51,3 @@ type_info& type_info::operator=(const type_info& rhs)
 
 
 };	// namespace std
-

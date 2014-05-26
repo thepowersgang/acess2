@@ -10,11 +10,13 @@
 
 #include <cstddef>
 #include "allocator"
+#include "stdexcept"
+#include "utility"
 
 namespace std {
 
 namespace _bits {
-template <class T,class Alloc> class list_iterator;
+template <class ListType, class T> class list_iterator;
 template <class T> class list_item;
 }
 
@@ -23,7 +25,7 @@ class list
 {
 	typedef ::std::_bits::list_item<T>	item_type;
 	typedef ::std::_bits::list_item<const T>	const_item_type;
-	friend class ::std::_bits::list_iterator<item_type,Alloc>;
+	friend class ::std::_bits::list_iterator<list, T>;
 	
 	typedef typename Alloc::template rebind<item_type>::other	item_allocator;
 public:
@@ -33,8 +35,8 @@ public:
 	typedef typename allocator_type::const_reference	const_reference;
 	typedef typename allocator_type::pointer	pointer;
 	typedef typename allocator_type::const_pointer	const_pointer;
-	typedef _bits::list_iterator<T,Alloc>	iterator;
-	typedef _bits::list_iterator<const T,Alloc>	const_iterator;
+	typedef _bits::list_iterator<list,T>	iterator;
+	typedef _bits::list_iterator<list,const T>	const_iterator;
 	typedef int	difference_type;
 	typedef size_t	size_type;
 
@@ -43,6 +45,7 @@ private:
 	allocator_type	m_allocator;
 	item_type	*m_start;
 	item_type	*m_end;
+	size_type	m_item_count;
 
 public:
 	list(const allocator_type& alloc = allocator_type()):
@@ -64,29 +67,41 @@ public:
 	list& operator =(const list& x);
 	
 	iterator begin() {
-		return iterator(m_start);
+		return iterator(*this, m_start);
 	}
 	const_iterator begin() const {
-		return const_iterator(m_start);
+		return const_iterator(*this, m_start);
 	}
 
 	iterator end() {
-		return iterator(0);
+		return iterator(*this, 0);
 	}
 	const_iterator end() const {
-		return const_iterator(0);
+		return const_iterator(*this, 0);
 	}
 	
 	bool empty() const {
 		return !m_start;
 	}
-	size_t size() const;
-	size_t max_size() const;
+	size_t size() const {
+		return m_item_count;
+	}
+	size_t max_size() const {
+		return (size_type)-1 / sizeof(item_type);
+	}
 	
-	T& front();
-	const T& front() const;
-	T& back();
-	const T& back() const;
+	T& front() {
+		return m_start->value;
+	}
+	const T& front() const {
+		return m_start->value;
+	}
+	T& back() {
+		return m_end->value;
+	}
+	const T& back() const {
+		return m_end->value;
+	}
 	
 	void assign(size_type n, const value_type& val) {
 		clear();
@@ -109,28 +124,17 @@ public:
 		erase(end());
 	}
 	
+	template <class... Args>
+	iterator emplace(iterator position, Args&&... args) {
+		item_type *newi = m_item_allocator.allocate(1);
+		m_allocator.construct(&newi->value, ::std::forward<Args>(args)...);
+		return insert_item(position, newi);
+	}
+	
 	iterator insert(iterator position, const value_type& val) {
 		item_type *newi = m_item_allocator.allocate(1);
 		m_allocator.construct(&newi->value, val);
-		if( position == end() ) {
-			newi->next = 0;
-			newi->prev = m_end;
-			m_end->next = newi;
-			m_end = newi;
-		}
-		else if( position == begin() ) {
-			newi->next = m_start;
-			newi->prev = 0;
-			m_start->prev = newi;
-			m_start = newi;
-		}
-		else {
-			newi->prev = position.cur->prev;
-			newi->next = position.cur;
-			position.cur->prev->next = newi;
-			position.cur->prev = newi;
-		}
-		return ++position;
+		return insert_item(position, newi);
 	}
 	void insert(iterator position, size_type n, const value_type& val) {
 		for( size_type i = 0; i < n; i ++ )
@@ -142,8 +146,8 @@ public:
 		if( position == end() ) {
 		}
 		else {
-			item_type *oldi = position.cur;
-			position ++;
+			item_type *oldi = position.m_cur;
+			++ position;
 			
 			if(oldi->prev)
 				oldi->prev->next = oldi->next;
@@ -153,7 +157,8 @@ public:
 				oldi->next->prev = oldi->prev;
 			else
 				m_end = oldi->prev;
-			
+
+			m_item_count --;
 			m_allocator.destroy(&oldi->value);
 			m_item_allocator.deallocate(oldi, 1);
 		}
@@ -166,6 +171,39 @@ public:
 			m_start = m_start->next;
 			delete item;
 		}
+		m_item_count = 0;
+	}
+private:
+	iterator insert_item(iterator position, item_type *newi) {
+		m_item_count ++;
+		if( m_start == 0 ) {
+			newi->next = 0;
+			newi->prev = m_end;
+			m_start = newi;
+			m_end = newi;
+			return end();
+		}
+		if( position == end() ) {
+			newi->next = 0;
+			newi->prev = m_end;
+			//assert(m_end);
+			m_end->next = newi;
+			m_end = newi;
+		}
+		else if( position == begin() ) {
+			newi->next = m_start;
+			newi->prev = 0;
+			//assert(m_start);
+			m_start->prev = newi;
+			m_start = newi;
+		}
+		else {
+			newi->prev = position.m_cur->prev;
+			newi->next = position.m_cur;
+			position.m_cur->prev->next = newi;
+			position.m_cur->prev = newi;
+		}
+		return ++position;
 	}
 };
 
@@ -181,38 +219,57 @@ struct list_item
 	value_type	value;
 };
 
-template <class T, class Alloc>
+template <class ListType, class T>
 class list_iterator//:
 	//public bidirectional_iterator_tag;
 {
-	list_item<T>	*cur;
-	friend class ::std::list<T, Alloc>;
+	const ListType*	m_list;
+	list_item<T>	*m_cur;
+	friend ListType;
 public:
+	list_iterator(const list_iterator& x):
+		m_list(x.m_list),
+		m_cur (x.m_cur)
+	{
+	}
+	list_iterator& operator=(const list_iterator& x) {
+		m_list = x.m_list;
+		m_cur  = x.m_cur;
+	}
+	
 	bool operator == (const list_iterator& other) const {
-		return cur == other.cur;
+		return m_cur == other.m_cur;
 	}
 	bool operator != (const list_iterator& other) const {
-		return cur != other.cur;
+		return !(*this == other);
 	}
 	
 	T& operator * () {
-		return cur->value;
+		return m_cur->value;
 	}
 	T& operator -> () {
-		return cur->value;
+		return m_cur->value;
 	}
 	list_iterator& operator ++ () {
-		cur = cur->next;
+		if(!m_cur)
+			throw ::std::logic_error("list iterator ++ on end");
+		m_cur = m_cur->next;
 		return *this;
 	}
 	list_iterator& operator -- () {
-		cur = cur->prev;
+		if( m_cur == m_list->m_start )
+			throw ::std::logic_error("list iterator -- on start");
+		if(!m_cur)
+			m_cur = m_list->m_end;
+		else
+			m_cur = m_cur->prev;
 		return *this;
 	}
-
+	
 private:
-	list_iterator(list_item<T> *item):
-		cur(item)
+	list_iterator(const ListType& list, list_item<T> *item):
+		m_list(&list),
+		m_cur(item)
 	{
 	}
 };

@@ -9,6 +9,8 @@
 
 extern "C" int SoMain()
 {
+	//extern void _init();
+	//_init();
 	// nope
 	return 0;
 }

@@ -38,6 +38,7 @@ const char* ::std::exception::what() const throw()
 
 void ::std::terminate()
 {
+	_SysDebug("::std::terminate()");
 	_exit(0);
 }
 
@@ -48,6 +49,11 @@ void ::std::terminate()
 }
 
 ::std::out_of_range::out_of_range(const ::std::string& what_str):
+	logic_error(what_str)
+{
+}
+
+::std::length_error::length_error(const ::std::string& what_str):
 	logic_error(what_str)
 {
 }

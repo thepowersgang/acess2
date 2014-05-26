@@ -8,6 +8,9 @@
 #ifndef _LIBCXX_UTILITY_
 #define _LIBCXX_UTILITY_
 
+#include "_libcxx_helpers.h"
+#include "type_traits"
+
 namespace std {
 
 template <class T1, class T2>
@@ -45,6 +48,17 @@ template <class T1, class T2>
 bool operator!= (const pair<T1,T2>& lhs, const pair<T1,T2>& rhs) {
 	return !(lhs == rhs);
 }
+
+#if _CXX11_AVAIL
+template <class T>
+T&& forward(typename remove_reference<T>::type& arg) noexcept {
+	return static_cast<decltype(arg)&&>(arg);
+}
+template <class T>
+T&& forward(typename remove_reference<T>::type&& arg) noexcept {
+	return static_cast<decltype(arg)&&>(arg);
+}
+#endif
 
 };	// namespace std
 

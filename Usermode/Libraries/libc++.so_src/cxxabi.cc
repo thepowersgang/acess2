@@ -10,6 +10,7 @@
  * http://libcxxabi.llvm.org/spec.html
  */
 #include <cxxabi.h>
+#include <acess/sys.h>
 
 namespace __cxxabiv1 {
 
@@ -33,4 +34,18 @@ __vmi_class_type_info::~__vmi_class_type_info()
 }
 
 };	// namespace __cxxabiv1
+
+extern "C" void __cxa_bad_cast ()
+{
+	_SysDebug("__cxa_bad_cast");
+	for(;;);
+	//throw ::std::bad_cast;
+}
+
+extern "C" void __cxa_bad_typeid ()
+{
+	_SysDebug("__cxa_bad_typeid");
+	for(;;);
+	//throw ::std::bad_typeid;
+}
 

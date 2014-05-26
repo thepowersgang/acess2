@@ -9,6 +9,9 @@
 #define _LIBCXX_VECTOR_
 
 #include <allocator>
+#include <stdexcept>
+
+extern "C" void _SysDebug(const char *, ...);
 
 namespace std {
 
@@ -44,7 +47,7 @@ public:
 		return *this;
 	}
 	bool operator==(const vector_iterator& other) const {
-		return m_array == other.m_array && m_pos == other.m_pos;
+		return m_pos == other.m_pos;
 	}
 	bool operator!=(const vector_iterator& other) const {
 		return !(*this == other);
@@ -102,7 +105,7 @@ public:
 	vector(size_type n, const value_type& val = value_type(), const allocator_type& alloc = allocator_type()):
 		vector(alloc)
 	{
-		
+		resize(n, val);
 	}
 	vector(const vector& x):
 		vector(x.m_alloc)
@@ -159,8 +162,19 @@ public:
 		return m_size == 0;
 	}
 	void reserve(size_type n) {
-		//if( n > max_size() )
-		//	throw ::std::length_error();
+		if( n > max_size() )
+			throw ::std::length_error("::std::vector::reserve");
+		if( n > m_capacity )
+		{
+			size_type size = (n + 0x1F) & ~0x1F;
+			auto new_area = m_alloc.allocate(size);
+			for( size_type i = 0; i < m_size; i ++ )
+				new_area[i] = m_data[i];
+			m_alloc.deallocate(m_data, m_capacity);
+			m_data = new_area;
+			m_capacity = size;
+			//::_SysDebug("::std::vector::resize - m_capacity=%i for n=%i", m_capacity, n);
+		}
 	}
 	void shrink_to_fit() {
 	}

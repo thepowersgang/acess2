@@ -8,8 +8,11 @@
 #ifndef _LIBCXX_ALLOCATOR_
 #define _LIBCXX_ALLOCATOR_
 
+#include "_libcxx_helpers.h"
+
 #include "new"
 #include "cstddef"
+#include "utility"
 
 namespace std {
 
@@ -61,10 +64,12 @@ public:
 		new ((void*)p) value_type (val);
 	}
 	// C++11
-	//template<class U, class... Args>
-	//void construct( U* p, Args&&... args ) {
-	//	::new ((void*)p) U (forward<Args>(args));
-	//}
+	#if _CXX11_AVAIL
+	template<class U, class... Args>
+	void construct( U* p, Args&&... args ) {
+		::new ((void*)p) U (::std::forward<Args>(args)...);
+	}
+	#endif
 	void destroy(pointer p) {
 		p->~value_type();
 	}

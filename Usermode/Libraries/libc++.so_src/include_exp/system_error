@@ -8,7 +8,9 @@
 #ifndef _LIBCXX_SYSTEM_ERROR_
 #define _LIBCXX_SYSTEM_ERROR_
 
-#if __cplusplus <= 199711L	// C++11 check
+#include "_libcxx_helpers.h"
+
+#if !_CXX11_AVAIL
 # error "This header requires C++11 support enabled"
 #endif
 
@@ -20,13 +22,13 @@ class error_category;
 class error_condition;
 class error_code;
 
-bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept;
-bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept;
-bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept;
-bool operator==(const error_condition& lhs, const error_code& rhs) noexcept;
-bool operator==(const error_code& lhs, const error_condition& rhs) noexcept;
-bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept;
-bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept;
+static bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept;
+static bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept;
+static bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept;
+static bool operator==(const error_condition& lhs, const error_code& rhs) noexcept;
+static bool operator==(const error_code& lhs, const error_condition& rhs) noexcept;
+static bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept;
+static bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept;
 
 extern const error_category&	generic_category() noexcept;
 extern const error_category&	system_category() noexcept;
@@ -154,25 +156,25 @@ public:
 	const char* what() const noexcept;
 };
 
-bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept {
+static inline bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept {
 	return lhs.category() == rhs.category() && lhs.value() == rhs.value();
 }
-bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept {
+static inline bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept {
 	return !(lhs == rhs);
 }
-bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept {
+static inline bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept {
 	return lhs.category() < rhs.category() || lhs.value() < rhs.value();
 }
-bool operator==(const error_condition& lhs, const error_code& rhs) noexcept {
+static inline bool operator==(const error_condition& lhs, const error_code& rhs) noexcept {
 	return lhs.category().equivalent(rhs, lhs.value()) || rhs.category().equivalent(rhs.value(), lhs);
 }
-bool operator==(const error_code& lhs, const error_condition& rhs) noexcept {
+static inline bool operator==(const error_code& lhs, const error_condition& rhs) noexcept {
 	return lhs.category().equivalent(lhs.value(),rhs) || rhs.category().equivalent(lhs,rhs.value());
 }
-bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept {
+static inline bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept {
 	return !(lhs == rhs);
 }
-bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept {
+static inline bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept {
 	return !(lhs == rhs);
 }
 

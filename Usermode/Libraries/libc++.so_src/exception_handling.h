@@ -34,8 +34,8 @@ struct __cxa_exception
 {
 	std::type_info*	exceptionType;
 	void (*exceptionDestructor)(void *);
-	unexpected_handler	unexpectedHandler;
-	terminate_handler	terminateHandler;
+	unexpected_handler*	unexpectedHandler;
+	terminate_handler*	terminateHandler;
 	__cxa_exception*	nextException;
 	
 	int	handlerCount;

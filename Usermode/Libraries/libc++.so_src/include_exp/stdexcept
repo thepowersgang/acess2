@@ -33,6 +33,13 @@ public:
 	explicit out_of_range(const string& what_arg);
 };
 
+class length_error:
+	public logic_error
+{
+public:
+	explicit length_error(const string& what_arg);
+};
+
 };	// namespace std
 
 #endif
