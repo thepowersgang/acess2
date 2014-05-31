@@ -10,6 +10,7 @@
 
 #include "CWindow.hpp"
 #include "serialisation.hpp"
+#include <map>
 
 namespace AxWin {
 
@@ -19,8 +20,8 @@ class CClient
 {
 	IIPCChannel&	m_channel;
 	
-	//::std::map<unsigned int,CWindow*>	m_windows;
-	CWindow*	m_windows[1];
+	::std::map<unsigned int,CWindow*>	m_windows;
+	//CWindow*	m_windows[1];
 public:
 	CClient(::AxWin::IIPCChannel& channel);
 	virtual ~CClient();

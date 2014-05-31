@@ -8,6 +8,7 @@
 #include <serialisation.hpp>
 #include <cstddef>
 #include <stdexcept>
+#include <acess/sys.h>	// SysDebug
 
 namespace AxWin {
 
@@ -53,17 +54,22 @@ bool CDeserialiser::IsConsumed() const
 
 const ::std::string CDeserialiser::ReadString()
 {
-	if( m_offset + 1 >= m_length )
-		throw ::std::out_of_range("CDeserialiser::ReadString");
+	RangeCheck("CDeserialiser::ReadString(len)", 1);
 	uint8_t len = m_data[m_offset];
 	m_offset ++;
 	
-	if( m_offset + len >= m_length )
-		throw ::std::out_of_range("CDeserialiser::ReadString");
-	
+	RangeCheck("CDeserialiser::ReadString(data)", len);
 	::std::string ret( reinterpret_cast<const char*>(m_data+m_offset), len );
 	m_offset += len;
 	return ret;
+}
+
+void CDeserialiser::RangeCheck(const char *Method, size_t bytes) throw(::std::out_of_range)
+{
+	if( m_offset + bytes > m_length ) {
+		::_SysDebug("%s - out of range %i+%i >= %i", Method, m_offset, bytes, m_length);
+		throw ::std::out_of_range(Method);
+	}
 }
 
 CSerialiser::CSerialiser()

@@ -32,10 +32,13 @@ CWindow* CClient::GetWindow(int ID)
 
 void CClient::SetWindow(int ID, CWindow* window)
 {
+	_SysDebug("SetWindow(ID=%i,window=%p)", ID, window);
 	if( m_windows[ID] ) {
 		delete m_windows[ID];
 	}
+	_SysDebug("SetWindow - Set", ID, window);
 	m_windows[ID] = window;
+	_SysDebug("SetWindow - END");
 }
 
 void CClient::HandleMessage(CDeserialiser& message)

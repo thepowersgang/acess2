@@ -121,12 +121,17 @@ int main(int argc, char *argv[])
 		}
 		_SysDebug("rv=%i, timeout=%lli", rv, timeout);
 		
-		Timing::CheckEvents();
-		
-		input->HandleSelect(rfds);
-		IPC::HandleSelect(rfds);
-		
-		compositor->Redraw();
+		try {
+			Timing::CheckEvents();
+			
+			input->HandleSelect(rfds);
+			IPC::HandleSelect(rfds);
+			
+			compositor->Redraw();
+		}
+		catch(...) {
+			::_SysDebug("Exception during select handling");
+		}
 	}
 	return 0;
 }

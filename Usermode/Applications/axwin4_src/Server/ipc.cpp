@@ -149,6 +149,7 @@ void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
 	//CWindow* parent = client.GetWindow( parent_id );
 	::std::string	name = message.ReadString();
 	
+	::_SysDebug("_CreateWindow: (%i, '%s')", new_id, name.c_str());
 	client.SetWindow( new_id, gpCompositor->CreateWindow(client, name) );
 }
 
@@ -257,7 +258,9 @@ void HandleMessage(CClient& client, CDeserialiser& message)
 		return ;
 	}
 	
+	_SysDebug("IPC::HandleMessage - command=%i", command);
 	(message_handlers[command])(client, message);
+	_SysDebug("IPC::HandleMessage - Completed");
 }
 
 CClientFailure::CClientFailure(std::string&& what):

@@ -17,7 +17,7 @@ CWindow::CWindow(CCompositor& compositor, CClient& client, const ::std::string& 
 	m_client(client),
 	m_name(name)
 {
-	
+	_SysDebug("CWindow::CWindow()");
 }
 
 CWindow::~CWindow()

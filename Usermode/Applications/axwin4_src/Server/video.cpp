@@ -88,7 +88,7 @@ void CVideo::SetCursorBitmap()
 	
 	SetBufFormat(PTYBUFFMT_2DCMD);
 	_SysWrite(m_fd, &hdr, sizeof(hdr));
-	_SysDebug("size = %i (%04x:%02x * 4)", size, hdr.len_hi, hdr.len_low);
+	_SysDebug("SetCursorBitmap - size = %i (%04x:%02x * 4)", size, hdr.len_hi, hdr.len_low);
 	_SysWrite(m_fd, &cCursorBitmap, size-sizeof(hdr));
 }
 
