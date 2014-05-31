@@ -11,10 +11,11 @@ EXTRABIN := libld-acess.so
 EXTRACLEAN = $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
-CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99
+CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99 -ffreestanding
 # -fno-leading-underscore
 CFLAGS  += $(CPPFLAGS)
-LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
+LDFLAGS  = -ffreestanding -nostdlib -g -Wl,-T,arch/$(ARCHDIR).ld -Map map.txt --export-dynamic -x
+LIBS := $(LIBGCC_PATH)
 
 ifeq ($(ARCH),native)
 XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN)) 

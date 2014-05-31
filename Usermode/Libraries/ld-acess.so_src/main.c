@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "common.h"
+#undef SoMain
 
 // === PROTOTYPES ===
 void	*DoRelocate(void *base, char **envp, const char *Filename);
@@ -14,6 +15,7 @@ void	*DoRelocate(void *base, char **envp, const char *Filename);
 extern char	gLinkedBase[];
 char	**gEnvP;
 extern int	memcmp(const void *m1, const void *m2, size_t size);
+extern void	CallQueuedEntrypoints(char **EnvP);
  
 // === CODE ===
 /**
@@ -41,7 +43,6 @@ void *SoMain(void *base, int argc, char **argv, char **envp)
 	}
 
 	// Otherwise do relocations
-	//ret = DoRelocate( base, envp, "Executable" );
 	ret = DoRelocate( base, NULL, "Executable" );
 	if( ret == 0 ) {
 		SysDebug("ld-acess - SoMain: Relocate failed, base=0x%x\n", base);
@@ -49,7 +50,10 @@ void *SoMain(void *base, int argc, char **argv, char **envp)
 		for(;;);
 	}
 
-	SysDebug("ld-acess - SoMain: ret = %p", ret);	
+	// Call queued entry points (from libraries)
+	CallQueuedEntrypoints(envp);
+
+	SysDebug("ld-acess - SoMain: Program entry %p", ret);	
 	return ret;
 }
 

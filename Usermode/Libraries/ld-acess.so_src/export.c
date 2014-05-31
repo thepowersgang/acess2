@@ -11,6 +11,7 @@ extern int32_t	__modsi3(int32_t Num, int32_t Den);
 extern uint32_t	__udivsi3(uint32_t Num, uint32_t Den);
 extern uint32_t	__umodsi3(uint32_t Num, uint32_t Den);
 extern void	ldacess_DumpLoadedLibraries(void);
+extern void	_ZN4_sys5debugEPKcz(const char *,...);	// C++ "_sys::debug" used by STL debug
 
 #define _STR(x)	#x
 #define STR(x)	_STR(x)

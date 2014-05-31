@@ -15,8 +15,8 @@
 #if BITS <= 32
 # define DISABLE_ELF64
 #endif
-static int	GetSymbol(const char *Name, void **Value, size_t *Size);
-static int	GetSymbol(const char *Name, void **Value, size_t *Size) {
+static int	GetSymbol(const char *Name, void **Value, size_t *Size, void *IgnoreBase);
+static int	GetSymbol(const char *Name, void **Value, size_t *Size, void *IgnoreBase) {
 	Uint val;
 	if(!Binary_GetSymbol(Name, &val)) {
 		Log_Notice("ELF", "Lookup of '%s' failed", Name);

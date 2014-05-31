@@ -112,14 +112,23 @@ struct sElf32_Shent {
 #endif
 
 struct elf_sym_s {
-	Elf32_Word	nameOfs;
-	Elf32_Addr	value;	//Address
-	Elf32_Word	size;
-	uint8_t	info;
-	uint8_t	other;
-	Elf32_Half	shndx;
+	Elf32_Word	st_name;
+	Elf32_Addr	st_value;	//Address
+	Elf32_Word	st_size;
+	uint8_t 	st_info;
+	uint8_t 	st_other;
+	Elf32_Half	st_shndx;
 };
 #define	STN_UNDEF	0	// Undefined Symbol
+
+#define ELF32_ST_BIND(i)	((i)>>4)
+#define ELF32_ST_TYPE(i)	((i)&0xF)
+
+enum {
+	STB_LOCAL,
+	STB_GLOBAL,
+	STB_WEAK,
+};
 
 enum {
 	PT_NULL,	//0
