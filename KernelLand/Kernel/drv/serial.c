@@ -5,6 +5,7 @@
  * drv/serial.c
  * - Common serial port code
  */
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -65,6 +66,7 @@ tSerialPort *Serial_CreatePort(tSerial_OutFcn output, void *handle)
 
 void Serial_ByteReceived(tSerialPort *Port, char Ch)
 {
+	LOG("Port=%p,Ch=%i", Port, Ch);
 	if( !Port )
 		return ;
 	if( Port == gSerial_KernelDebugPort )
@@ -109,6 +111,7 @@ void Serial_ByteReceived(tSerialPort *Port, char Ch)
 	}
 	if( Ch == '\r' )
 		Ch = '\n';
+	LOG("Dispatch to PTY");
 	PTY_SendInput(Port->PTY, &Ch, 1);
 }
 

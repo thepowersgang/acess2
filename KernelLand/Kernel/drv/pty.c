@@ -810,6 +810,8 @@ int PTY_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	int	is_server = !pty || Node == pty->ServerNode;
 
+	LOG("(%i,%p) %s", ID, Data, (is_server?"Server":"Client"));
+
 	switch(ID)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_TERMINAL;
