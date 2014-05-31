@@ -10,17 +10,16 @@ ifeq ($(ARCH),native)
  LDFLAGS := $(LDFLAGS:-lc=-lc_acess)
 endif
 
-_LD_CMD := $(lastword $(subst -, ,$(firstword $(LD))))
-ifneq ($(_LD_CMD),ld)
-  LDFLAGS := $(subst -soname ,-Wl$(comma)-soname$(comma),$(LDFLAGS))
-  LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
-  LDFLAGS := $(LDFLAGS:-x=-Wl,-x)
-  LDFLAGS := $(LDFLAGS:--%=-Wl,--%)
-endif
-
 _BIN := $(addprefix $(OUTPUTDIR)Libs/,$(BIN))
 _XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))
 _OBJPREFIX := obj-$(ARCH)/
+LDFLAGS += -Map $(_OBJPREFIX)Map.txt
+
+_LD_CMD := $(lastword $(subst -, ,$(firstword $(LD))))
+LDFLAGS := $(subst -soname ,-Wl$(comma)-soname$(comma),$(LDFLAGS))
+LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
+LDFLAGS := $(LDFLAGS:-x=-Wl,-x)
+LDFLAGS := $(LDFLAGS:--%=-Wl,--%)
 
 _LIBS := $(filter -l%,$(LDFLAGS))
 _LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
@@ -84,28 +83,33 @@ endif
 #	for f in $(INCFILES); do ln -s $f $(ACESSDIR)/include/$f; done
 #endif
 
-$(_BIN): $(OBJ)
+LINK_OBJS = $(PRELINK) $(OBJ)
+$(_BIN): $(LINK_OBJS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
-	$V$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ) $(shell $(CC) -print-libgcc-file-name)
-	$V$(DISASM) -D -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
+ifneq ($(USE_CXX_LINK),)
+	$V$(CXX) $(LDFLAGS) -o $(_BIN) $(LINK_OBJS) $(LIBS)
+else
+	$V$(CC) $(LDFLAGS) -o $(_BIN) $(LINK_OBJS) $(LIBS)
+endif
+	$V$(DISASM) -C $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
-$(_OBJPREFIX)%.o: %.c
+$(_OBJPREFIX)%.o: %.c Makefile
 	@echo [CC] -o $@
 	@mkdir -p $(dir $@)
 	$V$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
 
-$(_OBJPREFIX)%.o: %.cc
+$(_OBJPREFIX)%.o: %.cc Makefile
 	@echo [CXX] -o $@
 	@mkdir -p $(dir $@)
 	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
 
-$(_OBJPREFIX)%.o: %.cpp
+$(_OBJPREFIX)%.o: %.cpp Makefile
 	@echo [CXX] -o $@
 	@mkdir -p $(dir $@)
 	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
 
-$(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
+$(_OBJPREFIX)%.ao: %.$(ASSUFFIX) Makefile
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	$V$(AS) $(ASFLAGS) -o $@ $<
