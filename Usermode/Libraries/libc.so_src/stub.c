@@ -45,20 +45,7 @@ tCPUID	gCPU_Features;
  */
 int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, argv), char **envp)
 {
-	// Init for env.c
 	environ = envp;
-
-	#if 0	
-	{
-		 int	i = 0;
-		char	**tmp;
-		_SysDebug("envp = %p", envp);
-		for(tmp = envp; *tmp; tmp++,i++)
-		{
-			_SysDebug("envp[%i] = '%s'", i, *tmp);
-		}
-	}
-	#endif
 
 	_stdio_init();	
 	
@@ -76,7 +63,7 @@ int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, ar
 	// Set Error handler
 	_SysSetFaultHandler(ErrorHandler);
 	
-	return 1;
+	return 0;
 }
 
 int ErrorHandler(int Fault)

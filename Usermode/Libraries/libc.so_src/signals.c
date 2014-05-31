@@ -41,6 +41,7 @@ int raise(int signal)
 void abort(void)
 {
 	// raise(SIGABRT);
+	_SysDebug("abort() - %p", __builtin_return_address(0));
 	_exit(-1);
 }
 

@@ -4,9 +4,11 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += 
-CFLAGS   += -Wall -Werror -Wextra
+CFLAGS   += -nostdlib -Wall -Werror -Wextra
 ASFLAGS  +=
-LDFLAGS  += -Map map.txt
+LDFLAGS  += -nostdlib
+PRELINK  := $(CRTI) $(CRTBEGIN) $(OUTPUTDIR)/Libs/crt0S.o
+LIBS     += $(LIBGCC_PATH) $(CRTEND) $(CRTN)
 
 INCFILES := stdio.h stdlib.h
 
