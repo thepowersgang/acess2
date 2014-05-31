@@ -334,6 +334,8 @@ tVAddr Binary_Load(const char *Path, tVAddr *EntryPoint)
 	if(pBinary->Interpreter) {
 		tVAddr	start;
 		if( Binary_Load(pBinary->Interpreter, &start) == 0 ) {
+			Log_Error("Binary", "Can't load interpeter '%s' for '%s'",
+				pBinary->Interpreter, Path);
 			LEAVE('x', 0);
 			return 0;
 		}
