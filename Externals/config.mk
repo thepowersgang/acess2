@@ -4,7 +4,7 @@
 -include ../../Makefile.cfg
 
 ifeq ($(ARCH),x86)
- BFD := i586
+ BFD := i686
 else ifeq ($(ARCH),x86_64)
  BFD := x86_64
 else

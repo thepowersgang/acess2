@@ -4,7 +4,7 @@
  # Common parts for widely ported systems.
  case ${target} in
 +*-*-acess2*)
-+  extra_parts="crtbegin.o crtend.o"
++  extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o crtendT.o"
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
@@ -16,7 +16,7 @@
  	;;
 +i[3-7]86-*-acess2*)
 +	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h newlib-stdint.h acess2.h"
-+	tmake_file="i386/t-i386elf t-svr4"
++	tmake_file="i386/t-i386elf i386/t-crtstuff t-svr4"
 +	use_fixproto=yes
 +	;;
  i[34567]86-*-elf*)

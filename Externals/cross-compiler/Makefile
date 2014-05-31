@@ -42,7 +42,7 @@ $(warning $(BINUTILS_DIR) $(GCC_DIR))
 
 $(GCC_DIR)/%: patches/gcc/%.patch
 	@echo [PATCH] $@
-	#@tar -xf $(GCC_ARCHIVE) $@
+	@tar -xf $(GCC_ARCHIVE) $@
 	@patch $@ $<
 $(GCC_DIR)/%: patches/gcc/%
 	@echo [CP] $@
@@ -50,7 +50,7 @@ $(GCC_DIR)/%: patches/gcc/%
 
 $(BINUTILS_DIR)/%: patches/binutils/%.patch
 	@echo [PATCH] $@
-	#@tar -xf $(BINUTILS_ARCHIVE) $@
+	@tar -xf $(BINUTILS_ARCHIVE) $@
 	@patch $@ $<
 $(BINUTILS_DIR)/%: patches/binutils/%
 	@echo [CP] $@
