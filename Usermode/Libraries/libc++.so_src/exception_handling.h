@@ -57,7 +57,7 @@ extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void 
 extern "C" void *__cxa_begin_catch(void *exceptionObject);
 extern "C" void __cxa_end_catch();
 
-extern "C" void _Unwind_RaiseException(void *thrown_exception);
+extern "C" _Unwind_Reason_Code _Unwind_RaiseException(void *thrown_exception);
 
 #endif
 

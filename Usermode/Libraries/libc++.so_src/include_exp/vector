@@ -2,8 +2,8 @@
  * Acess2 C++ Library
  * - By John Hodge (thePowersGang)
  *
- * string (header)
- * - C++'s String type
+ * vector (header)
+ * - C++'s vector (dynamic array) type
  */
 #ifndef _LIBCXX_VECTOR_
 #define _LIBCXX_VECTOR_

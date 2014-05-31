@@ -8,5 +8,9 @@
 # define _CXX11_AVAIL	0
 #endif
 
+namespace _sys {
+extern void debug(const char *, ...);
+};
+
 #endif
 

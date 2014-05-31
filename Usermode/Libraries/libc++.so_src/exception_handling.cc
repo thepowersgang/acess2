@@ -77,6 +77,7 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void*))
 {
 	::_SysDebug("__cxa_throw(%p,%p,%p) '%s'", thrown_exception, tinfo, dest, tinfo->name());
+	::_SysDebug("- by %p", __builtin_return_address(0));
 	{
 		const ::std::exception* e = reinterpret_cast<const ::std::exception*>(thrown_exception);
 		::_SysDebug("- e.what() = '%s'", e->what());
@@ -92,9 +93,9 @@ extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void 
 	memcpy(&except->unwindHeader.exception_class, "Ac20C++\0", 8);
 	__cxa_get_globals()->uncaughtExceptions ++;
 	
-	_Unwind_RaiseException(thrown_exception);
+	int rv = _Unwind_RaiseException(thrown_exception);
 	
-	::_SysDebug("__cxa_throw(%p,%s) :: UNCAUGHT", thrown_exception, tinfo->name());
+	::_SysDebug("__cxa_throw(%p,%s) :: UNCAUGHT %i", thrown_exception, tinfo->name(), rv);
 	::std::terminate();
 }
 

@@ -37,7 +37,21 @@ public:
 		second(b)
 	{
 	}
+	pair(const pair& pr):
+		first(pr.first),
+		second(pr.second)
+	{
+	}
+	pair(pair&& pr):
+		first(pr.first), second(pr.second)
+	{
+	}
 	// operator = is implicit
+	pair& operator=(const pair& x) {
+		first  = x.first;
+		second = x.second;
+		return *this;
+	}
 };
 
 template <class T1, class T2>	
@@ -58,6 +72,15 @@ template <class T>
 T&& forward(typename remove_reference<T>::type&& arg) noexcept {
 	return static_cast<decltype(arg)&&>(arg);
 }
+
+template <class T>
+typename remove_reference<T>::type&& move( T&& t) noexcept {
+	return static_cast<typename remove_reference<T>::type&&>(t);
+}
+//template <class T>
+//constexpr typename ::std::remove_reference<T>::type&& move( T&& t) noexcept {
+//	return static_cast<typename ::std::remove_reference<T>::type&&>(t);
+//}
 #endif
 
 };	// namespace std
