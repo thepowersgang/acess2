@@ -249,12 +249,12 @@ void Panic(const char *Fmt, ...)
 	
 	Debug_KernelPanic();
 	
+	Debug_Puts(1, "\x1b[31m");
 	Debug_Puts(1, "Panic: ");
 	va_start(args, Fmt);
 	Debug_Fmt(1, Fmt, args);
 	va_end(args);
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+	Debug_Puts(1, "\x1b[0m\r\n");
 
 	Proc_PrintBacktrace();
 	//Threads_Dump();
