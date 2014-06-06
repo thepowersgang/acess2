@@ -49,3 +49,14 @@ extern "C" void __cxa_bad_typeid ()
 	//throw ::std::bad_typeid;
 }
 
+extern "C" void* __dynamic_cast(
+	const void *sub,
+	const __cxxabiv1::__class_type_info *src,
+	const __cxxabiv1::__class_type_info *dst,
+	ptrdiff_t src2dst_offset
+	)
+{
+	_SysDebug("TODO: __dynamic_cast %p %s to %s, hint=%p", sub, dst->name(), src->name(), src2dst_offset);
+	return NULL;
+}
+

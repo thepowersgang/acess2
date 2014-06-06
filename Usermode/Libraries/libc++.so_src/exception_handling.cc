@@ -1,4 +1,17 @@
 /*
+ * Acess2 C++ Support Library
+ * - By John Hodge (thePowersGang)
+ *
+ * exception_handling.cc
+ * - Exception handling code (defined by C++ ABI)
+ *
+ * References:
+ * - LLVM Exception handling
+ *  > http://llvm.org/docs/ExceptionHandling.html
+ * - Itanium C++ ABI
+ *  >http://mentorembedded.github.io/cxx-abi/abi-eh.html
+ * - HP's "aC++" Document, Ch 7 "Exception Handling Tables"
+ *  > http://mentorembedded.github.io/cxx-abi/exceptions.pdf
  */
 #include <typeinfo>
 #include <cstdint>
@@ -6,7 +19,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include "exception_handling.h"
+#include "exception_handling_cxxabi.h"
 
 #include <acess/sys.h>
 
@@ -76,13 +89,13 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 
 extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void*))
 {
-	::_SysDebug("__cxa_throw(%p,%p,%p) '%s'", thrown_exception, tinfo, dest, tinfo->name());
-	::_SysDebug("- by %p", __builtin_return_address(0));
+	::_SysDebug("__cxa_throw(%p,%p,%p) '%s' by %p",
+		thrown_exception, tinfo, dest, tinfo->name(), __builtin_return_address(0)
+		);
 	{
 		const ::std::exception* e = reinterpret_cast<const ::std::exception*>(thrown_exception);
 		::_SysDebug("- e.what() = '%s'", e->what());
 	}
-	::_SysDebug("- typeid(*tinfo) = %p", &typeid(*tinfo));
 
 	__cxa_exception	*except = static_cast<__cxa_exception*>( thrown_exception ) - 1;
 	
@@ -90,19 +103,19 @@ extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void 
 	except->terminateHandler = 0;
 	except->exceptionType = tinfo;
 	except->exceptionDestructor = dest;
-	memcpy(&except->unwindHeader.exception_class, "Ac20C++\0", 8);
+	memcpy(&except->unwindHeader.exception_class, EXCEPTION_CLASS_ACESS, 8);
 	__cxa_get_globals()->uncaughtExceptions ++;
 	
-	int rv = _Unwind_RaiseException(thrown_exception);
+	int rv = _Unwind_RaiseException( &except->unwindHeader );
 	
 	::_SysDebug("__cxa_throw(%p,%s) :: UNCAUGHT %i", thrown_exception, tinfo->name(), rv);
 	::std::terminate();
 }
 
-extern "C" void *__cxa_begin_catch(void *exceptionObject)
+extern "C" void *__cxa_begin_catch(_Unwind_Exception *exceptionObject)
 {
-	::_SysDebug("__cxa_begin_catch(%p)", exceptionObject);
-	__cxa_exception	*except = static_cast<__cxa_exception*>( exceptionObject ) - 1;
+	__cxa_exception	*except = reinterpret_cast<__cxa_exception*>( exceptionObject+1 )-1;
+	::_SysDebug("__cxa_begin_catch(%p) - except=%p", exceptionObject, except);
 	
 	except->handlerCount ++;
 	
@@ -111,7 +124,7 @@ extern "C" void *__cxa_begin_catch(void *exceptionObject)
 	
 	__cxa_get_globals_fast()->uncaughtExceptions --;
 	
-	return except;
+	return except+1;
 }
 
 extern "C" void __cxa_end_catch()
@@ -125,4 +138,5 @@ extern "C" void __cxa_end_catch()
 		__cxa_free_exception(except+1);
 	}
 }
+
 

@@ -19,9 +19,16 @@ public:
 	bool operator!=(const type_info &) const;
 	bool before(const type_info &) const;
 	const char* name() const;
+	
+	// acess
+	bool __is_child(const type_info &, unsigned long&) const;
 private:
 	type_info (const type_info& rhs);
 	type_info& operator= (const type_info& rhs);
+
+	// acess
+	bool is_class() const;
+	bool is_subclass() const;
 	
 	// CXX ABI
 	const char *__type_name;
