@@ -388,6 +388,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
 		LogF("\r\n");
 		break;
+	case SYS_DEBUGHEX:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
+		Debug_HexDump( (const char*)Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
+		break;
 	//#endif
 	
 	// -- Default (Return Error)

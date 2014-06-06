@@ -51,6 +51,7 @@ extern int	_errno;
 
 // === FUNCTIONS ===
 extern void	_SysDebug(const char *format, ...);
+extern void	_SysDebugHex(const char *Label, const void *Data, size_t Size);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
 extern int	_SysKill(int pid, int sig);

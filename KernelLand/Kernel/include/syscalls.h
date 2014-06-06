@@ -72,6 +72,7 @@
 
 #define NUM_SYSCALLS	88
 #define SYS_DEBUG	0x100
+#define SYS_DEBUGHEX	0x101
 
 #if !defined(__ASSEMBLER__) && !defined(NO_SYSCALL_STRS)
 static const char *cSYSCALL_NAMES[] = {

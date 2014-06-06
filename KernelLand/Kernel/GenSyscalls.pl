@@ -47,6 +47,7 @@ foreach my $call (@calls)
 print HEADER "
 #define NUM_SYSCALLS	",$i,"
 #define SYS_DEBUG	0x100
+#define SYS_DEBUGHEX	0x101
 
 #if !defined(__ASSEMBLER__) && !defined(NO_SYSCALL_STRS)
 static const char *cSYSCALL_NAMES[] = {

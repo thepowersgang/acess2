@@ -346,8 +346,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			if( ELF32_ST_BIND(sym->st_info) == STB_WEAK )
 			{
 				WARNING("TODO: Weak bound local symbols '%s'", name);
-				assert(ELF32_ST_BIND(sym->st_info) != STB_WEAK);
-				return NULL;
+				//assert(ELF32_ST_BIND(sym->st_info) != STB_WEAK);
+				//return NULL;
 			}
 			TRACE("Sym %i'%s' %p += 0x%x", i, name, sym->st_value, iBaseDiff);
 			sym->st_value += iBaseDiff;
@@ -445,7 +445,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		{
 			// Handled previously
 			// TODO: What about weak locally-defined symbols?
-			assert( ELF32_ST_BIND(sym->st_info) != STB_WEAK );
+			//assert( ELF32_ST_BIND(sym->st_info) != STB_WEAK );
 		}
 	}
 	if( fail ) {

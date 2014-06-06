@@ -39,6 +39,8 @@ SYSCALL1(_SysLoadModule, SYS_LOADMOD)
 
 SYSCALL6(_ZN4_sys5debugEPKcz, 0x100)
 SYSCALL6(_SysDebug, 0x100)
+SYSCALL2(_SysDebugHex, 0x101)
+
 SYSCALL1(_SysGetPhys, SYS_GETPHYS)	// uint64_t _SysGetPhys(uint addr)
 SYSCALL1(_SysAllocate, SYS_ALLOCATE)	// uint64_t _SysAllocate(uint addr)
 SYSCALL3(_SysSetMemFlags, SYS_SETFLAGS)	// uint32_t SysSetMemFlags(uint addr, uint flags, uint mask)
