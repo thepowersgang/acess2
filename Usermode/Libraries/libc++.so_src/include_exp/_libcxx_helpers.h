@@ -8,7 +8,15 @@
 # define _CXX11_AVAIL	0
 #endif
 
+#define _libcxx_assert(cnd) do { \
+	if(!(cnd)) {\
+		::_sys::debug("libc++ assert failure %s:%i - %s", __FILE__, __LINE__, #cnd);\
+		::_sys::abort(); \
+	} \
+} while(0)
+
 namespace _sys {
+extern void abort() __asm__ ("abort") __attribute__((noreturn));
 extern void debug(const char *, ...);
 };
 

@@ -319,6 +319,7 @@ private:
 		pos_out = pos;
 		return false;
 		#else
+		//::_sys::debug("map::_search (m_size=%i)", m_size);
 		for( size_type pos = 0; pos < m_size; pos ++ )
 		{
 			const key_type& item_key = m_items[pos].first;
@@ -326,14 +327,17 @@ private:
 				continue;
 			}
 			else if( m_comp(k, item_key) ) {
+				//::_sys::debug("map::_search - Passed %i", pos);
 				pos_out = pos;
 				return false;
 			}
 			else {
+				//::_sys::debug("map::_search - Found %i", pos);
 				pos_out = pos;
 				return true;
 			}
 		}
+		//::_sys::debug("map::_search - Off end %i", m_size);
 		pos_out = m_size;
 		return false;
 		#endif
@@ -341,7 +345,7 @@ private:
 	void insert_at(size_type ofs, const value_type& val) {
 		//assert( ofs == 0 || m_comp(m_items[ofs-1].first, val.first) );
 		//assert( ofs == m_size || m_comp(m_items[ofs].first, val.first) );
-		::_sys::debug("map::insert_at(%i,)", ofs);
+		//::_sys::debug("map::insert_at(%i,)", ofs);
 		// Resize up
 		reserve( m_size + 1 );
 		// Move following items up

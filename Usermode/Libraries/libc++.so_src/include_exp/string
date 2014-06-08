@@ -8,6 +8,7 @@
 #ifndef _LIBCXX_STRING_
 #define _LIBCXX_STRING_
 
+#include "_libcxx_helpers.h"
 #include <allocator>
 
 namespace std {
@@ -98,6 +99,9 @@ private:
 		}
 	};
 
+	allocator_type	m_allocator;
+	dynamic_info	*m_content;
+
 public:
 	basic_string(const allocator_type& alloc = allocator_type()):
 		m_allocator(alloc),
@@ -109,6 +113,15 @@ public:
 	{
 		*this = str;
 	}
+	#if _CXX11_AVAIL
+	basic_string(basic_string&& str):
+		m_allocator(str.m_allocator),
+		m_content(str.m_content)
+	{
+		str.m_content = 0;
+		::_sys::debug("basic_string(move) %p %s", m_content, c_str());
+	}
+	#endif
 	basic_string(const basic_string& str, const allocator_type& alloc):
 		basic_string(str, 0, str.length(), alloc)
 	{
@@ -138,6 +151,7 @@ public:
 			reserve(n);
 			for( size_type i = 0; i < n; i ++ )
 				m_content->m_data[i] = s[i];
+			m_content->m_data[n] = 0;
 			m_content->m_size = n;
 		}
 	}
@@ -149,6 +163,7 @@ public:
 			reserve(n);
 			for( size_type i = 0; i < n; i ++ )
 				m_content->m_data[i] = c;
+			m_content->m_data[n] = 0;
 			m_content->m_size = n;
 		}
 	}
@@ -195,6 +210,7 @@ public:
 		if( m_content->m_size < size ) {
 			for( size_type ofs = m_content->m_size; ofs < size; ofs ++ )
 				m_content->m_data[ofs] = c;
+			m_content->m_data[size] = 0;
 		}
 		m_content->m_size = size;
 		m_content->m_data[size] = 0;
@@ -326,6 +342,9 @@ public:
 	// String operations
 	const char *c_str() const {
 		// TODO: this is const, but also might need to do processing
+		if(m_content) {
+			_libcxx_assert(m_content->m_data[m_content->m_size] == '\0');
+		}
 		return (m_content ? m_content->m_data : "");
 	}
 	const char *data() const {
@@ -334,9 +353,6 @@ public:
 	
 	static const size_type npos = -1;
 private:
-	allocator_type	m_allocator;
-	dynamic_info	*m_content;
-
 	void own_content() {
 		if(!m_content)
 		{
