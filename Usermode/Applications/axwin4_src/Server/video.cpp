@@ -37,11 +37,15 @@ CVideo::CVideo(const CConfigVideo& config):
 			throw AxWin::InitFailure("Terminal not capable of graphics");
 	}
 	
+	_SysDebug("m_width=%i, m_height=%i", m_width, m_height);
 	SetCursorBitmap();
 	
 	SetCursorPos( m_width/2, m_height/2 );
 	
 	SetBufFormat(PTYBUFFMT_FB);
+	uint32_t	data[m_width];
+	for( unsigned int i = 0; i < m_height; i ++ )
+		BlitLine(data, i, 0, m_width);
 }
 
 void CVideo::GetDims(unsigned int& w, unsigned int& h)
@@ -52,10 +56,21 @@ void CVideo::GetDims(unsigned int& w, unsigned int& h)
 
 void CVideo::BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_x, unsigned int width)
 {
+	//_SysDebug("CVideo::BlitLine (%p, %i, %i, %i)", src, dst_y, dst_x, width);
+	size_t	cmdlen = sizeof(struct ptycmd_senddata)/4 + width;
+	//_SysDebug(" - Offset = %i, cmdlen = %i", (dst_y * m_width + dst_x) * 4, cmdlen);
+	struct ptycmd_senddata	cmd = {
+		{PTY2D_CMD_SEND, cmdlen & 0xFF, cmdlen>>8},
+		(dst_y * m_width + dst_x)
+	};
+	SetBufFormat(PTYBUFFMT_2DCMD);
+	_SysWrite(m_fd, &cmd, sizeof(cmd));
+	_SysWrite(m_fd, src, width*4);
+
+	//SetBufFormat(PTYBUFFMT_FB);
 	//_SysWriteAt(m_fd, (dst_y * m_width + dst_x) * 4, width * 4, src);
-	SetBufFormat(PTYBUFFMT_FB);
-	_SysSeek(m_fd, (dst_y * m_width + dst_x) * 4, SEEK_SET);
-	_SysWrite(m_fd, src, width * 4);
+	//_SysSeek(m_fd, (dst_y * m_width + dst_x) * 4, SEEK_SET);
+	//_SysWrite(m_fd, src, width * 4);
 }
 
 void CVideo::Flush()

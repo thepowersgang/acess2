@@ -36,7 +36,7 @@ void CSurface::Resize(unsigned int W, unsigned int H)
 
 void CSurface::DrawScanline(unsigned int row, unsigned int x_ofs, unsigned int w, const void* data)
 {
-	_SysDebug("DrawScanline(%i,%i,%i,%p)", row, x_ofs, w, data);
+	//_SysDebug("DrawScanline(%i,%i,%i,%p)", row, x_ofs, w, data);
 	if( row >= m_rect.m_h )
 		throw ::std::out_of_range("CSurface::DrawScanline row");
 	if( x_ofs >= m_rect.m_w )
@@ -45,7 +45,6 @@ void CSurface::DrawScanline(unsigned int row, unsigned int x_ofs, unsigned int w
 	if( w > m_rect.m_w )
 		throw ::std::out_of_range("CSurface::DrawScanline width");
 	
-	_SysDebug(" memcpy(%p, %p, %i)", &m_data[row*m_rect.m_w + x_ofs], data, w*4 );
 	::memcpy( &m_data[row*m_rect.m_w + x_ofs], data, w*4 );
 }
 

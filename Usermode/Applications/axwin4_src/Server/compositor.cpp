@@ -40,6 +40,7 @@ bool CCompositor::GetScreenDims(unsigned int ScreenID, unsigned int* W, unsigned
 
 void CCompositor::Redraw()
 {
+	_SysDebug("CCompositor::Redraw");
 	// Redraw the screen and clear damage rects
 	if( m_damageRects.empty() )
 		return ;
@@ -50,6 +51,7 @@ void CCompositor::Redraw()
 	// For all windows, check for intersection with damage rects
 	for( auto rect : m_damageRects )
 	{
+		_SysDebug("rect=(%i,%i) %ix%i", rect.m_x, rect.m_y, rect.m_w, rect.m_h);
 		// window list should be sorted by draw order (lowest first)
 		for( auto window : m_windows )
 		{

@@ -20,8 +20,8 @@ int main(int argc, const char *argv[])
 	//AxWin4_SetWindowFlags(bgwin, AXWIN4_WNDFLAG_NODECORATE|AXWIN4_WNDFLAG_KEEPBELOW);
 	
 	// Load image
-	char *image = malloc(640*480*4);
-	AxWin4_DrawBitmap(bgwin, 0, 0, 640, 480, image);
+	//char *image = malloc(640*480*4);
+	//AxWin4_DrawBitmap(bgwin, 0, 0, 640, 480, image);
 
 	_SysDebug("Beginning queue");
 	
