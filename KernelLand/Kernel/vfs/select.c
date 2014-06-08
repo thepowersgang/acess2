@@ -55,13 +55,14 @@ void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 // === FUNCTIONS ===
 int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *Name)
 {
-	tThread	*thisthread = Proc_GetCurThread();
-	 int	ret, type;
+	tThread	* const thisthread = Proc_GetCurThread();
+	 int	ret;
 	
 	ENTER("pNode iTypeFlags pTimeout sName", Node, TypeFlags, Timeout, Name);
 	
 	// Initialise
-	for( type = 0; type < 3; type ++ )
+	ret = 0;
+	for( int type = 0; type < 3; type ++ )
 	{
 		tVFS_SelectList	**list;
 		 int	*flag, wanted, maxAllowed;
@@ -77,17 +78,19 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		VFS_int_Select_AddThread(*list, thisthread, maxAllowed);
 		if( *flag == wanted )
 		{
-			VFS_int_Select_RemThread(*list, thisthread);
-			LEAVE('i', 1);
-			return 1;
+			ret |= (1 << type);
 		}
 	}
 
 	// Wait for things	
-	if( !Timeout )
+	if( ret )
+	{
+		// Skip wait, conditions already met
+		LOG("ret = %i, skipping wait", ret);
+	}
+	else if( !Timeout )
 	{
 		LOG("Semaphore_Wait()");
-		// TODO: Actual timeout
 		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_SIGNAL );
 	}
 	else if( *Timeout > 0 )
@@ -95,7 +98,6 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		tTimer *t = Time_AllocateTimer(NULL, NULL);
 		// Clear timer event
 		Threads_ClearEvent( THREAD_EVENT_TIMER );
-		// TODO: Convert *Timeout?
 		LOG("Timeout %lli ms", *Timeout);
 		Time_ScheduleTimer( t, *Timeout );
 		// Wait for the timer or a VFS event
@@ -105,13 +107,13 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 	
 	// Get return value
 	ret = 0;
-	for( type = 0; type < 3; type ++ )
+	for( int type = 0; type < 3; type ++ )
 	{
 		tVFS_SelectList	**list;
 		 int	*flag, wanted, maxAllowed;
 		if( !(TypeFlags & (1 << type)) )	continue;
 		VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed);
-		LOG("VFS_int_Select_RemThread()");
+		LOG("VFS_int_Select_RemThread() for %i", type);
 		ASSERT(*list);
 		VFS_int_Select_RemThread(*list, thisthread);
 		ret = ret || *flag == wanted;
