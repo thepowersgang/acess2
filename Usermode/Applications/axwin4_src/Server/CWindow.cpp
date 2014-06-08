@@ -8,6 +8,7 @@
 #include <CWindow.hpp>
 #include <CCompositor.hpp>
 #include <assert.h>
+#include <ipc.hpp>
 
 namespace AxWin {
 
@@ -45,11 +46,12 @@ void CWindow::Show(bool bShow)
 
 void CWindow::Move(int X, int Y)
 {
-	assert(!"TODO: CWindow::Move");
+	m_surface.m_rect.Move(X, Y);
 }
 void CWindow::Resize(unsigned int W, unsigned int H)
 {
-	assert(!"TODO: CWindow::Resize");
+	m_surface.Resize(W, H);
+	IPC::SendNotify_Dims(m_client, W, H);
 }
 uint64_t CWindow::ShareSurface()
 {

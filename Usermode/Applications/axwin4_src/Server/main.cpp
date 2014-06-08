@@ -95,11 +95,13 @@ int main(int argc, char *argv[])
 			if( FD_ISSET(i, &rfds) )
 				FD_SET(i, &efds);
 
+		#if 0
 		for( int i = 0; i < nfd; i ++ ) {
 			if( FD_ISSET(i, &rfds) ) {
 				_SysDebug("FD%i", i);
 			}
 		}
+		#endif
 		
 		// TODO: Support _SysSendMessage IPC?
 		int64_t	timeout = Timing::GetTimeToNextEvent();
@@ -114,12 +116,14 @@ int main(int argc, char *argv[])
 		}
 		int rv = ::_SysSelect(nfd, &rfds, NULL, NULL/*&efds*/, timeoutp, 0);
 		
+		#if 0
 		for( int i = 0; i < nfd; i ++ ) {
 			if( FD_ISSET(i, &rfds) ) {
 				_SysDebug("FD%i", i);
 			}
 		}
-		_SysDebug("rv=%i, timeout=%lli", rv, timeout);
+		#endif
+		//_SysDebug("rv=%i, timeout=%lli", rv, timeout);
 		
 		try {
 			Timing::CheckEvents();

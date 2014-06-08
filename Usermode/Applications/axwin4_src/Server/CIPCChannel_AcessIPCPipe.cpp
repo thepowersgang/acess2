@@ -30,13 +30,11 @@ CIPCChannel_AcessIPCPipe::~CIPCChannel_AcessIPCPipe()
 
 int CIPCChannel_AcessIPCPipe::FillSelect(fd_set& rfds)
 {
-	_SysDebug("CIPCChannel_AcessIPCPipe::FillSelect");
 	 int	maxfd = m_fd;
 	FD_SET(m_fd, &rfds);
 	
 	for( auto& clientref : m_clients )
 	{
-		_SysDebug("CIPCChannel_AcessIPCPipe::FillSelect - FD%i", clientref.m_fd);
 		maxfd = ::std::max(maxfd, clientref.m_fd);
 		FD_SET(clientref.m_fd, &rfds);
 	}
@@ -46,22 +44,24 @@ int CIPCChannel_AcessIPCPipe::FillSelect(fd_set& rfds)
 
 void CIPCChannel_AcessIPCPipe::HandleSelect(const fd_set& rfds)
 {
-	_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect");
 	if( FD_ISSET(m_fd, &rfds) )
 	{
-		_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - New client on FD %i", m_fd);
 		int newfd = _SysOpenChild(m_fd, "newclient", OPENFLAG_READ|OPENFLAG_WRITE);
-		_SysDebug("newfd = %i", newfd);
-		
-		// emplace creates a new object within the list
-		m_clients.emplace( m_clients.end(), *this, newfd );
-		IPC::RegisterClient( m_clients.back() );
+		if( newfd == -1 ) {
+			_SysDebug("ERROR - Failure to open new client on FD%i", m_fd);
+		}
+		else {
+			_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - New client on FD %i with FD%i", m_fd, newfd);
+			
+			// emplace creates a new object within the list
+			m_clients.emplace( m_clients.end(), *this, newfd );
+			IPC::RegisterClient( m_clients.back() );
+		}
 	}
 
 	for( auto it = m_clients.begin(); it != m_clients.end();  )
 	{
 		CClient_AcessIPCPipe& clientref = *it;
-		_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - Trying FD%i", clientref.m_fd);
 		++ it;
 		
 		if( FD_ISSET(clientref.m_fd, &rfds) )
@@ -70,14 +70,13 @@ void CIPCChannel_AcessIPCPipe::HandleSelect(const fd_set& rfds)
 				clientref.HandleReceive();
 			}
 			catch( const ::std::exception& e ) {
-				_SysDebug("ERROR - Exception processing IPCPipe FD%i: %s",
+				_SysDebug("ERROR - Exception processing IPCPipe FD%i: '%s', removing",
 					clientref.m_fd, e.what()
 					);
 				it = m_clients.erase(--it);
 			}
 		}
 	}
-	_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - END");
 }
 
 

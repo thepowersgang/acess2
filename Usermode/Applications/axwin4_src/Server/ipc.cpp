@@ -39,7 +39,6 @@ void Initialise(const CConfigIPC& config, CCompositor& compositor)
 int FillSelect(fd_set& rfds)
 {
 	int ret = 0;
-	_SysDebug("IPC::FillSelect");
 	for( auto channel : glChannels )
 	{
 		_SysDebug("IPC::FillSelect - channel=%p", channel);
@@ -50,10 +49,8 @@ int FillSelect(fd_set& rfds)
 
 void HandleSelect(const fd_set& rfds)
 {
-	_SysDebug("IPC::HandleSelect");
 	for( auto channel : glChannels )
 	{
-		_SysDebug("IPC::HandleSelect - channel=%p", channel);
 		channel->HandleSelect(rfds);
 	}
 }
@@ -70,6 +67,11 @@ void DeregisterClient(CClient& client)
 	//glClients.erase( client.m_id );
 }
 
+
+void SendNotify_Dims(CClient& client, unsigned int NewW, unsigned int NewH)
+{
+	assert(!"TODO: CClient::SendNotify_Dims");
+}
 
 
 void HandleMessage_Nop(CClient& client, CDeserialiser& message)
@@ -156,10 +158,11 @@ void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
 void HandleMessage_DestroyWindow(CClient& client, CDeserialiser& message)
 {
 	uint16_t	win_id = message.ReadU16();
+	_SysDebug("_DestroyWindow: (%i)", win_id);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
-		throw IPC::CClientFailure("Bad window");
+		throw IPC::CClientFailure("_DestroyWindow: Bad window");
 	}
 	client.SetWindow(win_id, 0);	
 	
@@ -171,10 +174,11 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 {
 	uint16_t	win_id = message.ReadU16();
 	uint16_t	attr_id = message.ReadU16();
-
+	_SysDebug("_SetWindowAttr: (%i, %i)", win_id, attr_id);
+	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
-		throw IPC::CClientFailure("Bad window");
+		throw IPC::CClientFailure("_SetWindowAttr - Bad window");
 	}
 	
 	switch(attr_id)
@@ -183,13 +187,11 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 		uint16_t new_w = message.ReadU16();
 		uint16_t new_h = message.ReadU16();
 		win->Resize(new_w, new_h);
-		assert(!"TODO: IPC_WINATTR_DIMENSIONS");
 		break; }
 	case IPC_WINATTR_POSITION: {
 		int16_t new_x = message.ReadS16();
 		int16_t new_y = message.ReadS16();
 		win->Move(new_x, new_y);
-		assert(!"TODO: IPC_WINATTR_POSITION");
 		break; }
 	default:
 		_SysDebug("HandleMessage_SetWindowAttr - Bad attr %u", attr_id);
@@ -199,34 +201,34 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 
 void HandleMessage_GetWindowAttr(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_GetWindowAttr");
 }
 
 void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_SendIPC");
 }
 
 void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_GetWindowBuffer");
 }
 
 void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_PushData");
 }
 void HandleMessage_Blit(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_Blit");
 }
 void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_DrawCtl");
 }
 void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	assert(!"TODO HandleMessage_DrawText");
 }
 
 typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);

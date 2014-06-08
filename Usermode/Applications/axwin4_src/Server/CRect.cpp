@@ -17,6 +17,15 @@ CRect::CRect(int x, int y, unsigned int w, unsigned int h):
 {
 }
 
+void CRect::Move(int NewX, int NewY)
+{
+	// TODO: Add a parent rectangle, and prevent this from fully leaving its bounds
+	m_x = NewX;
+	m_y = NewY;
+	m_x2 = m_x + m_w;
+	m_y2 = m_y + m_h;
+}
+
 bool CRect::HasIntersection(const CRect& other) const
 {
 	// If other's origin is past our far corner

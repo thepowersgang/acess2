@@ -29,6 +29,9 @@ extern int	FillSelect(::fd_set& rfds);
 extern void	HandleSelect(const ::fd_set& rfds);
 extern void	RegisterClient(CClient& client);
 extern void	DeregisterClient(CClient& client);
+
+extern void	SendNotify_Dims(CClient& client, unsigned int W, unsigned int H);
+
 extern void	HandleMessage(CClient& client, CDeserialiser& message);
 
 class CClientFailure:

@@ -26,8 +26,7 @@ bool CDeserialiser::IsConsumed() const
 
 ::uint8_t CDeserialiser::ReadU8()
 {
-	if( m_offset + 1 >= m_length )
-		throw ::std::out_of_range("CDeserialiser::ReadU8");
+	RangeCheck("CDeserialiser::ReadU8", 1);
 	uint8_t rv = m_data[m_offset];
 	m_offset ++;
 	return rv;
@@ -35,9 +34,7 @@ bool CDeserialiser::IsConsumed() const
 
 ::uint16_t CDeserialiser::ReadU16()
 {
-	if( m_offset + 2 >= m_length )
-		throw ::std::out_of_range("CDeserialiser::ReadU16");
-	
+	RangeCheck("CDeserialiser::ReadU16", 2);
 	uint16_t rv = m_data[m_offset] | ((uint16_t)m_data[m_offset+1] << 8);
 	m_offset += 2;
 	return rv;

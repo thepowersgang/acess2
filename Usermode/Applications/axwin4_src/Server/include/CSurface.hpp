@@ -11,8 +11,10 @@ namespace AxWin {
 class CSurface
 {
 public:
-	CSurface(unsigned int x, unsigned int y, unsigned int w, unsigned int h);
+	CSurface(int x, int y, unsigned int w, unsigned int h);
 	~CSurface();
+	
+	void Resize(unsigned int new_w, unsigned int new_h);
 	
 	const uint32_t* GetScanline(unsigned int row, unsigned int x_ofs) const;
 	
