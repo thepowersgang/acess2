@@ -37,6 +37,12 @@
 	if(tmp[i]) break;\
 } while(0)
 
+#if BITS==64
+#define ARG64(idx1,idx2)	***ARG64 not used on 64-bit***
+#else
+#define ARG64(idx1, idx2)	(Regs->Arg##idx1|(((Uint64)Regs->Arg##idx2)<<32))
+#endif
+
 // === IMPORTS ===
 extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 
@@ -250,7 +256,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#if BITS == 64
 		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
 		#else
-		ret = VFS_Seek( Regs->Arg1, Regs->Arg2|(((Uint64)Regs->Arg3)<<32), Regs->Arg4 );
+		ret = VFS_Seek( Regs->Arg1, ARG64(2, 3), Regs->Arg4 );
 		#endif
 		break;
 		
@@ -262,10 +268,29 @@ void SyscallHandler(tSyscallRegs *Regs)
 		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
 		ret = VFS_Write( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
 		break;
+	case SYS_WRITEAT:
+		#if BITS == 64
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg3 );
+		ret = VFS_WriteAt( Regs->Arg1, Regs->Arg2, Regs->Arg3, (void*)Regs->Arg4 );
+		#else
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg4 );
+		Debug("VFS_WriteAt(%i, %lli, %i, %p)",
+			Regs->Arg1, ARG64(2, 3), Regs->Arg4, (void*)Regs->Arg5);
+		ret = VFS_WriteAt( Regs->Arg1, ARG64(2, 3), Regs->Arg4, (void*)Regs->Arg5 );
+		#endif
+		break;
 	
 	case SYS_READ:
 		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
 		ret = VFS_Read( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
+		break;
+	case SYS_READAT:
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg2 );
+		#if BITS == 64
+		ret = VFS_ReadAt( Regs->Arg1, Regs->Arg2, Regs->Arg3, (void*)Regs->Arg4 );
+		#else
+		ret = VFS_ReadAt( Regs->Arg1, Regs->Arg2, ARG64(3, 4), (void*)Regs->Arg5 );
+		#endif
 		break;
 	
 	case SYS_FINFO:

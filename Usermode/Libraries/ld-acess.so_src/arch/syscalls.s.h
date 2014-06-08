@@ -52,7 +52,9 @@ SYSCALL2(_SysCopyFD, SYS_COPYFD)	// int, int
 SYSCALL3(_SysFDFlags, SYS_FDCTL)	// int, int, int
 SYSCALL1(_SysClose, SYS_CLOSE)	// int
 SYSCALL3(_SysRead, SYS_READ)	// int, uint, void*
+SYSCALL5(_SysReadAt, SYS_READAT)	// int, uint, uint64, void*
 SYSCALL3(_SysWrite, SYS_WRITE)	// int, uint, void*
+SYSCALL5(_SysWriteAt, SYS_WRITEAT)	// int, uint, uint64, void*
 SYSCALL4(_SysSeek, SYS_SEEK)	// int, uint64_t, int
 SYSCALL1(_SysTell, SYS_TELL)	// int
 SYSCALL3(_SysFInfo, SYS_FINFO)	// int, void*, int

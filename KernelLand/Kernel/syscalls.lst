@@ -53,7 +53,9 @@ SYS_CLOSE	Close a file
 SYS_COPYFD	Create a copy of a file handle
 SYS_FDCTL	Modify flags of a file descriptor
 SYS_READ	Read from an open file
+SYS_READAT	Read from an open file (with offset)
 SYS_WRITE	Write to an open file
+SYS_WRITEAT	Write to an open file (with offset)
 SYS_IOCTL	Perform an IOCtl Call
 SYS_SEEK	Seek to a new position in the file
 SYS_READDIR	Read from an open directory

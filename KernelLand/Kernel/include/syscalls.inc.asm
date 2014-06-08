@@ -45,19 +45,21 @@
 %define SYS_COPYFD	69	 ;Create a copy of a file handle
 %define SYS_FDCTL	70	 ;Modify flags of a file descriptor
 %define SYS_READ	71	 ;Read from an open file
-%define SYS_WRITE	72	 ;Write to an open file
-%define SYS_IOCTL	73	 ;Perform an IOCtl Call
-%define SYS_SEEK	74	 ;Seek to a new position in the file
-%define SYS_READDIR	75	 ;Read from an open directory
-%define SYS_GETACL	76	 ;Get an ACL Value
-%define SYS_SETACL	77	 ;Set an ACL Value
-%define SYS_FINFO	78	 ;Get file information
-%define SYS_MKDIR	79	 ;Create a new directory
-%define SYS_LINK	80	 ;Create a new link to a file
-%define SYS_SYMLINK	81	 ;Create a symbolic link
-%define SYS_UNLINK	82	 ;Delete a file
-%define SYS_TELL	83	 ;Return the current file position
-%define SYS_CHDIR	84	 ;Change current directory
-%define SYS_GETCWD	85	 ;Get current directory
-%define SYS_MOUNT	86	 ;Mount a filesystem
-%define SYS_SELECT	87	 ;Wait for file handles
+%define SYS_READAT	72	 ;Read from an open file (with offset)
+%define SYS_WRITE	73	 ;Write to an open file
+%define SYS_WRITEAT	74	 ;Write to an open file (with offset)
+%define SYS_IOCTL	75	 ;Perform an IOCtl Call
+%define SYS_SEEK	76	 ;Seek to a new position in the file
+%define SYS_READDIR	77	 ;Read from an open directory
+%define SYS_GETACL	78	 ;Get an ACL Value
+%define SYS_SETACL	79	 ;Set an ACL Value
+%define SYS_FINFO	80	 ;Get file information
+%define SYS_MKDIR	81	 ;Create a new directory
+%define SYS_LINK	82	 ;Create a new link to a file
+%define SYS_SYMLINK	83	 ;Create a symbolic link
+%define SYS_UNLINK	84	 ;Delete a file
+%define SYS_TELL	85	 ;Return the current file position
+%define SYS_CHDIR	86	 ;Change current directory
+%define SYS_GETCWD	87	 ;Get current directory
+%define SYS_MOUNT	88	 ;Mount a filesystem
+%define SYS_SELECT	89	 ;Wait for file handles
