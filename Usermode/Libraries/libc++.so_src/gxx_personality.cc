@@ -124,7 +124,7 @@ int get_frame_action(const sLSDA_Header &header, _Unwind_Context *context, const
 	uint64_t &landingpad, int64_t &switch_value)
 {
 	uint64_t ip = _Unwind_GetIP(context) - _Unwind_GetRegionStart(context);
-	_SysDebug("IP = 0x%llx + 0x%llx", _Unwind_GetRegionStart(context), ip);
+	_SysDebug("get_frame_action: IP = 0x%llx + 0x%llx", _Unwind_GetRegionStart(context), ip);
 	// Check if there is a handler for this exception in this frame
 	// - Search call site table for this return address (corresponds to a try block)
 	uintptr_t	cs_ldgpad;
@@ -182,7 +182,6 @@ int get_frame_action(const sLSDA_Header &header, _Unwind_Context *context, const
 		{
 			leb128s_t filter = _read_leb128s(action_list);
 			leb128s_t disp = _read_leb128s(action_list);
-			_SysDebug("filter=%lli,disp=%lli", filter, disp);
 			if( filter == 0 )
 			{
 				// Cleanup
@@ -230,7 +229,6 @@ const ::std::type_info *get_type_info(const struct sLSDA_Header &header, int typ
 	assert( ptr > header.ActionTable );
 	
 	uintptr_t type_ptr = _read_encoded(ptr, NULL, header.TTEncoding, header.TypePtrBase);
-	_SysDebug("typeinfo_ptr = %p", type_ptr);
 	return reinterpret_cast< ::std::type_info* >(type_ptr);
 }
 
@@ -275,6 +273,7 @@ bool exception_matches_single(const std::type_info *throw_type, const struct sLS
 bool exception_matches_list(const std::type_info *throw_type, const struct sLSDA_Header &header, int list_index)
 {
 	_SysDebug("TODO: exception_matches_list %i", list_index);
+	abort();
 	(void)throw_type;
 	(void)header;
 	return true;

@@ -14,31 +14,32 @@ system_error::system_error(::std::error_code ec):
 	m_error_code(ec),
 	m_what_str( (::std::string)ec.category().name() + ":" + ec.message())
 {
+	::_sys::debug("system_error(%s:%s)", ec.category().name(), ec.message().c_str());
 }
 system_error::system_error(::std::error_code ec, const ::std::string& what_arg):
-	m_error_code(ec)
+	system_error(ec)
 {
 	m_what_str += " - ";
 	m_what_str += what_arg;
 }
 system_error::system_error(::std::error_code ec, const char* what_arg):
-	m_error_code(ec)
+	system_error(ec)
 {
 	m_what_str += " - ";
 	m_what_str += what_arg;
 }
 system_error::system_error(int ev, const ::std::error_category& ecat):
-	m_error_code(ev, ecat)
+	system_error( ::std::error_code(ev, ecat) )
 {
 }
 system_error::system_error(int ev, const ::std::error_category& ecat, const ::std::string& what_arg):
-	m_error_code(ev, ecat)
+	system_error(ev, ecat)
 {
 	m_what_str += " - ";
 	m_what_str += what_arg;
 }
 system_error::system_error(int ev, const ::std::error_category& ecat, const char* what_arg):
-	m_error_code(ev, ecat)
+	system_error(ev, ecat)
 {
 	m_what_str += " - ";
 	m_what_str += what_arg;
