@@ -54,8 +54,8 @@ public:
 	void	DamageArea(const CRect& rect);
 	void	BlitFromSurface(const CSurface& dest, const CRect& src_rect);
 	
-	void	MouseMove(unsigned int CursorID,  unsigned int X, unsigned int Y,  int dX, int dY);
-	void	MouseButton(unsigned int CursorID,  unsigned int X, unsigned int Y,  eMouseButton Button, bool Press);
+	void	MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y, int dX, int dY);
+	void	MouseButton(unsigned int Cursor, unsigned int X, unsigned int Y, eMouseButton Button, bool Press);
 	
 	void	KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint);
 };

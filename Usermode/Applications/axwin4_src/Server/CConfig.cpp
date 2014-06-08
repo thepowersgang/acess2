@@ -22,7 +22,8 @@ CConfigVideo::CConfigVideo()
 {
 }
 
-CConfigInput::CConfigInput()
+CConfigInput::CConfigInput():
+	mouse_device("/Devices/Mouse/system")
 {
 }
 

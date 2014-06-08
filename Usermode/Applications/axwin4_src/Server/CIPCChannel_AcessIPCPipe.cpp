@@ -51,7 +51,8 @@ void CIPCChannel_AcessIPCPipe::HandleSelect(const fd_set& rfds)
 			_SysDebug("ERROR - Failure to open new client on FD%i", m_fd);
 		}
 		else {
-			_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - New client on FD %i with FD%i", m_fd, newfd);
+			_SysDebug("CIPCChannel_AcessIPCPipe::HandleSelect - New client on FD %i with FD%i",
+				m_fd, newfd);
 			
 			// emplace creates a new object within the list
 			m_clients.emplace( m_clients.end(), *this, newfd );

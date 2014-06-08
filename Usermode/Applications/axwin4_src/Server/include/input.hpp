@@ -19,6 +19,10 @@ class CInput
 	CCompositor&	m_compositor;
 	 int	m_keyboardFD;
 	 int	m_mouseFD;
+	
+	unsigned int m_mouseX;
+	unsigned int m_mouseY;
+	unsigned int m_mouseBtns;
 public:
 	CInput(const CConfigInput& config, CCompositor& compositor);
 	 int FillSelect(::fd_set& rfds);

@@ -91,5 +91,16 @@ void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
 	}
 }
 
+void CCompositor::MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y, int dX, int dY)
+{
+	_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
+	m_video.SetCursorPos(X+dX, Y+dY);
+}
+
+void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int Y, eMouseButton Button, bool Press)
+{
+	_SysDebug("MouseButton(%i, %i,%i, %i=%i)", Cursor, X, Y, Button, Press);
+}
+
 }	// namespace AxWin
 

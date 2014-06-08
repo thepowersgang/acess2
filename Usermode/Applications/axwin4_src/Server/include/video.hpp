@@ -26,11 +26,11 @@ public:
 
 	void BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_x, unsigned int width);
 	void Flush();
+	void SetCursorPos(int X, int Y);
 
 private:
 	void SetBufFormat(unsigned int FormatID);
 	void SetCursorBitmap();
-	void SetCursorPos(int X, int Y);
 };
 
 };
