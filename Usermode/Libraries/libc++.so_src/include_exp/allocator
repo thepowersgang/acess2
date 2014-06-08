@@ -16,7 +16,12 @@
 
 namespace std {
 
-template <class T> class allocator
+template <class T> class allocator;
+
+namespace _bits {
+
+template <class T>
+class allocator_real
 {
 public:
 	typedef T	value_type;
@@ -33,14 +38,14 @@ public:
 		typedef allocator<Type> other;
 	};
 	
-	allocator() throw() {
+	allocator_real() throw() {
 	}
-	allocator(const allocator& alloc __attribute__((unused))) throw() {
+	allocator_real(const allocator_real& alloc __attribute__((unused))) throw() {
 	}
 	template <class U>
-	allocator(const allocator<U>& alloc) throw() {
+	allocator_real(const allocator_real<U>& alloc) throw() {
 	}
-	~allocator() throw() {
+	~allocator_real() throw() {
 	}
 	
 	pointer address(reference x) const {
@@ -73,6 +78,87 @@ public:
 	void destroy(pointer p) {
 		p->~value_type();
 	}
+};
+
+template <class T>
+class allocator_noconstruct:
+	public ::std::_bits::allocator_real<T>
+{
+public:
+/*
+	typedef T	value_type;
+	typedef T*	pointer;
+	typedef T&	reference;
+	typedef const T* const_pointer;
+	typedef const T&	const_reference;
+	typedef size_t	size_type;
+	typedef ptrdiff_t	difference_type;
+
+	template <class Type>
+	struct rebind
+	{
+		typedef allocator<Type> other;
+	};
+	
+	allocator_noconstruct() throw() {
+	}
+	allocator_noconstruct(const allocator_noconstruct& alloc __attribute__((unused))) throw() {
+	}
+	template <class U>
+	allocator_noconstruct(const allocator_noconstruct<U>& alloc) throw() {
+	}
+	~allocator_noconstruct() throw() {
+	}
+
+	pointer address(reference x) const {
+		return &x;
+	}
+	const_pointer address(const_reference x) const {
+		return &x;
+	}
+	pointer allocate(size_type n, const void* hint=0) {
+		hint = hint;
+		return static_cast<pointer>( ::operator new (n * sizeof(value_type)) );
+	}
+	void deallocate(pointer p, size_type n) {
+		n=n;
+		::operator delete(p);
+	}
+	size_type max_size() {
+		return ((size_type)-1) / sizeof(value_type);
+	}
+*/
+
+	void construct( typename allocator_real<T>::pointer p, typename allocator_real<T>::const_reference val ) {
+		*p = val;
+	}
+	// C++11
+	#if _CXX11_AVAIL
+	template<class U, class... Args>
+	void construct( U* p, Args&&... args ) {
+	}
+	#endif
+	void destroy(typename allocator_real<T>::pointer p) {
+	}
+};
+
+};
+
+template <class T>
+class allocator:
+	public _bits::allocator_real<T>
+{
+};
+
+template <>
+class allocator<unsigned char>:
+	public _bits::allocator_noconstruct<unsigned char>
+{
+};
+template <>
+class allocator<unsigned long>:
+	public _bits::allocator_noconstruct<unsigned long>
+{
 };
 
 };
