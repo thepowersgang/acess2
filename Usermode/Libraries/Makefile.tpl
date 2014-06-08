@@ -84,7 +84,7 @@ endif
 #endif
 
 LINK_OBJS = $(PRELINK) $(OBJ)
-$(_BIN): $(LINK_OBJS)
+$(_BIN): $(CRTI) $(LINK_OBJS) $(CRTN) $(CRT0S)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 ifneq ($(USE_CXX_LINK),)

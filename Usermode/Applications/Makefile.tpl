@@ -47,7 +47,7 @@ install: $(_BIN)
 	@$(xCP) $(_BIN)_ $(DISTROOT)/$(DIR)/$(BIN)
 	@$(RM) $(_BIN)_
 
-$(_BIN): $(OUTPUTDIR)Libs/acess.ld $(_LIBS) $(LINK_OBJS)
+$(_BIN): $(_LIBS) $(LINK_OBJS) $(CRT0) $(CRTI) $(CRTN)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $@
 ifneq ($(USE_CXX_LINK),)
