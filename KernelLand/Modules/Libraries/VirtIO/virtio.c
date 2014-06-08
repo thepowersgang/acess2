@@ -390,7 +390,8 @@ void VirtIO_ReleaseBuffer(tVirtIO_Buf *Buffer)
 	do {
 		has_next = !!(queue->Entries[idx].Flags & VRING_DESC_F_NEXT);
 		int next_idx = queue->Entries[idx].Next;
-		ASSERTC(!has_next || next_idx,!=,idx);
+		if( has_next )
+			ASSERTC(next_idx,!=,idx);
 		
 		VirtIO_int_ReleaseQDesc(queue, idx);
 	
