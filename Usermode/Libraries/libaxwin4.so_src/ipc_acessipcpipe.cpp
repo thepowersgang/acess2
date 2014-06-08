@@ -43,8 +43,11 @@ void CIPCChannel_AcessIPCPipe::Send(CSerialiser& message)
 	if(serialised.size() > 0x1000 ) {
 		throw ::std::length_error("CIPCChannel_AcessIPCPipe::Send");
 	}
-	_SysDebug("Send %i bytes", serialised.size());
-	_SysWrite(m_fd, serialised.data(), serialised.size());
+	_SysDebug("CIPCChannel_AcessIPCPipe::Send(%i bytes)", serialised.size());
+	size_t rv = _SysWrite(m_fd, serialised.data(), serialised.size());
+	if( rv != serialised.size() ) {
+		throw ::std::system_error(errno, ::std::system_category());
+	}
 }
 
 

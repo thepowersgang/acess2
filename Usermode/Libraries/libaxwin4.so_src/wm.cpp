@@ -14,13 +14,17 @@ namespace AxWin {
 extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 {
 	// Allocate a window ID
+	
 	// Create window structure locally
+	tAxWin4_Window *ret = new tAxWin4_Window();
+	ret->m_id = 0;
 	// Request creation of window
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_CREATEWIN);
-	message.WriteU16(0);
+	message.WriteU16(ret->m_id);
 	message.WriteString(Name);
 	::AxWin::SendMessage(message);
+	return ret;
 }
 
 extern "C" void AxWin4_ShowWindow(tAxWin4_Window *Window)
@@ -48,7 +52,7 @@ extern "C" void AxWin4_ResizeWindow(tAxWin4_Window *Window, unsigned int W, unsi
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_SETWINATTR);
 	message.WriteU16(Window->m_id);
-	message.WriteU16(IPC_WINATTR_POSITION);
+	message.WriteU16(IPC_WINATTR_DIMENSIONS);
 	message.WriteU16(W);
 	message.WriteU16(H);
 	::AxWin::SendMessage(message);
