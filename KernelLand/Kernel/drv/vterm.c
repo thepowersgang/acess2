@@ -5,7 +5,7 @@
  * drv/vterm.c
  * - Virtual Terminal - Initialisation and VFS Interface
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "vterm.h"
 #include <fs_devfs.h>
 #include <modules.h>
@@ -34,7 +34,6 @@ extern void	Debug_SetKTerminal(const char *File);
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
-void	VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Data);
 void	VT_PTYOutput(void *Handle, size_t Length, const void *Data);
  int	VT_PTYResize(void *Handle, const struct ptydims *Dims); 
  int	VT_PTYModeset(void *Handle, const struct ptymode *Mode);
@@ -369,15 +368,16 @@ void VT_PTYOutput(void *Handle, size_t Length, const void *Data)
 		VT_int_PutString(term, Data, Length);
 		break;
 	case PTYBUFFMT_FB:
-		// TODO: How do offset?
+		// TODO: How can the offset be done cleanly? (Ask the PTY for its offset?)
+		Warning("TODO: Offsets for VT_PTYOutput FBData");
 		VT_int_PutFBData(term, 0, Length, Data);
 		break;
 	case PTYBUFFMT_2DCMD:
-		// TODO: Impliment 2D commands
 		VT_int_Handle2DCmd(term, Length, Data);
 		break;
 	case PTYBUFFMT_3DCMD:
-		// TODO: Impliment 3D commands
+		// TODO: Implement 3D commands
+		Warning("TODO: VTerm 3D commands");
 		break;
 	}
 }

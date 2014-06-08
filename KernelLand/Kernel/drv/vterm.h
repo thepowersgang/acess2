@@ -94,6 +94,11 @@ struct sVTerm
 		 int	CachePos;
 		char	Cache[32];
 		size_t	PreEat;
+		union {
+			struct {
+				size_t	Offset;
+			} Push;
+		} CmdInfo;
 	} Cmd2D;
 
 	tPTY	*PTY;
@@ -134,6 +139,7 @@ extern void	VT_int_ClearLine(tVTerm *Term, int Num);
 extern void	VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol);
 extern void	VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight);
 extern void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
+extern void	VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Buffer);
 
 extern tVT_Pos	*VT_int_GetWritePosPtr(tVTerm *Term);
 extern size_t	VT_int_GetBufferRows(tVTerm *Term);
