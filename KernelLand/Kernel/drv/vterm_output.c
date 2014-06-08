@@ -52,8 +52,12 @@ void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
 	
+	ENTER("pTerm iCount",
+		Term, Count);
+	
 	if( Count > Term->ScrollHeight )	Count = Term->ScrollHeight;
 	if( Count < -Term->ScrollHeight )	Count = -Term->ScrollHeight;
+	LOG("Count = %i", Count);
 	
 	// Switch to 2D Command Stream
 	tmp = VIDEO_BUFFMT_2DSTREAM;
@@ -81,6 +85,7 @@ void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 	// Restore old mode (this function is only called during text mode)
 	tmp = VIDEO_BUFFMT_TEXT;
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
+	LEAVE('-');
 }
 
 void VT_int_UpdateCursor( tVTerm *Term, int bShow )
@@ -88,6 +93,8 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
 	tVideo_IOCtl_Pos	csr_pos;
 
 	if( Term != gpVT_CurTerm )	return ;
+	
+	ENTER("pTerm bShow", Term, Show);
 
 	if( !bShow )
 	{
@@ -119,6 +126,7 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
 		csr_pos.y = Term->VideoCursorY;
 	}
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
+	LEAVE('-');
 }	
 
 /**
@@ -129,13 +137,16 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
-	
+
+	ENTER("pTerm iUpdateAll", Term, UpdateAll);
+		
 	switch( Term->Mode )
 	{
 	case TERM_MODE_TEXT: {
 		size_t view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewTopRow*Term->TextWidth;
 		const tVT_Pos *wrpos = VT_int_GetWritePosPtr(Term);
 		const tVT_Char *buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
+		LOG("view_pos = %i, wrpos = %p, buffer=%p", view_pos, wrpos, buffer);
 		// Re copy the entire screen?
 		if(UpdateAll) {
 			VFS_WriteAt(
@@ -161,5 +172,6 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 	}
 	
 	VT_int_UpdateCursor(Term, 1);
+	LEAVE('-');
 }
 

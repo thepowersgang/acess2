@@ -25,6 +25,7 @@ extern int	Term_HandleVT100(tVTerm *Term, int Len, const char *Buf);
  */
 void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 {
+	ENTER("pTerm pBuffer iCount", Term, Buffer, Count);
 	// Iterate
 	for( int ofs = 0; ofs < Count; )
 	{
@@ -43,7 +44,9 @@ void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 		ofs += esc_len;
 	}
 	// Update Screen
-	VT_int_UpdateScreen( Term, 1 );
+	LOG("Update");
+	VT_int_UpdateScreen( Term, 0 );
+	LEAVE('-');
 }
 
 void VT_int_PutRawString(tVTerm *Term, const Uint8 *String, size_t Bytes)
@@ -121,6 +124,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	case '\0':	// Ignore NULL byte
 		return;
 	case '\n':
+		LOG("Newline, update");
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
 		wrpos->Row ++;
 		// TODO: Force scroll?
@@ -165,8 +169,10 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		buffer[ write_pos ].Ch = Ch;
 		buffer[ write_pos ].Colour = Term->CurColour;
 		// Update the line before wrapping
-		if( (write_pos + 1) % Term->TextWidth == 0 )
+		if( (write_pos + 1) % Term->TextWidth == 0 ) {
+			LOG("Line wrap, update");
 			VT_int_UpdateScreen( Term, 0 );
+		}
 		write_pos ++;
 		wrpos->Col ++;
 		break;
@@ -177,12 +183,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	HEAP_VALIDATE();
 	
 	// TODO: Schedule a delayed screen update
-	
-	//LEAVE('-');
 }
 
 void VT_int_ScrollText(tVTerm *Term, int Count)
 {
+	ENTER("pTerm iCount", Term, Count);
 	tVT_Char	*buf;
 	 int	scroll_top, scroll_height;
 	
@@ -276,6 +281,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	*wrpos = init_wrpos;
 
 	HEAP_VALIDATE();
+	LEAVE('-');
 }
 
 /**
