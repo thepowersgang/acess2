@@ -21,7 +21,7 @@ static void	Debug_Putchar(char ch);
 static void	Debug_Puts(int bUseKTerm, const char *Str);
 void	Debug_DbgOnlyFmt(const char *format, va_list args);
 void	Debug_FmtS(int bUseKTerm, const char *format, ...);
-void	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
+bool	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
 
 // === GLOBALS ===
@@ -91,17 +91,18 @@ void Debug_DbgOnlyFmt(const char *format, va_list args)
 	Debug_Fmt(0, format, args);
 }
 
-void Debug_Fmt(int bUseKTerm, const char *format, va_list args)
+bool Debug_Fmt(int bUseKTerm, const char *format, va_list args)
 {
 	char	buf[DEBUG_MAX_LINE_LEN];
 	buf[DEBUG_MAX_LINE_LEN-1] = 0;
-	int len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
+	size_t len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	Debug_Puts(bUseKTerm, buf);
 	if( len > DEBUG_MAX_LINE_LEN-1 ) {
 		// do something
 		Debug_Puts(bUseKTerm, "[...]");
+		return false;
 	}
-	return ;
+	return true;
 }
 
 void Debug_FmtS(int bUseKTerm, const char *format, ...)
@@ -131,25 +132,24 @@ void Debug_KernelPanic(void)
 /**
  * \fn void LogF(const char *Msg, ...)
  * \brief Raw debug log (no new line, no prefix)
+ * \return True if all of the provided text was printed
  */
-void LogF(const char *Fmt, ...)
+bool LogF(const char *Fmt, ...)
 {
-	va_list	args;
-
 	#if LOCK_DEBUG_OUTPUT
-	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return true;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
+	va_list	args;
 	va_start(args, Fmt);
-
-	Debug_Fmt(1, Fmt, args);
-
+	bool rv = Debug_Fmt(1, Fmt, args);
 	va_end(args);
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
 	#endif
+	return rv;
 }
 /**
  * \fn void Debug(const char *Msg, ...)

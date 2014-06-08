@@ -38,7 +38,7 @@ extern void	Log_Debug(const char *Ident, const char *Message, ...);
 extern void	Debug_KernelPanic(void);	//!< Initiate a kernel panic
 extern void	Panic(const char *Msg, ...) NORETURN;	//!< Print a panic message (initiates a kernel panic)
 extern void	Warning(const char *Msg, ...);	//!< Print a warning message
-extern void	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
+extern bool	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
 extern void	LogFV(const char *Fmt, va_list Args);	//!< va_list non-newline log message
 extern void	Log(const char *Fmt, ...);	//!< Print a log message
 extern void	Debug(const char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)

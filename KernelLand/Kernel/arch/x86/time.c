@@ -103,6 +103,7 @@ void Time_Interrupt(int IRQ, void *Ptr)
 	if( giTime_TSCAtLastTick )
 	{
 		giTime_TSCPerTick = curTSC - giTime_TSCAtLastTick;
+		//Debug("TSC Frequency is %llu-%llu = %llu Hz", curTSC, giTime_TSCAtLastTick, giTime_TSCPerTick*2);
 	}
 	giTime_TSCAtLastTick = curTSC;
 	
