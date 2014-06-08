@@ -27,7 +27,7 @@
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
-//! 
+//! Apply alignment to a variable 
 #define ALIGN(x)	__attribute__((aligned(x)))
 
 /**
@@ -242,6 +242,15 @@ extern Uint	MM_GetFlags(volatile const void *VAddr);
  * \note There is only a limited ammount of slots avaliable
  */
 extern void	*MM_MapTemp(tPAddr PAddr);
+/**
+ * \brief Peform a temporary map of a page from another process
+ * \param Process	Source process
+ * \param Address	Source virtual address
+ * \return Virtual address of page in memory
+ * \note Limited slots
+ */
+struct sProcess;
+extern void	*MM_MapTempFromProc(struct sProcess *Process, const void *Address);
 /**
  * \brief Free a temporarily mapped page
  * \param Ptr	Pointer to page base

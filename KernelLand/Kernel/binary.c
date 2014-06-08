@@ -231,23 +231,19 @@ int Proc_int_Execve(const char *File, const char **ArgV, const char **EnvP, int 
 	}
 
 	// --- Get argc	
-	for( argc = 0; ArgV && ArgV[argc]; argc ++ );
+	for( argc = 0; ArgV && ArgV[argc]; argc ++ )
+		;
 	
 	// --- Set Process Name
 	Threads_SetName(File);
 	
 	// --- Clear User Address space
-	// NOTE: This is a little roundabout, maybe telling ClearUser to not touch the
-	//       PPD area would be a better idea.
 	if( bClearUser )
 	{
-		 int	nfd = *Threads_GetMaxFD();
-		void	*handles;
-		handles = VFS_SaveHandles(nfd, NULL);
-		VFS_CloseAllUserHandles();
+		// MM_ClearUser should preserve handles
 		MM_ClearUser();
-		VFS_RestoreHandles(nfd, handles);
-		VFS_FreeSavedHandles(nfd, handles);
+		// - NOTE: Not a reliable test, but helps for now
+		ASSERTC( VFS_IOCtl(0, 0, NULL), !=, -1 );
 	}
 	
 	// --- Load new binary

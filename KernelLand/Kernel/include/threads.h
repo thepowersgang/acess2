@@ -21,6 +21,7 @@ enum eFaultNumbers
 #define GETMSG_IGNORE	((void*)-1)
 
 typedef struct sThread	tThread;
+typedef struct sProcess	tProcess;
 
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread(void);
@@ -32,9 +33,9 @@ extern int	Threads_SetGID(tUID ID);
 extern tTID	Threads_WaitTID(int TID, int *Status);
 
 
-extern int	*Threads_GetMaxFD(void);
-extern char	**Threads_GetCWD(void);
-extern char	**Threads_GetChroot(void);
+extern int	*Threads_GetMaxFD(tProcess *Process);
+extern char	**Threads_GetCWD(tProcess *Process);
+extern char	**Threads_GetChroot(tProcess *Process);
 
 extern int	Proc_SendMessage(Uint Dest, int Length, void *Data);
 extern int	Proc_GetMessage(Uint *Source, Uint BufSize, void *Buffer);

@@ -58,6 +58,15 @@ void System_Init(char *CommandLine)
 	// Set the debug to be echoed to the terminal
 	Log_Log("Config", "Kernel now echoes to VT7 (Ctrl-Alt-F8)");
 	Debug_SetKTerminal("/Devices/pts/vt7");
+	
+	// Run a thread to reap unowned threads
+	for( ;; )
+	{
+		 int	status;
+		// TODO: Inform init when a thread dies
+		int tid = Threads_WaitTID(-1, &status);
+		Log_Debug("Thread0", "Thread %i exited with status %i", tid, status);
+	}
 }
 
 /**

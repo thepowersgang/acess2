@@ -49,9 +49,9 @@ char *VFS_GetAbsPath(const char *Path)
 	char	*tmpStr;
 	int		iPos = 0;
 	int		iPos2 = 0;
-	const char	*chroot = *Threads_GetChroot();
+	const char	*chroot = *Threads_GetChroot(NULL);
 	 int	chrootLen;
-	const char	*cwd = *Threads_GetCWD();
+	const char	*cwd = *Threads_GetCWD(NULL);
 	 int	cwdLen;
 	
 	ENTER("sPath", Path);
@@ -858,7 +858,7 @@ int VFS_ChDir(const char *Dest)
 	VFS_Close(fd);
 	
 	{
-		char	**cwdptr = Threads_GetCWD();
+		char	**cwdptr = Threads_GetCWD(NULL);
 		// Free old working directory
 		if( *cwdptr )	free( *cwdptr );
 		// Set new
@@ -910,7 +910,7 @@ int VFS_ChRoot(const char *New)
 
 	// Update	
 	{
-		char	**chroot_ptr = Threads_GetChroot();
+		char	**chroot_ptr = Threads_GetChroot(NULL);
 		if( *chroot_ptr )	free( *chroot_ptr );
 		*chroot_ptr = buf;
 	}

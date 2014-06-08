@@ -198,7 +198,7 @@ void Threads_Delete(tThread *Thread)
 			proc->Next->Prev = proc->Prev;
 
 		// VFS Cleanup
-		VFS_CloseAllUserHandles();
+		VFS_CloseAllUserHandles( proc );
 		// Architecture cleanup
 		Proc_ClearProcess( proc );
 		// VFS Configuration strings
@@ -480,18 +480,26 @@ tTID Threads_WaitTID(int TID, int *Status)
 		tTID	ret = -1;
 		if( ev & THREAD_EVENT_DEADCHILD )
 		{
+			tThread	* const us = Proc_GetCurThread();
 			// A child died, get the TID
-			tThread	*us = Proc_GetCurThread();
 			ASSERT(us->LastDeadChild);
-			ret = us->LastDeadChild->TID;
+			tThread	*dead_thread = us->LastDeadChild;
+			us->LastDeadChild = dead_thread->Next;
+			if( us->LastDeadChild )
+				Threads_PostEvent( us, THREAD_EVENT_DEADCHILD );
+			else
+				Threads_ClearEvent( THREAD_EVENT_DEADCHILD );
+			Mutex_Release(&us->DeadChildLock);
+			
+			ret = dead_thread->TID;
 			// - Mark as dead (as opposed to undead)
-			ASSERT(us->LastDeadChild->Status == THREAD_STAT_ZOMBIE);
-			us->LastDeadChild->Status = THREAD_STAT_DEAD;
+			ASSERTC(dead_thread->Status, ==, THREAD_STAT_ZOMBIE);
+			dead_thread->Status = THREAD_STAT_DEAD;
 			// - Set return status
 			if(Status)
-				*Status = us->LastDeadChild->RetStatus;
-			us->LastDeadChild = NULL;
-			Mutex_Release(&us->DeadChildLock);
+				*Status = dead_thread->RetStatus;
+			
+			Threads_Delete( dead_thread );
 		}
 		else
 		{
@@ -722,9 +730,11 @@ void Threads_Kill(tThread *Thread, int Status)
 	SHORTREL( &glThreadListLock );
 	// TODO: It's possible that we could be timer-preempted here, should disable that... somehow
 	Mutex_Acquire( &Thread->Parent->DeadChildLock );	// released by parent
+	Thread->Next = Thread->Parent->LastDeadChild;
 	Thread->Parent->LastDeadChild = Thread;
 	Threads_PostEvent( Thread->Parent, THREAD_EVENT_DEADCHILD );
 	
+	// Process cleanup happens on reaping
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	
 	// And, reschedule
@@ -1246,17 +1256,20 @@ int *Threads_GetErrno(void)
 }
 
 // --- Configuration ---
-int *Threads_GetMaxFD(void)
+int *Threads_GetMaxFD(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->MaxFD;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->MaxFD;
 }
-char **Threads_GetChroot(void)
+char **Threads_GetChroot(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->RootDir;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->RootDir;
 }
-char **Threads_GetCWD(void)
+char **Threads_GetCWD(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->CurrentWorkingDir;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->CurrentWorkingDir;
 }
 // ---
 

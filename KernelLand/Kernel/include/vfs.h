@@ -469,7 +469,7 @@ extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
  * \param Type	Type of wait
  * \param Timeout	Time to wait (NULL for infinite wait)
  * \param Name	Name to show in debug output
- * \return Number of nodes that actioned (0 or 1)
+ * \return Bitset of Type flags that applied
  */
 extern int	VFS_SelectNode(tVFS_Node *Node, int Type, tTime *Timeout, const char *Name);
 
