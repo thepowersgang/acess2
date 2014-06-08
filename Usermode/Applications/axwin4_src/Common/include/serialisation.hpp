@@ -32,6 +32,7 @@ public:
 	::uint8_t	ReadU8();
 	::uint16_t	ReadU16();
 	::int16_t	ReadS16();
+	const ::std::vector<uint8_t>	ReadBuffer();
 	const ::std::string	ReadString();
 private:
 	void RangeCheck(const char *Method, size_t bytes) throw(::std::out_of_range);

@@ -16,6 +16,7 @@ public:
 	
 	void Resize(unsigned int new_w, unsigned int new_h);
 	
+	void DrawScanline(unsigned int row, unsigned int x_ofs, unsigned int w, const void* data);
 	const uint32_t* GetScanline(unsigned int row, unsigned int x_ofs) const;
 	
 	CRect	m_rect;

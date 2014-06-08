@@ -49,6 +49,17 @@ bool CDeserialiser::IsConsumed() const
 		return ~rv_u + 1;
 }
 
+const ::std::vector<uint8_t> CDeserialiser::ReadBuffer()
+{
+	RangeCheck("CDeserialiser::ReadBuffer(len)", 2);
+	size_t	size = ReadU16();
+	
+	::std::vector<uint8_t> ret( size );
+	for( size_t i = 0; i < size; i ++ )
+		ret[i] = m_data[m_offset++];
+	return ret;
+}
+
 const ::std::string CDeserialiser::ReadString()
 {
 	RangeCheck("CDeserialiser::ReadString(len)", 1);

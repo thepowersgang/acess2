@@ -26,6 +26,14 @@ void CRect::Move(int NewX, int NewY)
 	m_y2 = m_y + m_h;
 }
 
+void CRect::Resize(int NewW, int NewH)
+{
+	m_w = NewW;
+	m_h = NewH;
+	m_x2 = m_x + m_w;
+	m_y2 = m_y + m_h;
+}
+
 bool CRect::HasIntersection(const CRect& other) const
 {
 	// If other's origin is past our far corner

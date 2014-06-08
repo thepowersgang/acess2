@@ -39,9 +39,10 @@ void Initialise(const CConfigIPC& config, CCompositor& compositor)
 int FillSelect(fd_set& rfds)
 {
 	int ret = 0;
-	for( auto channel : glChannels )
+	for( const auto channel : glChannels )
 	{
 		_SysDebug("IPC::FillSelect - channel=%p", channel);
+		assert(channel);
 		ret = ::std::max(ret, channel->FillSelect(rfds));
 	}
 	return ret;
@@ -49,8 +50,9 @@ int FillSelect(fd_set& rfds)
 
 void HandleSelect(const fd_set& rfds)
 {
-	for( auto channel : glChannels )
+	for( const auto channel : glChannels )
 	{
+		assert(channel);
 		channel->HandleSelect(rfds);
 	}
 }
@@ -70,7 +72,7 @@ void DeregisterClient(CClient& client)
 
 void SendNotify_Dims(CClient& client, unsigned int NewW, unsigned int NewH)
 {
-	assert(!"TODO: CClient::SendNotify_Dims");
+	_SysDebug("TODO: CClient::SendNotify_Dims");
 }
 
 
@@ -216,7 +218,29 @@ void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 
 void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO HandleMessage_PushData");
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
+	
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_PushData: Bad window");
+	}
+	
+	for( unsigned int row = 0; row < h; row ++ )
+	{
+		const ::std::vector<uint8_t> scanline_data = message.ReadBuffer();
+		_SysDebug("_PushData: Scanline %i: %i bytes", row, scanline_data.size());
+		if( scanline_data.size() != w * 4 ) {
+			_SysDebug("ERROR _PushData: Scanline buffer size mismatch (%i,%i)",
+				scanline_data.size(), w*4);
+			continue ;
+		}
+		win->m_surface.DrawScanline(y+row, x, w, scanline_data.data());
+	}
 }
 void HandleMessage_Blit(CClient& client, CDeserialiser& message)
 {

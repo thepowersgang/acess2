@@ -15,6 +15,7 @@ public:
 	CRect(int X, int Y, unsigned int W, unsigned int H);
 	
 	void Move(int NewX, int NewY);
+	void Resize(int NewW, int NewH);
 	
 	bool HasIntersection(const CRect& other) const;
 	CRect Intersection(const CRect& other) const;
