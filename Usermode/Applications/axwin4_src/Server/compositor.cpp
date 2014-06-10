@@ -95,11 +95,18 @@ void CCompositor::MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y,
 {
 	_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
 	m_video.SetCursorPos(X+dX, Y+dY);
+	// TODO: Pass event on to window
 }
 
 void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int Y, eMouseButton Button, bool Press)
 {
 	_SysDebug("MouseButton(%i, %i,%i, %i=%i)", Cursor, X, Y, Button, Press);
+	// TODO: Pass event on to window
+}
+
+void CCompositor::KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint)
+{
+	_SysDebug("KeyState(%i, 0x%x, %b, 0x%x)", KeyboardID, KeySym, Press, Codepoint);
 }
 
 }	// namespace AxWin

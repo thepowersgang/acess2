@@ -23,6 +23,23 @@ CInput::CInput(const ::AxWin::CConfigInput& config, CCompositor& compositor):
 	m_mouseFD = _SysOpen(config.mouse_device.c_str(), OPENFLAG_READ|OPENFLAG_WRITE);
 	if( m_mouseFD == -1 )
 		throw ::std::system_error(errno, ::std::system_category());
+	
+	m_mouseX = 640/2;
+	m_mouseY = 480/2;
+	
+	struct mouse_attribute	attr;
+	// X : Limit + Position
+	attr.Num = 0;
+	attr.Value = 640;
+	_SysIOCtl(m_mouseFD, JOY_IOCTL_GETSETAXISLIMIT, &attr);
+	attr.Value = m_mouseX;
+	_SysIOCtl(m_mouseFD, JOY_IOCTL_GETSETAXISPOSITION, &attr);
+	// Y: Limit + Position
+	attr.Num = 1;
+	attr.Value = 480;
+	_SysIOCtl(m_mouseFD, JOY_IOCTL_GETSETAXISLIMIT, &attr);
+	attr.Value = m_mouseY;
+	_SysIOCtl(m_mouseFD, JOY_IOCTL_GETSETAXISPOSITION, &attr);
 }
 
 int CInput::FillSelect(::fd_set& rfds)
@@ -53,13 +70,14 @@ void CInput::HandleSelect(::fd_set& rfds)
 		switch(codepoint & 0xC0000000)
 		{
 		case 0x00000000:	// Key pressed
-			//WM_Input_KeyDown(codepoint & KEY_CODEPOINT_MASK, scancode);
-		case 0x80000000:	// Key release
-			//WM_Input_KeyFire(codepoint & KEY_CODEPOINT_MASK, scancode);
+			m_compositor.KeyState(0, scancode, true, codepoint & KEY_CODEPOINT_MASK);
+			break;
+		case 0x40000000:	// Key release
+			m_compositor.KeyState(0, scancode, false, codepoint & KEY_CODEPOINT_MASK);
 			scancode = 0;
 			break;
-		case 0x40000000:	// Key refire
-			//WM_Input_KeyUp(codepoint & KEY_CODEPOINT_MASK, scancode);
+		case 0x80000000:	// Key refire
+			m_compositor.KeyState(0, scancode, true, codepoint & KEY_CODEPOINT_MASK);
 			scancode = 0;
 			break;
 		case 0xC0000000:	// Raw scancode
@@ -70,7 +88,6 @@ void CInput::HandleSelect(::fd_set& rfds)
 	
 	if( m_mouseFD != -1 && FD_ISSET(m_mouseFD, &rfds) )
 	{
-		// TODO: Read mouse event and handle
 		const int c_n_axies = 4;
 		const int c_n_buttons = 5;
 		struct mouse_axis	*axies;
@@ -111,6 +128,7 @@ void CInput::HandleSelect(::fd_set& rfds)
 		axies = (struct mouse_axis*)( mouseinfo + 1 );
 		buttons = (uint8_t*)( axies + mouseinfo->NAxies );
 
+		// TODO: Use cursor range only to caputre motion (ignore reported position)
 		m_compositor.MouseMove(0,
 			m_mouseX, m_mouseY,
 			axies[0].CursorPos - m_mouseX, axies[1].CursorPos - m_mouseY
