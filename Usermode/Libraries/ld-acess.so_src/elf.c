@@ -151,12 +151,23 @@ int elf_doRelocate_386(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf3
 	case R_386_COPY: {
 		void *old_symval = symval;
 		GetSymbol(Info->strtab + sym->st_name, &symval, &size, Info->Base);
-		if( symval == old_symval ) {
-			WARNING("Can't find required external symbol '%s'", Info->strtab + sym->st_name);
-			return 1;
+		if( symval == old_symval )
+		{
+			if( ELF32_ST_BIND(sym->st_info) != STB_WEAK )
+			{
+				WARNING("sym={val:%p,size:0x%x,info:0x%x,other:0x%x,shndx:%i}",
+					sym->st_value, sym->st_size, sym->st_info, sym->st_other, sym->st_shndx);
+				WARNING("Can't find required external symbol '%s' for R_386_COPY", Info->strtab + sym->st_name);
+				return 1;
+			}
+			// Don't bother doing the memcpy
+			TRACE("R_386_COPY (%p, %p, %i)", ptr, symval, size);
 		}
-		TRACE("R_386_COPY (%p, %p, %i)", ptr, symval, size);
-		memcpy(ptr, symval, size);
+		else
+		{
+			TRACE("R_386_COPY (%p, %p, %i)", ptr, symval, size);
+			memcpy(ptr, symval, size);
+		}
 		break; }
 
 	default:
@@ -342,15 +353,24 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		}
 		else
 		{
-			// TODO: What about weak locally-defined symbols?
-			if( ELF32_ST_BIND(sym->st_info) == STB_WEAK )
+			void *newval;
+			size_t	newsize;
+			if( ELF32_ST_BIND(sym->st_info) != STB_WEAK )
 			{
-				WARNING("TODO: Weak bound local symbols '%s'", name);
-				//assert(ELF32_ST_BIND(sym->st_info) != STB_WEAK);
-				//return NULL;
+				TRACE("Sym %i'%s' %p += 0x%x", i, name, sym->st_value, iBaseDiff);
+				sym->st_value += iBaseDiff;
 			}
-			TRACE("Sym %i'%s' %p += 0x%x", i, name, sym->st_value, iBaseDiff);
-			sym->st_value += iBaseDiff;
+			else if( !GetSymbol(name, &newval, &newsize, Base) )
+			{
+				TRACE("Sym %i'%s' %p += 0x%x (Local weak)", i, name, sym->st_value, iBaseDiff);
+				sym->st_value += iBaseDiff;
+			}
+			else
+			{
+				TRACE("Sym %i'%s' %p = %p+0x%x (Extern weak)", i, name, newval, newsize);
+				sym->st_value = (uintptr_t)newval;
+				sym->st_size = newsize;
+			}
 		}
 	}
 
