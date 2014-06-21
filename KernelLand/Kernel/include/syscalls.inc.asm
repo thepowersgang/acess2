@@ -63,3 +63,5 @@
 %define SYS_GETCWD	87	 ;Get current directory
 %define SYS_MOUNT	88	 ;Mount a filesystem
 %define SYS_SELECT	89	 ;Wait for file handles
+%define SYS_MARSHALFD	90	 ;Create a reference to a FD suitable for handing to another process
+%define SYS_UNMARSHALFD	91	 ;Accept a marshaled FD

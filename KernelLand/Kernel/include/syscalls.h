@@ -71,8 +71,10 @@
 #define SYS_GETCWD	87	// Get current directory
 #define SYS_MOUNT	88	// Mount a filesystem
 #define SYS_SELECT	89	// Wait for file handles
+#define SYS_MARSHALFD	90	// Create a reference to a FD suitable for handing to another process
+#define SYS_UNMARSHALFD	91	// Accept a marshaled FD
 
-#define NUM_SYSCALLS	90
+#define NUM_SYSCALLS	92
 #define SYS_DEBUG	0x100
 #define SYS_DEBUGHEX	0x101
 
@@ -168,6 +170,8 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_GETCWD",
 	"SYS_MOUNT",
 	"SYS_SELECT",
+	"SYS_MARSHALFD",
+	"SYS_UNMARSHALFD",
 
 	""
 };
