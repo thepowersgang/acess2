@@ -431,16 +431,16 @@ void Debug_HexDump(const char *Header, const void *Data, size_t Length)
 	Uint	pos = 0;
 	LogF("%014lli ", now());
 	Debug_Puts(1, Header);
-	LogF(" (Hexdump of %p)\r\n", Data);
+	LogF(" (Hexdump of %p+%i)\r\n", Data, Length);
 
 	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
 
 	while(Length >= 16)
 	{
 		LogF("%014lli Log: %04x:"
-			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
 			now(),
 			pos,
 			cdat[ 0], cdat[ 1], cdat[ 2], cdat[ 3], cdat[ 4], cdat[ 5], cdat[ 6], cdat[ 7],
