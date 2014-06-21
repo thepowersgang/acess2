@@ -30,13 +30,14 @@
  */
 
 #include "bochsga_pio.h"
-#include "bochsga_engines.h"
 
 typedef struct {
 	udi_ubit32_t	width;
 	udi_ubit32_t	height;
-	udi_index_t	op_idx;
+	udi_index_t	bitdepth;
 } engine_t;
+
+#define N_ENGINES	1
 
 /**
  * Region data

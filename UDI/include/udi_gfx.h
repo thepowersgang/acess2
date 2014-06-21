@@ -12,7 +12,7 @@
  *     http://www.d-rift.nl/combuster/mos3/?p=viewsource&file=/include/common/udi_gfx.h
  */
 
-// note that the specification, and thus, the contents of this file is not fixed.
+/* note that the specification, and thus, the contents of this file is not fixed. */
 
 #ifndef __UDI_GFX_H__
 #define __UDI_GFX_H__
@@ -30,7 +30,6 @@
  * Lists the various UDI properties
  */
 
-// General state properties
 /* Constant: UDI_GFX_PROP_ENABLE
  *
  * Valid values:
@@ -130,7 +129,7 @@
  */
 #define UDI_GFX_PROP_CUSTOM 1024
 
-// engine properties
+/* engine properties */
 
 /* Constant: UDI_GFX_PROP_CLIP
  *
@@ -272,7 +271,8 @@
  */
 #define UDI_GFX_PROP_OPERATOR_COUNT 28
 
-// properties for removal:
+#if 0
+/* properties for removal: */
 #define UDI_GFX_PROP_STORE_COUNT 24       // not generic
 #define UDI_GFX_PROP_STORE_WIDTH 9        // not generic
 #define UDI_GFX_PROP_STORE_HEIGHT 10      // not generic
@@ -289,8 +289,9 @@
 #define UDI_GFX_PROP_SOURCE_HEIGHT 13     // should have been documented when I still knew what it did.
 #define UDI_GFX_PROP_INPUTX 25            // should have been documented when I still knew what it did.
 #define UDI_GFX_PROP_INPUTY 26            // should have been documented when I still knew what it did.
+#endif
 
-// connector properties
+/* connector properties */
 #define UDI_GFX_PROP_SIGNAL 23
 #define UDI_GFX_PROP_CONNECTOR_TYPE 24
 #define UDI_GFX_PROP_VGA_H_FRONT_PORCH 25
@@ -344,42 +345,42 @@
  * a1/a2/a3 represents taking the output of a previous operation
  * v1/v2/v3 represents the literal value of that argument
  */
-#define UDI_GFX_OPERATOR_RGB     0 // output = (color) red(a1) + green(a2) + blue(a3) (each component is UDI_GFX_PROP_COLOR_BITS
-#define UDI_GFX_OPERATOR_YUV     1 // output = (color) Y(a1) + U(a2) + V(a3)
-#define UDI_GFX_OPERATOR_YIQ     2 // output = (color) Y(a1) + I(a2) + Q(a3)
-#define UDI_GFX_OPERATOR_I       3 // output = (color) intensity(a1)
-#define UDI_GFX_OPERATOR_ALPHA   4 // output = (color) a1 + alpha(a2)
-#define UDI_GFX_OPERATOR_ADD     5 // output = a1 + a2 + v3
-#define UDI_GFX_OPERATOR_SUB     6 // output = a1 - a2 - v3
-#define UDI_GFX_OPERATOR_MUL     7 // output = a1 * a2
-#define UDI_GFX_OPERATOR_DIV     8 // output = a1 / a2
-#define UDI_GFX_OPERATOR_MAD     9 // output = a1 * a2 + a3
-#define UDI_GFX_OPERATOR_FRC    10 // output = (a1 * a2) / a3
-#define UDI_GFX_OPERATOR_SHR    11 // output = a1 >> (a2 + v3)
-#define UDI_GFX_OPERATOR_SHL    12 // output = a1 << (a2 + v3)
-#define UDI_GFX_OPERATOR_ROR    13 // output = a1 >> a2 (over a3 bits)
-#define UDI_GFX_OPERATOR_ROL    14 // output = a1 << a2 (over a3 bits)
-#define UDI_GFX_OPERATOR_SAR    15 // output = a1 >> a2 (width is a3 bits, i.e. empties are filled with bit a3-1)
-#define UDI_GFX_OPERATOR_SAL    16 // output = a1 <<< (a2 + v3) (empties filled with bit 0)
-#define UDI_GFX_OPERATOR_AND    17 // output = a1 & a2
-#define UDI_GFX_OPERATOR_OR     18 // output = a1 | a2 | v3
-#define UDI_GFX_OPERATOR_NOT    19 // output = ~a1
-#define UDI_GFX_OPERATOR_XOR    20 // output = a1 ^ a2 ^ v3
-#define UDI_GFX_OPERATOR_NEG    21 // output = -a1
-#define UDI_GFX_OPERATOR_SEG    22 // output = (a1 >> v2) & (2**v3-1) (select v3 bits starting from bit v2)
-#define UDI_GFX_OPERATOR_RANGE  23 // output = (a1 > a2) ? a2 : ((a1 < a3) ? a3 : a1)
-#define UDI_GFX_OPERATOR_CONST  24 // output = v1
-#define UDI_GFX_OPERATOR_ATTR   25 // output = property[a1 + v2]
-#define UDI_GFX_OPERATOR_SWITCH 26 // output = output[(a1 % v3) + v2]
-#define UDI_GFX_OPERATOR_BUFFER 27 // output = buffer[a1][a2] (buffer is v3 bits per entry)
-#define UDI_GFX_OPERATOR_X      28 // output = output x pixel
-#define UDI_GFX_OPERATOR_Y      29 // output = output y pixel
-#define UDI_GFX_OPERATOR_TX     30 // output = horizontal tile index belonging to output pixel
-#define UDI_GFX_OPERATOR_TY     31 // output = vertical tile index belonging to output pixel
-#define UDI_GFX_OPERATOR_TXOFF  32 // output = horizontal offset from start of tile
-#define UDI_GFX_OPERATOR_TYOFF  33 // output = vertical offset from start of tile
-#define UDI_GFX_OPERATOR_INPUT  34 // output = input engine[x][y]   component v1
-#define UDI_GFX_OPERATOR_DINPUT 35 // output = input engine[a1][a2] component v3
+#define UDI_GFX_OPERATOR_RGB     0 /* output = (color) red(a1) + green(a2) + blue(a3) (each component is UDI_GFX_PROP_COLOR_BITS*/
+#define UDI_GFX_OPERATOR_YUV     1 /* output = (color) Y(a1) + U(a2) + V(a3)*/
+#define UDI_GFX_OPERATOR_YIQ     2 /* output = (color) Y(a1) + I(a2) + Q(a3)*/
+#define UDI_GFX_OPERATOR_I       3 /* output = (color) intensity(a1)*/
+#define UDI_GFX_OPERATOR_ALPHA   4 /* output = (color) a1 + alpha(a2)*/
+#define UDI_GFX_OPERATOR_ADD     5 /* output = a1 + a2 + v3*/
+#define UDI_GFX_OPERATOR_SUB     6 /* output = a1 - a2 - v3*/
+#define UDI_GFX_OPERATOR_MUL     7 /* output = a1 * a2*/
+#define UDI_GFX_OPERATOR_DIV     8 /* output = a1 / a2*/
+#define UDI_GFX_OPERATOR_MAD     9 /* output = a1 * a2 + a3*/
+#define UDI_GFX_OPERATOR_FRC    10 /* output = (a1 * a2) / a3*/
+#define UDI_GFX_OPERATOR_SHR    11 /* output = a1 >> (a2 + v3)*/
+#define UDI_GFX_OPERATOR_SHL    12 /* output = a1 << (a2 + v3)*/
+#define UDI_GFX_OPERATOR_ROR    13 /* output = a1 >> a2 (over a3 bits)*/
+#define UDI_GFX_OPERATOR_ROL    14 /* output = a1 << a2 (over a3 bits)*/
+#define UDI_GFX_OPERATOR_SAR    15 /* output = a1 >> a2 (width is a3 bits, i.e. empties are filled with bit a3-1)*/
+#define UDI_GFX_OPERATOR_SAL    16 /* output = a1 <<< (a2 + v3) (empties filled with bit 0)*/
+#define UDI_GFX_OPERATOR_AND    17 /* output = a1 & a2*/
+#define UDI_GFX_OPERATOR_OR     18 /* output = a1 | a2 | v3*/
+#define UDI_GFX_OPERATOR_NOT    19 /* output = ~a1*/
+#define UDI_GFX_OPERATOR_XOR    20 /* output = a1 ^ a2 ^ v3*/
+#define UDI_GFX_OPERATOR_NEG    21 /* output = -a1*/
+#define UDI_GFX_OPERATOR_SEG    22 /* output = (a1 >> v2) & (2**v3-1) (select v3 bits starting from bit v2)*/
+#define UDI_GFX_OPERATOR_RANGE  23 /* output = (a1 > a2) ? a2 : ((a1 < a3) ? a3 : a1)*/
+#define UDI_GFX_OPERATOR_CONST  24 /* output = v1*/
+#define UDI_GFX_OPERATOR_ATTR   25 /* output = property[a1 + v2]*/
+#define UDI_GFX_OPERATOR_SWITCH 26 /* output = output[(a1 % v3) + v2]*/
+#define UDI_GFX_OPERATOR_BUFFER 27 /* output = buffer[a1][a2] (buffer is v3 bits per entry)*/
+#define UDI_GFX_OPERATOR_X      28 /* output = output x pixel*/
+#define UDI_GFX_OPERATOR_Y      29 /* output = output y pixel*/
+#define UDI_GFX_OPERATOR_TX     30 /* output = horizontal tile index belonging to output pixel*/
+#define UDI_GFX_OPERATOR_TY     31 /* output = vertical tile index belonging to output pixel*/
+#define UDI_GFX_OPERATOR_TXOFF  32 /* output = horizontal offset from start of tile*/
+#define UDI_GFX_OPERATOR_TYOFF  33 /* output = vertical offset from start of tile*/
+#define UDI_GFX_OPERATOR_INPUT  34 /* output = input engine[x][y]   component v1*/
+#define UDI_GFX_OPERATOR_DINPUT 35 /* output = input engine[a1][a2] component v3*/
 
 /* Enumeration: UDI_GFX_STOCK_FORMAT
  * Lists stock configurations
@@ -401,13 +402,14 @@
 #define UDI_GFX_STOCK_FORMAT_B5G5R5X1 8
 #define UDI_GFX_STOCK_FORMAT_N8 9
 
-// Enumeration: UDI_GFX_BUFFER_INFO_FLAG
-// Lists behavioural patterns for direct buffer accesses.
-//
-#define UDI_GFX_BUFFER_INFO_FLAG_R              0x0001  // buffer can be read
-#define UDI_GFX_BUFFER_INFO_FLAG_W              0x0002  // buffer can be written
-#define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ENTRY 0x0004  // for non-multiple-of-eight buffer slot sizes, align on byte boundary every unit
-#define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ROW   0x0008  // for non-multiple-of-eight buffer slot sizes, align only the start of the row
+/*
+ * Enumeration: UDI_GFX_BUFFER_INFO_FLAG
+ * Lists behavioural patterns for direct buffer accesses.
+ */
+#define UDI_GFX_BUFFER_INFO_FLAG_R              0x0001  /* buffer can be read*/
+#define UDI_GFX_BUFFER_INFO_FLAG_W              0x0002  /* buffer can be written*/
+#define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ENTRY 0x0004  /* for non-multiple-of-eight buffer slot sizes, align on byte boundary every unit*/
+#define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ROW   0x0008  /* for non-multiple-of-eight buffer slot sizes, align only the start of the row*/
 
 
 // Constant: UDI_GFX_PROVIDER_OPS_NUM
@@ -806,9 +808,9 @@ typedef const struct {
     udi_gfx_get_engine_operator_req_op_t*gfx_get_engine_operator_req_op_t;
     udi_gfx_connector_command_req_op_t  *gfx_connector_command_op;
     udi_gfx_engine_command_req_op_t     *gfx_engine_command_op;
-    udi_gfx_buffer_info_req_op_t        *gfx_buffer_info_ack;
-    udi_gfx_buffer_read_req_op_t        *gfx_buffer_read_ack;
-    udi_gfx_buffer_write_req_op_t       *gfx_buffer_write_ack;
+    udi_gfx_buffer_info_req_op_t        *gfx_buffer_info_req_op;
+    udi_gfx_buffer_read_req_op_t        *gfx_buffer_read_req_op;
+    udi_gfx_buffer_write_req_op_t       *gfx_buffer_write_req_op;
 } udi_gfx_provider_ops_t;
 
 /* Structure: udi_gfx_client_ops_t

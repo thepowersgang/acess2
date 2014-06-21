@@ -8,28 +8,30 @@
 #define UDI_VERSION	0x101
 #define UDI_PHYSIO_VERSION	0x101
 #define UDI_GFX_VERSION	0x101
+#define UDI_PCI_VERSION	0x101
 #include <udi.h>
 #include <udi_physio.h>
 #include <udi_gfx.h>
+#include <udi_pci.h>
 #define DEBUG_ENABLED	1
 #include "../helpers.h"
 #include "../helpers_gfx.h"
 #include "bochsga_common.h"
 
-// --- Management Metalang
+/* --- Management Metalang -- */
 void bochsga_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
-	rdata_t	*rdata = UDI_GCB(cb)->context;
-	//udi_trace_write(rdata->init_context, UDI_TREVENT_LOCAL_PROC_ENTRY, 0, );
+	//rdata_t	*rdata = UDI_GCB(cb)->context;
+	/*udi_trace_write(rdata->init_context, UDI_TREVENT_LOCAL_PROC_ENTRY, 0, );*/
 
-	// TODO: Set up region data	
+	/* TODO: Set up region data */
 
 	udi_usage_res(cb);
 }
 
 void bochsga_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 {
-	rdata_t	*rdata = UDI_GCB(cb)->context;
+	//rdata_t	*rdata = UDI_GCB(cb)->context;
 	udi_instance_attr_list_t *attr_list = cb->attr_list;
 	
 	switch(enumeration_level)
@@ -50,7 +52,7 @@ void bochsga_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t par
 void bochsga_final_cleanup_req(udi_mgmt_cb_t *cb)
 {
 }
-// ---
+/* --- */
 void bochsga_bus_dev_channel_event_ind(udi_channel_event_cb_t *cb);
 void bochsga_bus_dev_bus_bind_ack(udi_bus_bind_cb_t *cb, udi_dma_constraints_t dma_constraints, udi_ubit8_t perferred_endianness, udi_status_t status);
 void bochsga_bus_dev_bind__pio_map(udi_cb_t *cb, udi_pio_handle_t new_pio_handle);
@@ -80,15 +82,15 @@ void bochsga_bus_dev_bus_bind_ack(udi_bus_bind_cb_t *cb,
 	udi_cb_t	*gcb = UDI_GCB(cb);
 	rdata_t	*rdata = gcb->context;
 	
-	// Set up PIO handles
+	/* Set up PIO handles */
 	rdata->init.pio_index = -1;
 	bochsga_bus_dev_bind__pio_map(gcb, UDI_NULL_PIO_HANDLE);
-	// V V V V
+	/* V V V V */
 }
 void bochsga_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 {
 	rdata_t	*rdata = gcb->context;
-	if( rdata->init.pio_index != -1 )
+	if( rdata->init.pio_index != (udi_index_t)-1 )
 	{
 		rdata->pio_handles[rdata->init.pio_index] = new_pio_handle;
 	}
@@ -117,19 +119,19 @@ void bochsga_bus_dev_intr_attach_ack(udi_intr_attach_cb_t *intr_attach_cb, udi_s
 void bochsga_bus_dev_intr_detach_ack(udi_intr_detach_cb_t *intr_detach_cb)
 {
 }
-// ---
-// GFX Provider ops
+
+/* ---  GFX Provider ops -- */
 void bochsga_gfx_channel_event_ind(udi_channel_event_cb_t *cb)
 {
-	// No operation
+	/* No operation */
 }
 void bochsga_gfx_bind_req(udi_gfx_bind_cb_t *cb)
 {
-	// TODO: ACK bind if nothing already bound
+	/* TODO: ACK bind if nothing already bound */
 }
 void bochsga_gfx_unbind_req(udi_gfx_bind_cb_t *cb)
 {
-	// TODO: Release internal state?
+	/* TODO: Release internal state? */
 }
 void bochsga_gfx_set_connector_req$pio(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t result)
 {
@@ -153,27 +155,14 @@ void bochsga_gfx_set_connector_req(udi_gfx_state_cb_t *cb, udi_ubit32_t value)
 		}
 		udi_gfx_set_connector_ack(cb);
 		return;
-	// Change input engine
-	// - 
+	/* Change input engine */
 	case UDI_GFX_PROP_INPUT:
-		if( rdata->outputstate.engine != value )
-		{
-			// Validate
-			if( !(0 <= value && value <= N_ENGINES) ) {
-				udi_gfx_set_connector_ack(cb /*, UDI_STAT_NOT_SUPPORTED*/);
-				return ;
-			}
-			
-			// Change saved bitdepth (requires cycling enable)
-			rdata->outputstate.engine = value;
-			rdata->outputstate.bitdepth = bochsga_engine_defs[value].bitdepth;
-		}
 		udi_gfx_set_connector_ack(cb);
 		return;
-	// Alter output dimensions
+	/* Alter output dimensions */
 	case UDI_GFX_PROP_WIDTH:
 		if( value % 8 != 0 ) {
-			// Qemu doesn't like resolutions not a multiple of 8
+			/* Qemu doesn't like resolutions not a multiple of 8 */
 			return ;
 		}
 		if( !(320 <= value && value <= rdata->limits.max_width) ) {
@@ -210,7 +199,7 @@ void bochsga_gfx_get_connector_req(udi_gfx_state_cb_t *cb)
 		udi_gfx_get_connector_ack(cb, !!rdata->output_enable);
 		return;
 	case UDI_GFX_PROP_INPUT:
-		udi_gfx_get_connector_ack(cb, rdata->outputstate.bitdepth/8-1);
+		udi_gfx_get_connector_ack(cb, 0);
 		return;
 	case UDI_GFX_PROP_WIDTH:
 		udi_gfx_get_connector_ack(cb, rdata->outputstate.width);
@@ -240,20 +229,22 @@ void bochsga_gfx_range_connector_req(udi_gfx_range_cb_t *cb)
 	switch(cb->attribute)
 	{
 	case UDI_GFX_PROP_ENABLE:
-		// 2 values: 0 and 1
+		/* 2 values: 0 and 1 */
 		gfxhelpers_return_range_set(udi_gfx_range_connector_ack, cb, 2, 0, 1);
 		return;
 	case UDI_GFX_PROP_INPUT:
-		// 0--3 with a step of 1
-		gfxhelpers_return_range_simple(udi_gfx_range_connector_ack, cb, 0, 3, 1);
+		/* Fix 0 */
+		gfxhelpers_return_range_fixed(udi_gfx_range_connector_ack, cb, 0);
 		return;
 	case UDI_GFX_PROP_WIDTH:
+		/* qemu restricts to 8 step */
 		gfxhelpers_return_range_simple(udi_gfx_range_connector_ack, cb,
-			BOCHSGA_MIN_WIDTH, rdata->limits.max_width, 8); // qemu restricts to 8 step
+			BOCHSGA_MIN_WIDTH, rdata->limits.max_width, 8);
 		return;
 	case UDI_GFX_PROP_HEIGHT:
+		/* step of 8 for neatness */
 		gfxhelpers_return_range_simple(udi_gfx_range_connector_ack, cb,
-			BOCHSGA_MIN_HEIGHT, rdata->limits.max_height, 8); // step of 8 for neatness
+			BOCHSGA_MIN_HEIGHT, rdata->limits.max_height, 8);
 		return;
 	case UDI_GFX_PROP_CONNECTOR_TYPE:
 		gfxhelpers_return_range_fixed(udi_gfx_range_connector_ack, cb, UDI_GFX_CONNECTOR_HIDDEN);
@@ -269,7 +260,8 @@ void bochsga_gfx_range_connector_req(udi_gfx_range_cb_t *cb)
 	udi_gfx_range_cb_t	*cb = UDI_MCB(cb, udi_gfx_range_cb_t);
 	udi_gfx_range_connector_ack(cb);
 }
-// --- Engine Manipulation ---
+
+/* --- Engine Manipulation --- */
 void bochsga_gfx_set_engine_req(udi_gfx_state_cb_t *cb, udi_ubit32_t value)
 {
 	udi_cb_t	*gcb = UDI_GCB(cb);
@@ -292,15 +284,6 @@ void bochsga_gfx_set_engine_req(udi_gfx_state_cb_t *cb, udi_ubit32_t value)
 		engine->height = value;
 		udi_gfx_set_engine_ack(cb);
 		return;
-	case UDI_GFX_PROP_OPERATOR_INDEX:
-		if( value >= bochsga_engine_defs[cb->subsystem].op_map.op_count ) {
-			// Bad value
-			udi_gfx_set_engine_ack(cb);
-			return;
-		}
-		engine->op_idx = value;
-		udi_gfx_set_engine_ack(cb);
-		return;
 	}
 	CONTIN(bochsga_gfx_set_engine_req, udi_log_write,
 		(UDI_TREVENT_LOG, UDI_LOG_INFORMATION, BOCHSGA_OPS_GFX, 0, BOCHSGA_MSGNUM_PROPUNK, __func__, cb->attribute),
@@ -320,7 +303,6 @@ void bochsga_gfx_get_engine_req(udi_gfx_state_cb_t *cb)
 	}
 	
 	const engine_t *engine = &rdata->engines[cb->subsystem];
-	const engine_static_t *engine_def = &bochsga_engine_defs[cb->subsystem];
 	
 	switch(cb->attribute)
 	{
@@ -339,14 +321,8 @@ void bochsga_gfx_get_engine_req(udi_gfx_state_cb_t *cb)
 		udi_gfx_get_engine_ack(cb, engine->height);
 		return;
 	
-	case UDI_GFX_PROP_OPERATOR_INDEX:
-		udi_gfx_get_engine_ack(cb, engine->op_idx);
-		return;
-	case UDI_GFX_PROP_OPERATOR_OPCODE:
-	case UDI_GFX_PROP_OPERATOR_ARG_1:
-	case UDI_GFX_PROP_OPERATOR_ARG_2:
-	case UDI_GFX_PROP_OPERATOR_ARG_3:
-		udi_gfx_get_engine_ack(cb, gfxhelpers_get_engine_op(&engine_def->op_map, engine->op_idx, cb->attribute));
+	case UDI_GFX_PROP_STOCK_FORMAT:
+		udi_gfx_get_engine_ack(cb, UDI_GFX_STOCK_FORMAT_R8G8B8);
 		return;
 	}
 	CONTIN(bochsga_gfx_get_engine_req, udi_log_write,
@@ -360,14 +336,14 @@ void bochsga_gfx_range_engine_req(udi_gfx_range_cb_t *cb)
 {
 	udi_cb_t	*gcb = UDI_GCB(cb);
 	rdata_t	*rdata = gcb->context;
+	(void)rdata;
 	
 	if( cb->subsystem >= N_ENGINES ) {
 		udi_gfx_range_engine_ack(cb);
 		return;
 	}
 	
-	engine_t *engine = &rdata->engines[cb->subsystem];
-	const engine_static_t *engine_def = &bochsga_engine_defs[cb->subsystem];
+	//engine_t *engine = &rdata->engines[cb->subsystem];
 	
 	switch(cb->attribute)
 	{
@@ -378,15 +354,8 @@ void bochsga_gfx_range_engine_req(udi_gfx_range_cb_t *cb)
 		gfxhelpers_return_range_fixed(udi_gfx_range_engine_ack, cb, -1);
 		return;
 	
-	case UDI_GFX_PROP_OPERATOR_INDEX:
-		gfxhelpers_return_range_simple(udi_gfx_range_engine_ack, cb, 0, engine->op_idx-1, 1);
-		return;
-	case UDI_GFX_PROP_OPERATOR_OPCODE:
-	case UDI_GFX_PROP_OPERATOR_ARG_1:
-	case UDI_GFX_PROP_OPERATOR_ARG_2:
-	case UDI_GFX_PROP_OPERATOR_ARG_3:
-		gfxhelpers_return_range_fixed(udi_gfx_range_engine_ack, cb,
-			gfxhelpers_get_engine_op(&engine_def->op_map, engine->op_idx, cb->attribute));
+	case UDI_GFX_PROP_STOCK_FORMAT:
+		gfxhelpers_return_range_fixed(udi_gfx_range_engine_ack, cb, UDI_GFX_STOCK_FORMAT_B8G8R8);
 		return;
 	}
 	CONTIN(bochsga_gfx_range_engine_req, udi_log_write,
@@ -396,13 +365,50 @@ void bochsga_gfx_range_engine_req(udi_gfx_range_cb_t *cb)
 	udi_gfx_range_cb_t *cb = UDI_MCB(cb, udi_gfx_range_cb_t);
 	udi_gfx_range_engine_ack( cb );
 }
-void bochsga_gfx_command_req(udi_gfx_command_cb_t *cb)
+void bochsga_gfx_get_engine_operator_req(udi_gfx_range_cb_t *cb)
 {
-	// Need to parse the GLX stream
+	/* TODO: Get Engine operator */
+	udi_gfx_get_engine_operator_ack(cb, 0, 0,0,0);
+}
+void bochsga_gfx_connector_command_req(udi_gfx_command_cb_t *cb)
+{
+	/* Need to parse the GLX stream */
+	udi_gfx_connector_command_ack(cb);
+}
+void bochsga_gfx_engine_command_req(udi_gfx_command_cb_t *cb)
+{
+	/* Need to parse the GLX stream */
+	udi_gfx_engine_command_ack(cb);
+}
+void bochsga_gfx_buffer_info_req(udi_gfx_buffer_info_cb_t *cb)
+{
+	switch(cb->buffer_index)
+	{
+	case 0:
+		udi_gfx_buffer_info_ack(cb, 1024, 768, 24, 0);
+		return;
+	default:
+		break;
+	}
+	CONTIN(bochsga_gfx_buffer_info_req, udi_log_write,
+		(UDI_TREVENT_LOG, UDI_LOG_INFORMATION, BOCHSGA_OPS_GFX, 0, BOCHSGA_MSGNUM_BUFUNK, __func__, cb->buffer_index),
+		(udi_status_t status)
+		);
+	udi_gfx_buffer_info_cb_t *cb = UDI_MCB(gcb, udi_gfx_buffer_info_cb_t);
+	udi_gfx_buffer_info_ack(cb, 0,0,0,0);
+}
+void bochsga_gfx_buffer_write_req(udi_gfx_buffer_cb_t *cb)
+{
+}
+void bochsga_gfx_buffer_read_req(udi_gfx_buffer_cb_t *cb)
+{
 }
 
-// ====================================================================
-// - Management ops
+/*
+====================================================================
+Management ops
+====================================================================
+*/
 udi_mgmt_ops_t	bochsga_mgmt_ops = {
 	bochsga_usage_ind,
 	bochsga_enumerate_req,
@@ -410,7 +416,7 @@ udi_mgmt_ops_t	bochsga_mgmt_ops = {
 	bochsga_final_cleanup_req
 };
 udi_ubit8_t	bochsga_mgmt_op_flags[4] = {0,0,0,0};
-// - Bus Ops
+/* - Bus Ops */
 udi_bus_device_ops_t	bochsga_bus_dev_ops = {
 	bochsga_bus_dev_channel_event_ind,
 	bochsga_bus_dev_bus_bind_ack,
@@ -419,7 +425,7 @@ udi_bus_device_ops_t	bochsga_bus_dev_ops = {
 	bochsga_bus_dev_intr_detach_ack
 };
 udi_ubit8_t	bochsga_bus_dev_ops_flags[5] = {0};
-// - GFX provider ops
+/* - GFX provider ops */
 udi_gfx_provider_ops_t	bochsga_gfx_ops = {
 	bochsga_gfx_channel_event_ind,
 	bochsga_gfx_bind_req,
@@ -430,10 +436,15 @@ udi_gfx_provider_ops_t	bochsga_gfx_ops = {
 	bochsga_gfx_get_engine_req,
 	bochsga_gfx_range_connector_req,
 	bochsga_gfx_range_engine_req,
-	bochsga_gfx_command_req
+	bochsga_gfx_get_engine_operator_req,
+	bochsga_gfx_connector_command_req,
+	bochsga_gfx_engine_command_req,
+	bochsga_gfx_buffer_info_req,
+	bochsga_gfx_buffer_read_req,
+	bochsga_gfx_buffer_write_req,
 };
 udi_ubit8_t	bochsga_gfx_ops_flags[10] = {0};
-// --
+/* -- */
 udi_primary_init_t	bochsga_pri_init = {
 	.mgmt_ops = &bochsga_mgmt_ops,
 	.mgmt_op_flags = bochsga_mgmt_op_flags,

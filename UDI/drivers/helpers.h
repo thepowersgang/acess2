@@ -19,7 +19,8 @@
 #define CONTIN(suffix, call, args, params)	extern void _EXPJOIN(suffix##$,__LINE__) _ADDGCB params;\
 	call( _EXPJOIN(suffix##$,__LINE__), gcb, _EXPLODE args); } \
 	void _EXPJOIN(suffix##$,__LINE__) _ADDGCB params { \
-	rdata_t	*rdata = gcb->context;
+	rdata_t	*rdata = gcb->context; \
+	(void)rdata;
 
 /* Copied from http://projectudi.cvs.sourceforge.net/viewvc/projectudi/udiref/driver/udi_dpt/udi_dpt.h */
 #define UDIH_SET_ATTR_BOOLEAN(attr, name, val)	\
