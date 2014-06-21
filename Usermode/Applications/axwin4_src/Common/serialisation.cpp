@@ -12,22 +12,31 @@
 
 namespace AxWin {
 
-CDeserialiser::CDeserialiser(size_t Length, const uint8_t *Buffer):
-	m_length(Length),
-	m_data(Buffer),
+CDeserialiser::CDeserialiser(const ::std::vector<uint8_t>& vector):
+	m_vect(vector),
 	m_offset(0)
 {
+}
+CDeserialiser::CDeserialiser(::std::vector<uint8_t>&& vector):
+	m_vect(vector),
+	m_offset(0)
+{
+}
+CDeserialiser& CDeserialiser::operator=(const CDeserialiser& x)
+{
+	m_vect = x.m_vect;
+	m_offset = x.m_offset;
 }
 
 bool CDeserialiser::IsConsumed() const
 {
-	return m_offset == m_length;
+	return m_offset == m_vect.size();
 }
 
 ::uint8_t CDeserialiser::ReadU8()
 {
 	RangeCheck("CDeserialiser::ReadU8", 1);
-	uint8_t rv = m_data[m_offset];
+	uint8_t rv = m_vect[m_offset];
 	m_offset ++;
 	return rv;
 }
@@ -35,7 +44,7 @@ bool CDeserialiser::IsConsumed() const
 ::uint16_t CDeserialiser::ReadU16()
 {
 	RangeCheck("CDeserialiser::ReadU16", 2);
-	uint16_t rv = m_data[m_offset] | ((uint16_t)m_data[m_offset+1] << 8);
+	uint16_t rv = m_vect[m_offset] | ((uint16_t)m_vect[m_offset+1] << 8);
 	m_offset += 2;
 	return rv;
 }
@@ -54,28 +63,27 @@ const ::std::vector<uint8_t> CDeserialiser::ReadBuffer()
 	RangeCheck("CDeserialiser::ReadBuffer(len)", 2);
 	size_t	size = ReadU16();
 	
-	::std::vector<uint8_t> ret( size );
-	for( size_t i = 0; i < size; i ++ )
-		ret[i] = m_data[m_offset++];
+	auto range_start = m_vect.begin() + int(m_offset);
+	::std::vector<uint8_t> ret( range_start, range_start + int(size) );
+	m_offset += size;
 	return ret;
 }
 
 const ::std::string CDeserialiser::ReadString()
 {
 	RangeCheck("CDeserialiser::ReadString(len)", 1);
-	uint8_t len = m_data[m_offset];
-	m_offset ++;
+	uint8_t len = ReadU8();
 	
 	RangeCheck("CDeserialiser::ReadString(data)", len);
-	::std::string ret( reinterpret_cast<const char*>(m_data+m_offset), len );
+	::std::string ret( reinterpret_cast<const char*>(m_vect.data()+m_offset), len );
 	m_offset += len;
 	return ret;
 }
 
 void CDeserialiser::RangeCheck(const char *Method, size_t bytes) throw(::std::out_of_range)
 {
-	if( m_offset + bytes > m_length ) {
-		::_SysDebug("%s - out of range %i+%i >= %i", Method, m_offset, bytes, m_length);
+	if( m_offset + bytes > m_vect.size() ) {
+		::_SysDebug("%s - out of range %i+%i >= %i", Method, m_offset, bytes, m_vect.size());
 		throw ::std::out_of_range(Method);
 	}
 }

@@ -23,11 +23,16 @@ class CDeserialiseException:
 
 class CDeserialiser
 {
-	const size_t	m_length;
-	const uint8_t*	m_data;
+	::std::vector<uint8_t>	m_vect;
 	size_t	m_offset;
 public:
-	CDeserialiser(size_t Length, const uint8_t *Buffer);
+	CDeserialiser():
+		CDeserialiser(::std::vector<uint8_t>())
+	{}
+	CDeserialiser(const ::std::vector<uint8_t>& vect);
+	CDeserialiser(::std::vector<uint8_t>&& vect);
+	CDeserialiser(const CDeserialiser& x) { *this = x; };
+	CDeserialiser& operator=(const CDeserialiser& x);
 	bool	IsConsumed() const;
 	::uint8_t	ReadU8();
 	::uint16_t	ReadU16();

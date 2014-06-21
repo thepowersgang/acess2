@@ -41,7 +41,14 @@ void CWindow::Repaint(const CRect& rect)
 
 void CWindow::Show(bool bShow)
 {
-	assert(!"TODO: CWindow::Show");
+	if( m_is_shown == bShow )
+		return;
+	
+	if( bShow )
+		m_compositor.ShowWindow( this );
+	else
+		m_compositor.HideWindow( this );
+	m_is_shown = bShow;
 }
 
 void CWindow::Move(int X, int Y)
@@ -69,6 +76,14 @@ void CWindow::MouseMove(int NewX, int NewY)
 
 void CWindow::KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down)
 {
+}
+
+
+void CWindow::DrawScanline(unsigned int row, unsigned int x, unsigned int w, const uint8_t *data)
+{
+	m_surface.DrawScanline(row, x, w, data);
+	CRect	damaged( m_surface.m_rect.m_x+x, m_surface.m_rect.m_y+row, w, 1 );
+	m_compositor.DamageArea(damaged);
 }
 
 };

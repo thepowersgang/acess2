@@ -8,16 +8,33 @@
 #include <axwin4/axwin.h>
 #include "include/common.hpp"
 #include <ipc_proto.hpp>
+#include <vector>
+#include <algorithm>
+#include <mutex>
 
 namespace AxWin {
+
+static const int	MAX_WINDOW_ID = 16;
+static ::std::mutex	glWindowList;
+static ::std::vector<tAxWin4_Window*>	gWindowList;
 
 extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 {
 	// Allocate a window ID
+	::std::lock_guard<std::mutex>	lock(glWindowList);
+	int id = ::std::find(gWindowList.begin(), gWindowList.end(), nullptr) - gWindowList.end();
+	if( id >= MAX_WINDOW_ID ) {
+		throw ::std::runtime_error("AxWin4_CreateWindow - Out of IDs (TODO: Better exception)");
+	}
+	if( id == gWindowList.size() )
+	{
+		gWindowList.push_back(nullptr);
+	}
 	
 	// Create window structure locally
 	tAxWin4_Window *ret = new tAxWin4_Window();
-	ret->m_id = 0;
+	gWindowList[id] = ret;
+	ret->m_id = id;
 	// Request creation of window
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_CREATEWIN);
@@ -27,13 +44,23 @@ extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 	return ret;
 }
 
-extern "C" void AxWin4_ShowWindow(tAxWin4_Window *Window)
+extern "C" void AxWin4_ShowWindow(tAxWin4_Window *Window, bool Show)
 {
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_SETWINATTR);
 	message.WriteU16(Window->m_id);
 	message.WriteU16(IPC_WINATTR_SHOW);
-	message.WriteU8(1);
+	message.WriteU8( (Show ? 1 : 0) );
+	::AxWin::SendMessage(message);
+}
+
+extern "C" void AxWin4_SetWindowFlags(tAxWin4_Window *Window, unsigned int Flags)
+{
+	CSerialiser	message;
+	message.WriteU8(IPCMSG_SETWINATTR);
+	message.WriteU16(Window->m_id);
+	message.WriteU16(IPC_WINATTR_FLAGS);
+	message.WriteU8( Flags );
 	::AxWin::SendMessage(message);
 }
 

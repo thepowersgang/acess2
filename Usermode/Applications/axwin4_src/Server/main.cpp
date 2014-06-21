@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 			timeoutp = &timeout;
 		}
 		else {
-			::_SysDebug("Calling select with no timeout");
+			//::_SysDebug("Calling select with no timeout");
 			timeoutp = 0;
 		}
 		int rv = ::_SysSelect(nfd, &rfds, NULL, NULL/*&efds*/, timeoutp, 0);

@@ -12,11 +12,15 @@
 
 //extern void* operator new(size_t size) throw (::std::bad_alloc);
 //extern void* operator new(size_t size, const std::nothrow_t& nothrow_value) throw();
-extern void* operator new(size_t size, void* ptr) throw();
+inline void* operator new(size_t /*size*/, void* ptr) throw() {
+	return ptr;
+}
 
 //extern void* operator new[](size_t size) throw (::std::bad_alloc);
 //extern void* operator new[](size_t size, const std::nothrow_t& nothrow_value) throw();
-extern void* operator new[](size_t size, void* ptr) throw();
+inline void* operator new[](size_t /*size*/, void* ptr) throw() {
+	return ptr;
+}
 
 #endif
 

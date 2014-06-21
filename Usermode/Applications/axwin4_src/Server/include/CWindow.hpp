@@ -38,6 +38,9 @@ public:
 	void MouseMove(int NewX, int NewY);
 	void KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down);
 
+	void DrawScanline(unsigned int row, unsigned int x, unsigned int w, const uint8_t *data);
+	
+	bool	m_is_shown;
 	CSurface	m_surface;
 private:
 	CCompositor&	m_compositor;

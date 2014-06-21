@@ -22,6 +22,19 @@ CWindow* CCompositor::CreateWindow(CClient& client, const ::std::string& name)
 	return new CWindow(*this, client, name);
 }
 
+void CCompositor::ShowWindow(CWindow* window)
+{
+	DamageArea(window->m_surface.m_rect);
+	// TODO: Append to separate sub-lists (or to separate lists all together)
+	//   if flags AXWIN4_WNDFLAG_KEEPBELOW or AXWIN4_WNDFLAG_KEEPABOVE are set
+	m_windows.push_back(window);
+}
+void CCompositor::HideWindow(CWindow* window)
+{
+	DamageArea(window->m_surface.m_rect);
+	m_windows.remove(window);
+}
+
 bool CCompositor::GetScreenDims(unsigned int ScreenID, unsigned int* W, unsigned int* H)
 {
 	assert(W && H);
@@ -40,10 +53,11 @@ bool CCompositor::GetScreenDims(unsigned int ScreenID, unsigned int* W, unsigned
 
 void CCompositor::Redraw()
 {
-	_SysDebug("CCompositor::Redraw");
 	// Redraw the screen and clear damage rects
-	if( m_damageRects.empty() )
+	if( m_damageRects.empty() ) {
+		_SysDebug("- No damaged regions");
 		return ;
+	}
 	
 	// Build up foreground grid (Rects and windows)
 	// - This should already be built (mutated on window move/resize/reorder)
@@ -51,14 +65,14 @@ void CCompositor::Redraw()
 	// For all windows, check for intersection with damage rects
 	for( auto rect : m_damageRects )
 	{
-		_SysDebug("rect=(%i,%i) %ix%i", rect.m_x, rect.m_y, rect.m_w, rect.m_h);
 		// window list should be sorted by draw order (lowest first)
 		for( auto window : m_windows )
 		{
-			if( rect.HasIntersection( window->m_surface.m_rect ) )
+			if( window->m_is_shown && rect.HasIntersection( window->m_surface.m_rect ) )
 			{
 				// TODO: just reblit
 				CRect	rel_rect = window->m_surface.m_rect.RelativeIntersection(rect);
+				//_SysDebug("Reblit (%i,%i) %ix%i", rel_rect.m_x, rel_rect.m_y, rel_rect.m_w, rel_rect.m_h);
 				BlitFromSurface( window->m_surface, rel_rect );
 				//window->Repaint( rel_rect );
 			}

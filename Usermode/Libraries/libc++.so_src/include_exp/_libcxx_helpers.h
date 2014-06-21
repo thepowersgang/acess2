@@ -20,5 +20,11 @@ extern void abort() __asm__ ("abort") __attribute__((noreturn));
 extern void debug(const char *, ...);
 };
 
+#if _CXX11_AVAIL
+#define _CXX11_MOVE(val)	::std::move(val)
+#else
+#define _CXX11_MOVE(val)	val
+#endif
+
 #endif
 

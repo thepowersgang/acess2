@@ -16,10 +16,15 @@ extern "C" void _SysDebug(const char *, ...);
 namespace std {
 
 namespace _bits {
-template <class T, typename size_type>
+template <class VectorType, class T>
 class vector_iterator//:
 	//public random_acess_iterator_tag
 {
+	friend VectorType;
+	
+	typedef typename VectorType::size_type	size_type;
+	typedef typename VectorType::difference_type	difference_type;
+	
 	T*	m_array;
 	size_type	m_pos;
 	size_type	m_max;
@@ -58,11 +63,19 @@ public:
 	T& operator->() const {
 		return m_array[m_pos];
 	}
+	T& operator[](difference_type n) {
+		return *(*this + n);
+	}
 	vector_iterator& operator++() {
 		if(m_pos < m_max) {
 			m_pos ++;
 		}
 		return *this;
+	}
+	const vector_iterator operator++(int) {
+		vector_iterator ret(*this);
+		++*this;
+		return ret;
 	}
 	vector_iterator& operator--() {
 		if(m_pos > 0) {
@@ -70,7 +83,51 @@ public:
 		}
 		return *this;
 	}
+	const vector_iterator operator--(int) {
+		vector_iterator ret(*this);
+		--*this;
+		return ret;
+	}
+	vector_iterator& operator+=(difference_type n) {
+		if( n < 0 )
+			return (*this -= -n);
+		if( n > 0 )
+			m_pos = (m_pos + n < m_max ? m_pos + n : m_max); 
+		return *this;
+	}
+	vector_iterator& operator-=(difference_type n) {
+		if( n < 0 )
+			return (*this += -n);
+		if( n > 0 )
+			m_pos = (m_pos >= n ? m_pos - n : 0);
+		return *this;
+	}
+	const difference_type operator-(const vector_iterator& it2) const {
+		//_libcxx_assert(m_array == it2.m_array);
+		return m_pos - it2.m_pos;
+	}
+	bool operator<(const vector_iterator& o) const { return m_pos < o.m_pos; }
+	bool operator>(const vector_iterator& o) const { return m_pos > o.m_pos; }
+	bool operator<=(const vector_iterator& o) const { return m_pos <= o.m_pos; }
+	bool operator>=(const vector_iterator& o) const { return m_pos >= o.m_pos; }
 };
+#define vector_iterator_tpl class VectorType, class T
+#define vector_iterator	vector_iterator<VectorType, T>
+template <vector_iterator_tpl>
+const vector_iterator operator+(const vector_iterator& it, typename VectorType::difference_type n) {
+	return vector_iterator(it) += n;
+}
+template <vector_iterator_tpl>
+const vector_iterator operator+(typename VectorType::difference_type n, const vector_iterator& it) {
+	return vector_iterator(it) += n;
+}
+template <vector_iterator_tpl>
+const vector_iterator operator-(const vector_iterator& it, typename VectorType::difference_type n) {
+	return vector_iterator(it) -= n;
+}
+#undef vector_iterator_tpl
+#undef vector_iterator
+
 }
 
 template <class T, class Alloc = allocator<T> >
@@ -85,8 +142,8 @@ public:
 	typedef typename allocator_type::const_pointer	const_pointer;
 	typedef int	difference_type;
 	typedef size_t	size_type;
-	typedef ::std::_bits::vector_iterator<T,size_type>	iterator;
-	typedef ::std::_bits::vector_iterator<const T,size_type>	const_iterator;
+	typedef ::std::_bits::vector_iterator<vector,T>	iterator;
+	typedef ::std::_bits::vector_iterator<vector,const T>	const_iterator;
 
 private:
 	allocator_type	m_alloc;
@@ -107,31 +164,54 @@ public:
 	{
 		resize(n, val);
 	}
+	template <class InputIterator>
+	vector(InputIterator first, InputIterator last, const allocator_type& alloc = allocator_type()):
+		vector(alloc)
+	{
+		insert(begin(), first, last);
+	}
 	vector(const vector& x):
 		vector(x.m_alloc)
 	{
 		*this = x;
+	}
+	#if _CXX11_AVAIL
+	vector(vector&& x):
+		m_alloc(x.m_alloc),
+		m_size(x.m_size),
+		m_capacity(x.m_capacity),
+		m_data(x.m_data)
+	{
+		x.m_data = nullptr;
+		x.m_capacity = 0;
+		x.m_size = 0;
+	}
+	#endif
+	vector& operator=(const vector& x)
+	{
+		clear();
+		m_alloc.deallocate(m_data, m_capacity);
+		m_capacity = 0;
+		
+		reserve(x.size());
+		for( size_type i = 0; i < x.size(); i ++ )
+			push_back( x[i] );
+		
+		return *this;
 	}
 	
 	~vector()
 	{
 		clear();
 		m_alloc.deallocate(m_data, m_capacity);
+		m_capacity = 0;
 	}
 	
 	// Iterators
-	iterator begin() {
-		return iterator(m_data, 0, m_size);
-	}
-	const_iterator begin() const {
-		return const_iterator(m_data, 0, m_size);
-	}
-	iterator end() {
-		return iterator(m_data, m_size, m_size);
-	}
-	const_iterator end() const {
-		return const_iterator(m_data, m_size, m_size);
-	}
+	iterator       begin()       { return iterator_to(0); }
+	const_iterator begin() const { return iterator_to(0); }
+	iterator       end()       { return iterator_to(m_size); }
+	const_iterator end() const { return iterator_to(m_size); }
 	
 	// Capacity
 	size_type size() const {
@@ -229,10 +309,44 @@ public:
 		}
 	}
 	iterator insert(iterator position, const value_type& val) {
-		inesert(position, 1, val);
-		return position;
+		insert(position, 1, val);
+		return iterator_to(position.m_pos);
 	}
-	void insert(iterator position, size_type n, const value_type& val);
+	void insert(iterator position, size_type n, const value_type& val) {
+		reserve(m_size + n);
+		if( position != end() ) {
+			::_sys::debug("TODO: vector::insert within vector (%i!=%i)",
+				position-begin(), end()-begin());
+			::_sys::abort();
+		}
+		size_type	pos = m_size;
+		while( n -- )
+		{
+			//::_sys::debug("vector::insert - %x at %i", val, pos);
+			m_alloc.construct( &m_data[pos], val );
+			pos ++;
+			m_size ++;
+		}
+	}
+	template <class InputIterator>
+	void insert(iterator position, InputIterator first, InputIterator last) {
+		InputIterator	it = first;
+		size_type	len = 0;
+		while(it != last) {
+			++ it;
+			len ++;
+		}
+		reserve(m_size + len);
+		
+		it = first;
+		while(it != last)
+		{
+			//::_sys::debug("vector::insert - to %i, from %p:%i",
+			//	position.m_pos, it.m_array, it.m_pos);
+			position = insert(position, *it) + 1;
+			++it;
+		}
+	}
 	iterator erase(iterator position);
 	iterator erase(iterator first, iterator last);
 	//void swap(vector& x) {
@@ -245,6 +359,15 @@ public:
 			m_alloc.destroy( &m_data[i] );
 		}
 		m_size = 0;
+	}
+private:
+	iterator iterator_to(size_type index) {
+		_libcxx_assert(index <= m_size);
+		return iterator(m_data, index, m_size);
+	}
+	const_iterator iterator_to(size_type index) const {
+		_libcxx_assert(index <= m_size);
+		return const_iterator(m_data, index, m_size);
 	}
 };
 

@@ -57,3 +57,9 @@ void ::std::terminate()
 	logic_error(what_str)
 {
 }
+
+::std::runtime_error::runtime_error(const ::std::string& what_str):
+	exception(what_str)
+{
+}
+

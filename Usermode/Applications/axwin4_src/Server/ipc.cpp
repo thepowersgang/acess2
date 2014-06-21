@@ -41,7 +41,6 @@ int FillSelect(fd_set& rfds)
 	int ret = 0;
 	for( const auto channel : glChannels )
 	{
-		_SysDebug("IPC::FillSelect - channel=%p", channel);
 		assert(channel);
 		ret = ::std::max(ret, channel->FillSelect(rfds));
 	}
@@ -122,6 +121,9 @@ void HandleMessage_GetGlobalAttr(CClient& client, CDeserialiser& message)
 		reply.WriteU16( (w <= UINT16_MAX ? w : UINT16_MAX) );
 		reply.WriteU16( (h <= UINT16_MAX ? h : UINT16_MAX) );
 		break; }
+	case IPC_GLOBATTR_MAXAREA:
+		assert(!"TODO: IPC_GLOBATTR_MAXAREA");
+		break;
 	default:
 		throw IPC::CClientFailure("Bad global attribute ID");
 	}
@@ -195,6 +197,15 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 		int16_t new_y = message.ReadS16();
 		win->Move(new_x, new_y);
 		break; }
+	case IPC_WINATTR_SHOW:
+		win->Show( message.ReadU8() != 0 );
+		break;
+	case IPC_WINATTR_FLAGS:
+		_SysDebug("TODO: IPC_WINATTR_FLAGS");
+		break;
+	case IPC_WINATTR_TITLE:
+		assert(!"TODO: IPC_WINATTR_TITLE");
+		break;
 	default:
 		_SysDebug("HandleMessage_SetWindowAttr - Bad attr %u", attr_id);
 		throw IPC::CClientFailure("Bad window attr");
@@ -233,13 +244,12 @@ void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 	for( unsigned int row = 0; row < h; row ++ )
 	{
 		const ::std::vector<uint8_t> scanline_data = message.ReadBuffer();
-		_SysDebug("_PushData: Scanline %i: %i bytes", row, scanline_data.size());
 		if( scanline_data.size() != w * 4 ) {
 			_SysDebug("ERROR _PushData: Scanline buffer size mismatch (%i,%i)",
 				scanline_data.size(), w*4);
 			continue ;
 		}
-		win->m_surface.DrawScanline(y+row, x, w, scanline_data.data());
+		win->DrawScanline(y+row, x, w, scanline_data.data());
 	}
 }
 void HandleMessage_Blit(CClient& client, CDeserialiser& message)
@@ -284,9 +294,7 @@ void HandleMessage(CClient& client, CDeserialiser& message)
 		return ;
 	}
 	
-	_SysDebug("IPC::HandleMessage - command=%i", command);
 	(message_handlers[command])(client, message);
-	_SysDebug("IPC::HandleMessage - Completed");
 }
 
 CClientFailure::CClientFailure(std::string&& what):

@@ -2,13 +2,50 @@
  * Acess2 C++ Library
  * - By John Hodge (thePowersGang)
  *
- * string (header)
- * - C++'s String type
+ * algorithm (header)
+ * - C++'s generic algorithms
  */
 #ifndef _LIBCXX_ALGORITHM_
 #define _LIBCXX_ALGORITHM_
 
+#include <utility>
+
+#include "_libcxx_helpers.h"
+
 namespace std {
+
+// --- Non-modifiying sequence operations ---
+#if _CXX11_AVAIL
+// TODO: all_of
+// TODO: any_of
+// TODO: none_of
+#endif
+template <class InputIterator, class Function>
+Function for_each(InputIterator first, InputIterator last, Function fn)
+{
+	while( first != last )
+	{
+		fn( *first );
+		++ first;
+	}
+	return _CXX11_MOVE(fn);
+}
+
+template <class InputIterator, class T>
+InputIterator find(InputIterator first, InputIterator last, const T& val)
+{
+	while( first != last )
+	{
+		if( *first == val )
+			return first;
+		++ first;
+	}
+	return last;
+}
+// TODO: find_if
+// TODO: find_if_not (C++11)
+// TODO: find_end
+// TODO: find_first_of
 
 // Maximum
 template <class T>

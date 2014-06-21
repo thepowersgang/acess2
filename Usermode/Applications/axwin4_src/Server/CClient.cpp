@@ -24,7 +24,6 @@ CClient::~CClient()
 
 CWindow* CClient::GetWindow(int ID)
 {
-	_SysDebug("GetWindow(ID=%i)", ID);
 	try {
 		return m_windows.at(ID);
 	}

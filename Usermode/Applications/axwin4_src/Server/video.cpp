@@ -60,7 +60,7 @@ void CVideo::BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_
 	size_t	cmdlen = sizeof(struct ptycmd_senddata)/4 + width;
 	//_SysDebug(" - Offset = %i, cmdlen = %i", (dst_y * m_width + dst_x) * 4, cmdlen);
 	struct ptycmd_senddata	cmd = {
-		{PTY2D_CMD_SEND, cmdlen & 0xFF, cmdlen>>8},
+		{PTY2D_CMD_SEND, uint8_t(cmdlen & 0xFF), uint16_t(cmdlen>>8)},
 		(dst_y * m_width + dst_x)
 	};
 	SetBufFormat(PTYBUFFMT_2DCMD);

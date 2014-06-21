@@ -20,7 +20,6 @@ class CClient_AcessIPCPipe:
 {
 	friend class CIPCChannel_AcessIPCPipe;
 	 int	m_fd;
-	::std::vector<uint8_t>	m_rxbuf;
 public:
 	CClient_AcessIPCPipe(IIPCChannel& channel, int fd);
 	~CClient_AcessIPCPipe();

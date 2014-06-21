@@ -15,13 +15,20 @@ int main(int argc, const char *argv[])
 	
 	tAxWin4_Window	*bgwin = AxWin4_CreateWindow("background");
 	
+	unsigned int w, h;
+	AxWin4_GetScreenDimensions(0, &w, &h);
+
 	AxWin4_MoveWindow(bgwin, 0,0);
-	AxWin4_ResizeWindow(bgwin, 640,480);
-	//AxWin4_SetWindowFlags(bgwin, AXWIN4_WNDFLAG_NODECORATE|AXWIN4_WNDFLAG_KEEPBELOW);
+	AxWin4_ResizeWindow(bgwin, w,h);
+	AxWin4_SetWindowFlags(bgwin, AXWIN4_WNDFLAG_NODECORATE|AXWIN4_WNDFLAG_KEEPBELOW);
+	AxWin4_ShowWindow(bgwin, true);
 	
 	// Load image
-	//char *image = malloc(640*480*4);
-	//AxWin4_DrawBitmap(bgwin, 0, 0, 640, 480, image);
+	uint32_t *image = malloc(w*h*4);
+	for(size_t i = 0; i < w*h; i ++ )
+		image[i] = rand();
+	
+	AxWin4_DrawBitmap(bgwin, 0, 0, w, h, (void*)image);
 
 	_SysDebug("Beginning queue");
 	

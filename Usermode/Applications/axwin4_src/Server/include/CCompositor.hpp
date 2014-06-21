@@ -41,12 +41,14 @@ class CCompositor
 	::std::list<CWindow*>	m_windows;
 
 	::std::vector<TWindowID>	m_windowIDBuffer;	// One 32-bit value per pixel
-	//::std::vector<CPixel> 	m_frameBuffer;	// Local copy of the framebuffer (needed?)
 	
 public:
 	CCompositor(CVideo& video);
 
 	CWindow* CreateWindow(CClient& client, const ::std::string& name);
+
+	void	ShowWindow(CWindow* window);
+	void	HideWindow(CWindow* window);
 
 	bool	GetScreenDims(unsigned int ScrenID, unsigned int *Width, unsigned int *Height);
 

@@ -7,6 +7,7 @@
  */
 #include <CRect.hpp>
 #include <algorithm>
+#include <acess/sys.h>
 
 namespace AxWin {
 
@@ -57,10 +58,10 @@ CRect CRect::Intersection(const CRect& other) const
 	int x2 = ::std::min(m_x2, other.m_x2);
 	int y2 = ::std::min(m_y2, other.m_y2);
 	
-	if( x1 <= x2 || y2 <= y1 )
+	if( x2 <= x1 || y2 <= y1 )
 		return CRect();
 	
-	return CRect(x1, y1, x2-x1, y2-y2);
+	return CRect(x1, y1, x2-x1, y2-y1);
 }
 
 CRect CRect::RelativeIntersection(const CRect& area)

@@ -173,6 +173,53 @@ public:
 		}
 		m_item_count = 0;
 	}
+
+	void splice(iterator position, list& x) {
+		splice(position, x, x.begin(), x.end());
+	}
+	void splice(iterator position, list& x, iterator i) {
+		splice(position, x, i, x.end());
+	}
+	void splice(iterator position, list& x, iterator first, iterator last);
+
+private:
+	class _equal
+	{
+		const value_type&	m_val;
+	public:
+		_equal(const value_type& val):
+			m_val(val)
+		{
+		};
+		bool operator() (const value_type& v1)
+		{
+			return m_val == v1;
+		}
+	};
+public:
+	void remove(const value_type& val) {
+		remove_if(_equal(val));
+	}
+	template <class Predicate> void remove_if(Predicate pred) {
+		for( iterator it = begin(); it != end(); )
+		{
+			if( pred(*it) )
+				it = erase(it);
+			else
+				++ it;
+		}
+	}
+	
+	void unique();
+	template <class BinaryPredicate> void unique(BinaryPredicate binary_pred);
+	
+	void merge(list& x);
+	template <class Compare> void merge(list& x, Compare comp);
+	
+	void sort();
+	template <class Compare> void sort(Compare comp);
+	
+	void reverse() throw();
 private:
 	iterator insert_item(iterator position, item_type *newi) {
 		m_item_count ++;

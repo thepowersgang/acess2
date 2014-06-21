@@ -13,6 +13,7 @@
 namespace AxWin {
 
 extern void	SendMessage(CSerialiser& message);
+extern void	RecvMessage(CDeserialiser& message);
 
 };
 
