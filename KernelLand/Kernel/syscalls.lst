@@ -71,3 +71,7 @@ SYS_CHDIR	Change current directory
 SYS_GETCWD	Get current directory
 SYS_MOUNT	Mount a filesystem
 SYS_SELECT	Wait for file handles
+
+SYS_MARSHALFD	Create a reference to a FD suitable for handing to another process
+SYS_UNMARSHALFD	Accept a marshaled FD
+

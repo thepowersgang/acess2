@@ -15,15 +15,28 @@
 #define MAX_PATH_SLASHES	256
 #define MAX_NESTED_LINKS	4
 #define MAX_PATH_LEN	255
+#define MAX_MARSHALLED_HANDLES	16	// Max outstanding
 
 // === IMPORTS ===
 extern tVFS_Mount	*gVFS_RootMount;
 extern tVFS_Node	*VFS_MemFile_Create(const char *Path);
 
+// === TYPES ===
+typedef struct sVFS_MarshaledHandle
+{
+	Uint32	Magic;
+	tTime	AllocTime;
+	tVFS_Handle	Handle;
+} tVFS_MarshalledHandle;
+
 // === PROTOTYPES ===
 void	_ReferenceMount(tVFS_Mount *Mount, const char *DebugTag);
 void	_DereferenceMount(tVFS_Mount *Mount, const char *DebugTag);
  int	VFS_int_CreateHandle(tVFS_Node *Node, tVFS_Mount *Mount, int Mode);
+
+// === GLOBALS ===
+tMutex	glVFS_MarshalledHandles;
+tVFS_MarshalledHandle	gaVFS_MarshalledHandles[MAX_MARSHALLED_HANDLES];
 
 // === CODE ===
 void _ReferenceMount(tVFS_Mount *Mount, const char *DebugTag)
@@ -733,6 +746,7 @@ int VFS_Reopen(int FD, const char *Path, int Flags)
 
 	int newf = VFS_Open(Path, Flags);
 	if( newf == -1 ) {
+		// errno = set by VFS_Open
 		return -1;
 	}
 	
@@ -759,11 +773,13 @@ void VFS_Close(int FD)
 	h = VFS_GetHandle(FD);
 	if(h == NULL) {
 		Log_Warning("VFS", "Invalid file handle passed to VFS_Close, 0x%x", FD);
+		errno = EINVAL;
 		return;
 	}
 
 	if( h->Node == NULL ) {
 		Log_Warning("VFS", "Non-open handle passed to VFS_Close, 0x%x", FD);
+		errno = EINVAL;
 		return ;
 	}	
 
@@ -771,6 +787,7 @@ void VFS_Close(int FD)
 	if(h->Node->Close && !MM_GetPhysAddr(h->Node->Close)) {
 		Log_Warning("VFS", "Node %p's ->Close method is invalid (%p)",
 			h->Node, h->Node->Close);
+		errno = EINTERNAL;
 		return ;
 	}
 	#endif
@@ -918,6 +935,96 @@ int VFS_ChRoot(const char *New)
 	LOG("Updated Root to '%s'", buf);
 	
 	return 1;
+}
+
+/*
+ * Marshal a handle so that it can be transferred between processes
+ */
+Uint64 VFS_MarshalHandle(int FD)
+{
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	if(!h || !h->Node) {
+		errno = EBADF;
+		return -1;
+	}
+	
+	// Allocate marshal location
+	 int	ret = -1;
+	Mutex_Acquire(&glVFS_MarshalledHandles);
+	for( int i = 0; i < MAX_MARSHALLED_HANDLES; i ++ )
+	{
+		tVFS_MarshalledHandle*	mh = &gaVFS_MarshalledHandles[i];
+		if( mh->Handle.Node == NULL ) {
+			mh->Handle.Node = h->Node;
+			mh->AllocTime = now();
+			ret = i;
+		}
+		if( now() - mh->AllocTime > 2000 ) {
+			Log_Notice("VFS", "TODO: Expire marshalled handle");
+		}
+	}
+	Mutex_Release(&glVFS_MarshalledHandles);
+	if( ret < 0 ) {
+		// TODO: Need to clean up lost handles to avoid DOS
+		Log_Warning("VFS", "Out of marshaled handle slots");
+		errno = EAGAIN;
+		return -1;
+	}
+	
+	// Populate
+	tVFS_MarshalledHandle*	mh = &gaVFS_MarshalledHandles[ret];
+	mh->Handle = *h;
+	_ReferenceMount(h->Mount, "MarshalHandle");
+	_ReferenceNode(h->Node);
+	mh->Magic = rand();
+	
+	return (Uint64)mh->Magic << 32 | ret;
+}
+
+/*
+ * Un-marshal a handle into the current process
+ * NOTE: Does not support unmarshalling into kernel handle list
+ */
+int VFS_UnmarshalHandle(Uint64 Handle)
+{
+	Uint32	magic = Handle >> 32;
+	 int	id = Handle & 0xFFFFFFFF;
+	
+	// Range check
+	if( id >= MAX_MARSHALLED_HANDLES ) {
+		LOG("ID too high (%i > %i)", id, MAX_MARSHALLED_HANDLES);
+		errno = EINVAL;
+		return -1;
+	}
+	
+	
+	// Check validity
+	tVFS_MarshalledHandle	*mh = &gaVFS_MarshalledHandles[id];
+	if( mh->Handle.Node == NULL ) {
+		LOG("Target node is NULL");
+		errno = EINVAL;
+		return -1;
+	}
+	if( mh->Magic != magic ) {
+		LOG("Magic mismatch (0x%08x != 0x%08x)", magic, mh->Magic);
+		errno = EACCES;
+		return -1;
+	}
+	
+	Mutex_Acquire(&glVFS_MarshalledHandles);
+	// - Create destination handle
+	 int	ret = VFS_AllocHandle(true, mh->Handle.Node, mh->Handle.Mode);
+	// - Clear allocation
+	mh->Handle.Node = NULL;
+	Mutex_Release(&glVFS_MarshalledHandles);
+	if( ret == -1 ) {
+		errno = ENFILE;
+		return -1;
+	}
+	
+	// No need to reference node/mount, new handle takes marshalled reference
+	
+	return ret;
 }
 
 // === EXPORTS ===

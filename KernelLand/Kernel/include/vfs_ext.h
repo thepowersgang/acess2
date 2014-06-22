@@ -227,6 +227,20 @@ extern int	VFS_DuplicateFD(int SrcFD, int DstFD);
 extern int	VFS_SetFDFlags(int FD, int Mask, int Value);
 
 /**
+ * \brief Save specified file handle such that it can be passed between processes
+ * \param FD	File descriptor to save
+ * \return Marshalled handle, or (uint64_t)-1 on error
+ */
+extern Uint64	VFS_MarshalHandle(int FD);
+
+/**
+ * \brief Restore a marshalled handle into the current process
+ * \param Handle returned by VFS_MarshalHandle
+ * \return File descriptor, or -1 on error
+ */
+extern int	VFS_UnmarshalHandle(Uint64 Handle);
+
+/**
  * \brief Get file information from an open file
  * \param FD	File handle returned by ::VFS_Open
  * \param Dest	Destination for the read information

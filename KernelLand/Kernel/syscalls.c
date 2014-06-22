@@ -403,7 +403,19 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	case SYS_UNLINK:
 		Log_Error("Syscalls", "TODO: Impliment SYS_UNLINK");
-		// Fall
+		break;
+	
+	case SYS_MARSHALFD:
+		ret = VFS_MarshalHandle(Regs->Arg1);
+		break;
+	case SYS_UNMARSHALFD:
+		#if BITS == 64
+		ret = VFS_UnmarshalHandle( Regs->Arg1 );
+		#else
+		ret = VFS_UnmarshalHandle( ARG64(1,2) );
+		#endif
+		break;
+
 	// -- Debug
 	//#if DEBUG_BUILD
 	case SYS_DEBUG:
