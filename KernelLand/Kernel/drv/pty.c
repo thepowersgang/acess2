@@ -85,6 +85,7 @@ tVFS_NodeType	gPTY_NodeType_Root = {
 };
 tVFS_NodeType	gPTY_NodeType_Client = {
 	.TypeName = "PTY-Client",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = PTY_ReadClient,
 	.Write = PTY_WriteClient,
 	.IOCtl = PTY_IOCtl,
@@ -93,6 +94,7 @@ tVFS_NodeType	gPTY_NodeType_Client = {
 };
 tVFS_NodeType	gPTY_NodeType_Server = {
 	.TypeName = "PTY-Server",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = PTY_ReadServer,
 	.Write = PTY_WriteServer,
 	.IOCtl = PTY_IOCtl,
@@ -235,6 +237,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	if( InitialMode )
 		ret->Mode = *InitialMode;
 	// - Client node
+	ret->ClientNode.Size = -1;
 	ret->ClientNode.ImplPtr = ret;
 	ret->ClientNode.Type = &gPTY_NodeType_Client;
 	ret->ClientNode.UID = Threads_GetUID();

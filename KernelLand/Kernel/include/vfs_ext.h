@@ -329,6 +329,16 @@ extern size_t	VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer);
 extern size_t	VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer);
 
 /**
+ * \brief Set the valid size of a file
+ * \param FD	File descriptor
+ * \param Size	New file size
+ * \return Actual new file size (-1 if error occurred)
+ *
+ * \note Not all files support this call (will return ENOTIMPL)
+ */
+extern off_t	VFS_Truncate(int FD, off_t Size);
+
+/**
  * \brief Sends an IOCtl request to the driver
  * \param FD	File handle returned by ::VFS_Open
  * \param ID	IOCtl call ID (driver specific)

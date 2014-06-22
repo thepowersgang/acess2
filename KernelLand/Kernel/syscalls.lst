@@ -56,6 +56,7 @@ SYS_READ	Read from an open file
 SYS_READAT	Read from an open file (with offset)
 SYS_WRITE	Write to an open file
 SYS_WRITEAT	Write to an open file (with offset)
+SYS_TRUNCATE	Change the size of an open file
 SYS_IOCTL	Perform an IOCtl Call
 SYS_SEEK	Seek to a new position in the file
 SYS_READDIR	Read from an open directory
@@ -71,7 +72,8 @@ SYS_CHDIR	Change current directory
 SYS_GETCWD	Get current directory
 SYS_MOUNT	Mount a filesystem
 SYS_SELECT	Wait for file handles
-
+SYS_MMAP	Map a file into this address space
+SYS_MUNMAP	Unmap a file
 SYS_MARSHALFD	Create a reference to a FD suitable for handing to another process
 SYS_UNMARSHALFD	Accept a marshaled FD
 

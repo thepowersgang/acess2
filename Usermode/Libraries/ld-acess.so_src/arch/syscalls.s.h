@@ -55,6 +55,7 @@ SYSCALL3(_SysRead, SYS_READ)	// int, uint, void*
 SYSCALL5(_SysReadAt, SYS_READAT)	// int, uint, uint64, void*
 SYSCALL3(_SysWrite, SYS_WRITE)	// int, uint, void*
 SYSCALL5(_SysWriteAt, SYS_WRITEAT)	// int, uint, uint64, void*
+SYSCALL3(_SysTruncate, SYS_TRUNCATE)	// int, uint64
 SYSCALL4(_SysSeek, SYS_SEEK)	// int, uint64_t, int
 SYSCALL1(_SysTell, SYS_TELL)	// int
 SYSCALL3(_SysFInfo, SYS_FINFO)	// int, void*, int
@@ -67,4 +68,10 @@ SYSCALL6(_SysSelect, SYS_SELECT)	// int, fd_set*, fd_set*, fd_set*, tTime*, uint
 
 SYSCALL1(_SysMkDir, SYS_MKDIR)	// const char*
 SYSCALL1(_SysUnlink, SYS_UNLINK)	// const char*
+
+SYSCALL6(_SysMMap, SYS_MMAP)
+SYSCALL2(_SysMUnMap, SYS_MUNMAP)
+
+SYSCALL1(_SysMarshalFD, SYS_MARSHALFD)
+SYSCALL2(_SysUnMarshalFD, SYS_UNMARSHALFD)
 

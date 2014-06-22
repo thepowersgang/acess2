@@ -33,6 +33,8 @@ Uint16	UDP_int_FinaliseChecksum(Uint16 Value);
 
 // === GLOBALS ===
 tVFS_NodeType	gUDP_NodeType = {
+	.TypeName = "UDP",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = UDP_Channel_Read,
 	.Write = UDP_Channel_Write,
 	.IOCtl = UDP_Channel_IOCtl,
@@ -189,6 +191,7 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 	tUDPChannel	*new;
 	new = calloc( sizeof(tUDPChannel), 1 );
 	new->Interface = Interface;
+	new->Node.Size = -1;
 	new->Node.ImplPtr = new;
 	new->Node.NumACLs = 1;
 	new->Node.ACLs = &gVFS_ACL_EveryoneRW;

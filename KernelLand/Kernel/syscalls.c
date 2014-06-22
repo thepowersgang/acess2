@@ -293,6 +293,17 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#endif
 		break;
 	
+	case SYS_TRUNCATE:
+		ret = VFS_Truncate(
+			Regs->Arg1,
+			#if BITS == 32
+			ARG64(2,3)
+			#else
+			Regs->Arg2
+			#endif
+			);
+		break;
+	
 	case SYS_FINFO:
 		CHECK_NUM_NONULL( (void*)Regs->Arg2, sizeof(tFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
 		// FP, Dest, MaxACLs
@@ -394,6 +405,21 @@ void SyscallHandler(tSyscallRegs *Regs)
 			);
 		break;
 
+	case SYS_MMAP:
+		ret = (tVAddr)VFS_MMap(
+			(void*)Regs->Arg1, Regs->Arg2,
+			Regs->Arg3&0xFFFF, Regs->Arg3>>16,
+			Regs->Arg4,
+			#if BITS == 32
+			ARG64(5,6)
+			#else
+			Regs->Arg5
+			#endif
+			);
+		break;
+	case SYS_MUNMAP:
+		ret = VFS_MUnmap( (void*)Regs->Arg1, Regs->Arg2 );
+		break;
 	
 	// Create a directory
 	case SYS_MKDIR:

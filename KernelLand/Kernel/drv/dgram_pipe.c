@@ -86,6 +86,7 @@ tVFS_NodeType	gIPCPipe_ServerNodeType = {
 };
 tVFS_NodeType	gIPCPipe_ChannelNodeType = {
 	.TypeName = "IPC Pipe - Channel",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = IPCPipe_Client_Read,
 	.Write = IPCPipe_Client_Write,
 	.Close = IPCPipe_Client_Close
@@ -211,8 +212,10 @@ tVFS_Node *IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 	new_client->Server = srv;
 	new_client->ClientEP.Node.Type = &gIPCPipe_ChannelNodeType;
 	new_client->ClientEP.Node.ImplPtr = new_client;
+	new_client->ClientEP.Node.Size = -1;
 	new_client->ServerEP.Node.Type = &gIPCPipe_ChannelNodeType;
 	new_client->ServerEP.Node.ImplPtr = new_client;
+	new_client->ServerEP.Node.Size = -1;
 
 	// Append to server list
 	RWLock_AcquireWrite(&srv->lChannelList);

@@ -461,9 +461,9 @@ int Vesa_Int_SetMode(int mode)
 	
 	Mutex_Release( &glVesa_Lock );
 
-	// TODO: Disableable backbuffer
-	gVesa_BufInfo.BackBuffer  = realloc(gVesa_BufInfo.BackBuffer,
-		modeptr->height * modeptr->pitch);
+	// TODO: Allow disabling of back-buffer
+	gVesa_DriverStruct.RootNode.Size = modeptr->height * modeptr->pitch;
+	gVesa_BufInfo.BackBuffer  = realloc(gVesa_BufInfo.BackBuffer, modeptr->height * modeptr->pitch);
 	gVesa_BufInfo.Framebuffer = gpVesa_Framebuffer;
 	gVesa_BufInfo.Pitch = modeptr->pitch;
 	gVesa_BufInfo.Width = modeptr->width;

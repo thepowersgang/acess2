@@ -481,7 +481,6 @@ tPID Proc_Clone(Uint Flags)
 	tThread	*cur = Proc_GetCurThread();
 	Uint	eip;
 
-	Log_Warning("Proc", "Proc_Clone is deprecated");
 	// Sanity, please
 	if( !(Flags & CLONE_VM) ) {
 		Log_Error("Proc", "Proc_Clone: Don't leave CLONE_VM unset, use Proc_NewKThread instead");

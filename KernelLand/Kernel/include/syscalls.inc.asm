@@ -48,20 +48,23 @@
 %define SYS_READAT	72	 ;Read from an open file (with offset)
 %define SYS_WRITE	73	 ;Write to an open file
 %define SYS_WRITEAT	74	 ;Write to an open file (with offset)
-%define SYS_IOCTL	75	 ;Perform an IOCtl Call
-%define SYS_SEEK	76	 ;Seek to a new position in the file
-%define SYS_READDIR	77	 ;Read from an open directory
-%define SYS_GETACL	78	 ;Get an ACL Value
-%define SYS_SETACL	79	 ;Set an ACL Value
-%define SYS_FINFO	80	 ;Get file information
-%define SYS_MKDIR	81	 ;Create a new directory
-%define SYS_LINK	82	 ;Create a new link to a file
-%define SYS_SYMLINK	83	 ;Create a symbolic link
-%define SYS_UNLINK	84	 ;Delete a file
-%define SYS_TELL	85	 ;Return the current file position
-%define SYS_CHDIR	86	 ;Change current directory
-%define SYS_GETCWD	87	 ;Get current directory
-%define SYS_MOUNT	88	 ;Mount a filesystem
-%define SYS_SELECT	89	 ;Wait for file handles
-%define SYS_MARSHALFD	90	 ;Create a reference to a FD suitable for handing to another process
-%define SYS_UNMARSHALFD	91	 ;Accept a marshaled FD
+%define SYS_TRUNCATE	75	 ;Change the size of an open file
+%define SYS_IOCTL	76	 ;Perform an IOCtl Call
+%define SYS_SEEK	77	 ;Seek to a new position in the file
+%define SYS_READDIR	78	 ;Read from an open directory
+%define SYS_GETACL	79	 ;Get an ACL Value
+%define SYS_SETACL	80	 ;Set an ACL Value
+%define SYS_FINFO	81	 ;Get file information
+%define SYS_MKDIR	82	 ;Create a new directory
+%define SYS_LINK	83	 ;Create a new link to a file
+%define SYS_SYMLINK	84	 ;Create a symbolic link
+%define SYS_UNLINK	85	 ;Delete a file
+%define SYS_TELL	86	 ;Return the current file position
+%define SYS_CHDIR	87	 ;Change current directory
+%define SYS_GETCWD	88	 ;Get current directory
+%define SYS_MOUNT	89	 ;Mount a filesystem
+%define SYS_SELECT	90	 ;Wait for file handles
+%define SYS_MMAP	91	 ;Map a file into this address space
+%define SYS_MUNMAP	92	 ;Unmap a file
+%define SYS_MARSHALFD	93	 ;Create a reference to a FD suitable for handing to another process
+%define SYS_UNMARSHALFD	94	 ;Accept a marshaled FD

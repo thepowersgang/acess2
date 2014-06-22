@@ -100,15 +100,31 @@ size_t VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer)
  */
 size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 {
-	tVFS_Handle	*h;
-	size_t	ret;
-	
-	h = VFS_GetHandle(FD);
+	tVFS_Handle	*h = VFS_GetHandle(FD);
 	if(!h) {
 		LOG("FD%i is not open", FD);
 		errno = EBADF;
 		return -1;
 	}
+	
+	size_t ret = VFS_WriteAt(FD, h->Position, Length, Buffer);
+	if(ret == (size_t)-1)	return -1;
+
+	if( !(h->Node->Type->Flags & VFS_NODETYPEFLAG_STREAM) )
+		h->Position += ret;
+	return ret;
+}
+
+/**
+ * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
+ * \brief Write data to a file at a given offset
+ */
+size_t VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer)
+{
+	LOG("FD=%i,Offset=%lli,Length=%i,Buffer=%p",
+		FD, Offset, Length, Buffer);
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	if(!h)	return -1;
 	
 	if( !(h->Mode & VFS_OPENFLAG_WRITE) ) {
 		LOG("FD%i not opened for writing", FD);
@@ -121,57 +137,63 @@ size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 		return -1;
 	}
 
-	if( !h->Node->Type || !h->Node->Type->Write ) {
+	const tVFS_NodeType*	nodetype = h->Node->Type;
+	if(!nodetype || !nodetype->Write) {
 		LOG("FD%i has no write method", FD);
 		errno = EINTERNAL;
 		return 0;
 	}
-
-	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
+	
+	if( !MM_GetPhysAddr(nodetype->Write) ) {
 		Log_Error("VFS", "Node type %p(%s) write method is junk %p",
-			h->Node->Type, h->Node->Type->TypeName,
-			h->Node->Type->Write);
+			nodetype, nodetype->TypeName, nodetype->Write);
 		errno = EINTERNAL;
 		return -1;
 	}
 	
-	Uint flags = 0;
-	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
-	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer, flags);
-	if(ret != Length)	LOG("%i/%i written", ret, Length);
-	if(ret == (size_t)-1)	return -1;
-
-	h->Position += ret;
-	return ret;
-}
-
-/**
- * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
- * \brief Write data to a file at a given offset
- */
-size_t VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer)
-{
-	tVFS_Handle	*h;
-	size_t	ret;
-	
-	h = VFS_GetHandle(FD);
-	if(!h)	return -1;
-	
-	if( !(h->Mode & VFS_OPENFLAG_WRITE) )	return -1;
-	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
-
-	if(!h->Node->Type || !h->Node->Type->Write)	return 0;
-
-	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
-		Log_Error("VFS", "Node type %p(%s) write method is junk %p",
-			h->Node->Type, h->Node->Type->TypeName,
-			h->Node->Type->Write);
-		return -1;
+	// Bounds checks
+	if( h->Node->Size != (Uint64)-1 && Offset > h->Node->Size ) {
+		Log_Notice("VFS", "Write starting past EOF of FD%x (%lli > %lli)",
+			FD, Offset, h->Node->Size);
+		//errno = ESPIPE;
+		return 0;
 	}
+	if( Offset + Length > h->Node->Size )
+	{
+		// Going OOB
+		if( !nodetype->Truncate )
+		{
+			LOG("No .Truncate method, emiting write past EOF");
+		}
+		else if( nodetype->Flags & VFS_NODETYPEFLAG_NOAUTOEXPAND )
+		{
+			LOG("NOAUTOEXPAND set, truncating length from %i to %i",
+				Length, h->Node->Size - Offset);
+			Length = h->Node->Size - Offset;
+		}
+		else if( nodetype->Truncate(h->Node, Offset + Length) != Offset + Length )
+		{
+			// oh... fail? Truncate to current size
+			LOG(".Truncate failed, truncating length from %i to %i",
+				Length, h->Node->Size - Offset);
+			Length = h->Node->Size - Offset;
+		}
+		else
+		{
+			// Expansion, node size should now fit
+			LOG("Expanded file");
+		}
+	}
+	
+	// Create flag set
 	Uint flags = 0;
 	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
-	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer, flags);
+	
+	// Dispatch the read!
+	size_t ret = nodetype->Write(h->Node, Offset, Length, Buffer, flags);
 	if(ret == (size_t)-1)	return -1;
+	if(ret != Length)	LOG("%i/%i written", ret, Length);
+
 	return ret;
 }
 
@@ -198,10 +220,13 @@ Uint64 VFS_Tell(int FD)
  */
 int VFS_Seek(int FD, Sint64 Offset, int Whence)
 {
-	tVFS_Handle	*h;
-	
-	h = VFS_GetHandle(FD);
+	tVFS_Handle	*h = VFS_GetHandle(FD);
 	if(!h)	return -1;
+	
+	if( (h->Node->Type->Flags & VFS_NODETYPEFLAG_STREAM) ) {
+		LOG("Seeking in stream");
+		return -1;
+	}
 	
 	// Set relative to current position
 	if(Whence == 0) {
@@ -225,15 +250,33 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	return 0;
 }
 
+/*
+ * Truncate/Expand a file's allocation
+ */
+off_t VFS_Truncate(int FD, off_t Size)
+{
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	if(!h) {
+		errno = EBADF;
+		return -1;
+	}
+	
+	if( !h->Node->Type->Truncate)
+	{
+		errno = ENOTIMPL;
+		return -1;	
+	}
+	
+	return h->Node->Type->Truncate(h->Node, Size);
+}
+
 /**
  * \fn int VFS_IOCtl(int FD, int ID, void *Buffer)
  * \brief Call an IO Control on a file
  */
 int VFS_IOCtl(int FD, int ID, void *Buffer)
 {
-	tVFS_Handle	*h;
-	
-	h = VFS_GetHandle(FD);
+	tVFS_Handle	*h = VFS_GetHandle(FD);
 	if(!h) {
 		LOG("FD%i is invalid", FD);
 		errno = EINVAL;

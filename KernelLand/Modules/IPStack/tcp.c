@@ -67,6 +67,7 @@ tVFS_NodeType	gTCP_ServerNodeType = {
 	};
 tVFS_NodeType	gTCP_ClientNodeType = {
 	.TypeName = "TCP Client/Connection",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read  = TCP_Client_Read,
 	.Write = TCP_Client_Write,
 	.IOCtl = TCP_Client_IOCtl,
