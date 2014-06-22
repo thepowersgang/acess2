@@ -40,7 +40,7 @@ bool CIPCChannel_AcessIPCPipe::HandleSelect(const fd_set& fds)
 			throw ::std::system_error(errno, ::std::system_category());
 		rxbuf.resize(len);
 		_SysDebug("CClient_AcessIPCPipe::HandleReceive - Rx %i/%i bytes", len, rxbuf.capacity());
-		_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", rxbuf.data(), len);
+		//_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", rxbuf.data(), len);
 		
 		CDeserialiser	msg(rxbuf);
 		::AxWin::RecvMessage( msg );

@@ -13,6 +13,8 @@ class CSurface
 public:
 	CSurface(int x, int y, unsigned int w, unsigned int h);
 	~CSurface();
+
+	uint64_t GetSHMHandle();
 	
 	void Resize(unsigned int new_w, unsigned int new_h);
 	
@@ -21,6 +23,8 @@ public:
 	
 	CRect	m_rect;
 	uint32_t*	m_data;
+private:
+	int	m_fd;
 };
 
 };	// namespace AxWin

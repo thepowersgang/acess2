@@ -26,6 +26,7 @@ enum
 	IPCMSG_GETWINBUF,	// get a handle to the window's buffer
 	
 	// - Window drawing commands
+	IPCMSG_DAMAGERECT,	//  (u16 win, u16 x, u16 y, u16 w, u16 h) - Force reblit of area
 	//IPCMSG_DRAWGROUP,	// (u16 win, u16 group_id) - (hint) Switch to this group
 	//IPCMSG_CLEAR,	// (u16 win) - (hint) Clear current drawing group
 	IPCMSG_PUSHDATA,	// (u16 win, u16 x, u16 y, u16 w, u16 h, void data)

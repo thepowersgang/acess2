@@ -23,12 +23,15 @@ int main(int argc, const char *argv[])
 	AxWin4_SetWindowFlags(bgwin, AXWIN4_WNDFLAG_NODECORATE|AXWIN4_WNDFLAG_KEEPBELOW);
 	AxWin4_ShowWindow(bgwin, true);
 	
+	
+	uint32_t *buf = AxWin4_GetWindowBuffer(bgwin);
+	_SysDebug("buf = %p", buf);
 	// Load image
 	uint32_t *image = malloc(w*h*4);
 	for(size_t i = 0; i < w*h; i ++ )
-		image[i] = rand();
+		image[i] = i*(0x1000000/w*h);
 	
-	AxWin4_DrawBitmap(bgwin, 0, 0, w, h, (void*)image);
+	//AxWin4_DrawBitmap(bgwin, 0, 0, w, h, (void*)image);
 
 	_SysDebug("Beginning queue");
 	

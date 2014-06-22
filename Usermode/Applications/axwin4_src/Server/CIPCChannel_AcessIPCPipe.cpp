@@ -98,7 +98,7 @@ void CClient_AcessIPCPipe::SendMessage(CSerialiser& message)
 	const ::std::vector<uint8_t>&	data = message.Compact();
 	
 	_SysDebug("CClient_AcessIPCPipe::SendMessage - %i bytes to %i", data.size(), m_fd);
-	_SysDebugHex("CClient_AcessIPCPipe::SendMessage", data.data(), data.size());
+	//_SysDebugHex("CClient_AcessIPCPipe::SendMessage", data.data(), data.size());
 	_SysWrite(m_fd, data.data(), data.size());
 }
 
@@ -109,7 +109,7 @@ void CClient_AcessIPCPipe::HandleReceive()
 	if( len == (size_t)-1 )
 		throw ::std::system_error(errno, ::std::system_category());
 	//_SysDebug("CClient_AcessIPCPipe::HandleReceive - Rx %i/%i bytes", len, rxbuf.capacity());
-	//_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", m_rxbuf.data(), len);
+	//_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", rxbuf.data(), len);
 	rxbuf.resize(len);
 	
 	CDeserialiser	msg( ::std::move(rxbuf) );

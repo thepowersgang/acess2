@@ -58,6 +58,20 @@ bool CDeserialiser::IsConsumed() const
 		return ~rv_u + 1;
 }
 
+::uint32_t CDeserialiser::ReadU32()
+{
+	uint32_t rv = ReadU16();
+	rv |= (uint32_t)ReadU16() << 16;
+	return rv;
+}
+
+::uint64_t CDeserialiser::ReadU64()
+{
+	uint64_t rv = ReadU32();
+	rv |= (uint64_t)ReadU32() << 32;
+	return rv;
+}
+
 const ::std::vector<uint8_t> CDeserialiser::ReadBuffer()
 {
 	RangeCheck("CDeserialiser::ReadBuffer(len)", 2);
@@ -114,6 +128,20 @@ void CSerialiser::WriteS16(::int16_t Value)
 	{
 		WriteU16(Value);
 	}
+}
+
+void CSerialiser::WriteU32(::uint32_t Value)
+{
+	m_data.push_back(Value & 0xFF);
+	m_data.push_back(Value >>  8);
+	m_data.push_back(Value >> 16);
+	m_data.push_back(Value >> 24);
+}
+
+void CSerialiser::WriteU64(::uint64_t Value)
+{
+	WriteU32(Value);
+	WriteU32(Value>>32);
 }
 
 void CSerialiser::WriteBuffer(size_t n, const void* val)

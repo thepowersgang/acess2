@@ -224,7 +224,21 @@ void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
 
 void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO HandleMessage_GetWindowBuffer");
+	uint16_t	win_id = message.ReadU16();
+	_SysDebug("_SetWindowAttr: (%i)", win_id);
+	
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_PushData: Bad window");
+	}
+	
+	uint64_t handle = win->m_surface.GetSHMHandle();
+	
+	CSerialiser	reply;
+	reply.WriteU8(IPCMSG_REPLY);
+	reply.WriteU16(win_id);
+	reply.WriteU64(handle);
+	client.SendMessage(reply);
 }
 
 void HandleMessage_PushData(CClient& client, CDeserialiser& message)
@@ -234,7 +248,7 @@ void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
-	_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
+	//_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -280,6 +294,7 @@ MessageHandler_op_t	*message_handlers[] = {
 	[IPCMSG_GETWINATTR] = &HandleMessage_GetWindowAttr,
 	[IPCMSG_SENDIPC]    = &HandleMessage_SendIPC,	// Use the GUI server for low-bandwith IPC
 	[IPCMSG_GETWINBUF]  = &HandleMessage_GetWindowBuffer,
+	[IPCMSG_DAMAGERECT] = nullptr,
 	[IPCMSG_PUSHDATA]   = &HandleMessage_PushData,	// to a window's buffer
 	[IPCMSG_BLIT]       = &HandleMessage_Blit,	// Copy data from one part of the window to another
 	[IPCMSG_DRAWCTL]    = &HandleMessage_DrawCtl,	// Draw a control

@@ -35,6 +35,8 @@ extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 	tAxWin4_Window *ret = new tAxWin4_Window();
 	gWindowList[id] = ret;
 	ret->m_id = id;
+	ret->m_fd = -1;
+	ret->m_buffer = nullptr;
 	// Request creation of window
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_CREATEWIN);
@@ -97,11 +99,30 @@ extern "C" void AxWin4_SetTitle(tAxWin4_Window *Window, const char *Title)
 
 extern "C" void *AxWin4_GetWindowBuffer(tAxWin4_Window *Window)
 {
-	//if( !Window->m_buffer )
-	//{
-	//	// TODO: Support non-blocking operations	
-	//}
-	return NULL;
+	if( Window->m_fd == -1 )
+	{
+		CSerialiser	req;
+		req.WriteU8(IPCMSG_GETWINBUF);
+		req.WriteU16(Window->m_id);
+		
+		CDeserialiser	response = GetSyncReply(req, IPCMSG_GETWINBUF);
+		if( response.ReadU16() != Window->m_id ) {
+			
+		}
+		
+		uint64_t handle = response.ReadU64();
+		Window->m_fd = _SysUnMarshalFD(handle);
+		
+		_SysDebug("AxWin4_GetWindowBuffer: %llx = %i", handle, Window->m_fd);
+	}
+
+	if( !Window->m_buffer )
+	{
+		size_t	size = 640*480*4;
+		Window->m_buffer = _SysMMap(NULL, size, MMAP_PROT_WRITE, MMAP_MAP_SHARED, Window->m_fd, 0);
+	}
+
+	return Window->m_buffer;
 }
 
 };	// namespace AxWin

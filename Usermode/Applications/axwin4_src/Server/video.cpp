@@ -57,7 +57,8 @@ void CVideo::GetDims(unsigned int& w, unsigned int& h)
 void CVideo::BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_x, unsigned int width)
 {
 	//_SysDebug("CVideo::BlitLine (%p, %i, %i, %i)", src, dst_y, dst_x, width);
-	size_t	cmdlen = sizeof(struct ptycmd_senddata)/4 + width;
+	//_SysDebugHex("CVideo::BlitLine", src, width*4);
+	size_t	cmdlen = (sizeof(struct ptycmd_senddata) + width*4)/4;
 	//_SysDebug(" - Offset = %i, cmdlen = %i", (dst_y * m_width + dst_x) * 4, cmdlen);
 	struct ptycmd_senddata	cmd = {
 		{PTY2D_CMD_SEND, uint8_t(cmdlen & 0xFF), uint16_t(cmdlen>>8)},
@@ -66,11 +67,6 @@ void CVideo::BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_
 	SetBufFormat(PTYBUFFMT_2DCMD);
 	_SysWrite(m_fd, &cmd, sizeof(cmd));
 	_SysWrite(m_fd, src, width*4);
-
-	//SetBufFormat(PTYBUFFMT_FB);
-	//_SysWriteAt(m_fd, (dst_y * m_width + dst_x) * 4, width * 4, src);
-	//_SysSeek(m_fd, (dst_y * m_width + dst_x) * 4, SEEK_SET);
-	//_SysWrite(m_fd, src, width * 4);
 }
 
 void CVideo::Flush()

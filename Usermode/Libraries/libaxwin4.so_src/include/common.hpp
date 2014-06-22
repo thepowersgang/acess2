@@ -14,12 +14,15 @@ namespace AxWin {
 
 extern void	SendMessage(CSerialiser& message);
 extern void	RecvMessage(CDeserialiser& message);
+extern CDeserialiser	GetSyncReply(CSerialiser& request, unsigned int Message);
 
 };
 
 struct sAxWin4_Window
 {
 	unsigned int	m_id;
+	 int	m_fd;
+	void	*m_buffer;
 };
 
 #endif

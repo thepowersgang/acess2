@@ -15,6 +15,7 @@ namespace AxWin {
 void _push_data(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, const void *Data)
 {
 	CSerialiser	message;
+	//_SysDebug("_push_data - (%i,%i), %ix%i %p", X, Y, W, H, Data);
 	message.WriteU8(IPCMSG_PUSHDATA);
 	message.WriteU16(Window->m_id);
 	message.WriteU16(X);

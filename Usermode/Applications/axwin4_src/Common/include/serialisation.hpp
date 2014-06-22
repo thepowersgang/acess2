@@ -37,6 +37,8 @@ public:
 	::uint8_t	ReadU8();
 	::uint16_t	ReadU16();
 	::int16_t	ReadS16();
+	::uint32_t	ReadU32();
+	::uint64_t	ReadU64();
 	const ::std::vector<uint8_t>	ReadBuffer();
 	const ::std::string	ReadString();
 private:
@@ -51,6 +53,8 @@ public:
 	void WriteU8(::uint8_t val);
 	void WriteU16(::uint16_t val);
 	void WriteS16(::int16_t val);
+	void WriteU32(::uint32_t val);
+	void WriteU64(::uint64_t val);
 	void WriteBuffer(size_t n, const void* val);
 	void WriteString(const char* val, size_t n);
 	void WriteString(const char* val) {

@@ -97,7 +97,7 @@ void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
 	for( unsigned int i = 0; i < src_rect.m_h; i ++ )
 	{
 		m_video.BlitLine(
-			dest.GetScanline(src_rect.m_y, src_rect.m_y),
+			dest.GetScanline(src_rect.m_y, src_rect.m_x),
 			dest.m_rect.m_y + src_rect.m_y + i,
 			dest.m_rect.m_x + src_rect.m_x,
 			src_rect.m_w
