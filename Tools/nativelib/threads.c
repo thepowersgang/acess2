@@ -40,9 +40,12 @@ tGID Threads_GetGID(void) { return 0; }
 
 tTID Threads_GetTID(void) { return lpThreads_This ? lpThreads_This->TID : 0; }
 
-int *Threads_GetMaxFD(void)        { return &lpThreads_This->Process->MaxFDs;  }
-char **Threads_GetCWD(void)        { return &lpThreads_This->Process->CWD;     }
-char **Threads_GetChroot(void)     { return &lpThreads_This->Process->Chroot;  }
+static inline tProcess* getproc(tProcess *Process) {
+	return (Process ? Process : lpThreads_This->Process);
+}
+int *Threads_GetMaxFD(tProcess *Process)	{ return &getproc(Process)->MaxFDs;  }
+char **Threads_GetCWD(tProcess *Process)        { return &getproc(Process)->CWD;     }
+char **Threads_GetChroot(tProcess *Process)     { return &getproc(Process)->Chroot;  }
 void **Threads_GetHandlesPtr(void) { return &lpThreads_This->Process->Handles; }
 
 void Threads_Yield(void)
