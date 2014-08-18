@@ -381,13 +381,27 @@ int vsnprintf(char *__s, const size_t __maxlen, const char *__format, va_list ar
 				break;
 			}
 			p = va_arg(args, char*);	// Get Argument
-			if( !p || !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
+			if( p && !CheckString(p) )	goto invalString;	// Avoid #PFs  
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);
 			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			while(*p && precision--) { PUTCH(*p); p++;} 
 			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
+			break;
+		invalString:	
+			PUTCH('(');PUTCH('i');PUTCH('n');PUTCH('v');PUTCH('a');	PUTCH('l');PUTCH(':');
+			PUTCH('*');PUTCH('0');PUTCH('x');
+			val = (tVAddr)p;
+			for( len = BITS/4; len -- && ((val>>(len*4))&15) == 0; )
+				;
+			len ++;
+			if( len == 0 )
+				PUTCH( '0' );
+			else
+				while( len -- )
+					PUTCH( cUCDIGITS[ (val>>(len*4))&15 ] );
+			PUTCH(')');
 			break;
 		
 		case 'C':	// Non-Null Terminated Character Array
