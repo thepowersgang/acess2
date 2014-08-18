@@ -9,18 +9,34 @@
 #define _LIBCXX_STDEXCEPT_
 
 #include "exception"
+#include "string"
 
 namespace std {
 
-class logic_error:
+namespace _bits {
+
+class str_except:
 	public exception
+{
+	::std::string	m_str;
+public:
+	explicit str_except(const string& what_arg);
+	virtual ~str_except() noexcept;
+	str_except& operator= (const str_except& e) noexcept;
+	virtual const char* what() const noexcept;
+};
+
+} // namespace _bits
+
+class logic_error:
+	public _bits::str_except
 {
 public:
 	explicit logic_error(const string& what_arg);
 };
 
 class runtime_error:
-	public exception
+	public _bits::str_except
 {
 public:
 	explicit runtime_error(const string& what_arg);

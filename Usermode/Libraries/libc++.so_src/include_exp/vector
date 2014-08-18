@@ -10,6 +10,7 @@
 
 #include <allocator>
 #include <stdexcept>
+#include <initializer_list>
 
 extern "C" void _SysDebug(const char *, ...);
 
@@ -186,12 +187,29 @@ public:
 		x.m_capacity = 0;
 		x.m_size = 0;
 	}
+	vector(vector&& x, const allocator_type& alloc):
+		m_alloc(alloc),
+		m_size(x.m_size),
+		m_capacity(x.m_capacity),
+		m_data(x.m_data)
+	{
+		x.m_data = nullptr;
+		x.m_capacity = 0;
+		x.m_size = 0;
+	}
+	vector(std::initializer_list<value_type> il, const allocator_type& alloc = allocator_type()):
+		vector(alloc)
+	{
+		reserve(il.size());
+		insert(begin(), il.begin(), il.end());
+	}
 	#endif
 	vector& operator=(const vector& x)
 	{
 		clear();
 		m_alloc.deallocate(m_data, m_capacity);
 		m_capacity = 0;
+		m_data = nullptr;
 		
 		reserve(x.size());
 		for( size_type i = 0; i < x.size(); i ++ )
@@ -205,6 +223,7 @@ public:
 		clear();
 		m_alloc.deallocate(m_data, m_capacity);
 		m_capacity = 0;
+		m_data = nullptr;
 	}
 	
 	// Iterators

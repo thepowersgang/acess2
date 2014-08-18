@@ -23,6 +23,14 @@
 
 #include <acess/sys.h>
 
+#define DEBUG_ENABLED	1
+
+#if DEBUG_ENABLED
+# define	DEBUG(v...)	::_SysDebug(v)
+#else
+# define	DEBUG(v...)	do{}while(0)
+#endif
+
 /*__thread*/ struct __cxa_eh_globals {
 	__cxa_exception	*caughtExceptions;
 	unsigned  int	uncaughtExceptions;
@@ -58,7 +66,7 @@ extern "C" void __cxa_call_unexpected(void *)
 
 extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 {
-	::_SysDebug("__cxa_allocate_exception(%i)", thrown_size);
+	DEBUG("__cxa_allocate_exception(%i)", thrown_size);
 	__cxa_exception	*ret = static_cast<__cxa_exception*>( malloc( sizeof(__cxa_exception) + thrown_size ) );
 	if( !ret ) {
 		if( thrown_size <= sizeof(emergency_exception.buf) && TEST_AND_SET(emergency_exception_used) )
@@ -70,13 +78,13 @@ extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 		_SysDebug("__cxa_allocate_exception - No free space");
 		::std::terminate();
 	}
-	::_SysDebug("__cxa_allocate_exception: return %p", ret+1);
+	DEBUG("__cxa_allocate_exception: return %p", ret+1);
 	return ret + 1;
 }
 
 extern "C" void __cxa_free_exception(void *thrown_exception)
 {
-	::_SysDebug("__cxa_free_exception(%p)", thrown_exception);
+	DEBUG("__cxa_free_exception(%p)", thrown_exception);
 	if(thrown_exception == &emergency_exception.buf) {
 		//assert(emergency_exception_used);
 		emergency_exception_used = false;
@@ -89,13 +97,15 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 
 extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void*))
 {
-	::_SysDebug("__cxa_throw(%p,%p,%p) '%s' by %p",
+	#if DEBUG_ENABLED
+	DEBUG("__cxa_throw(%p,%p,%p) '%s' by %p",
 		thrown_exception, tinfo, dest, tinfo->name(), __builtin_return_address(0)
 		);
 	{
 		const ::std::exception* e = reinterpret_cast<const ::std::exception*>(thrown_exception);
-		::_SysDebug("- e.what() = '%s'", e->what());
+		DEBUG("- e.what() = '%s'", e->what());
 	}
+	#endif
 
 	__cxa_exception	*except = static_cast<__cxa_exception*>( thrown_exception ) - 1;
 	
@@ -115,7 +125,7 @@ extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void 
 extern "C" void *__cxa_begin_catch(_Unwind_Exception *exceptionObject)
 {
 	__cxa_exception	*except = reinterpret_cast<__cxa_exception*>( exceptionObject+1 )-1;
-	::_SysDebug("__cxa_begin_catch(%p) - except=%p", exceptionObject, except);
+	DEBUG("__cxa_begin_catch(%p) - except=%p", exceptionObject, except);
 	
 	except->handlerCount ++;
 	
@@ -130,7 +140,7 @@ extern "C" void *__cxa_begin_catch(_Unwind_Exception *exceptionObject)
 extern "C" void __cxa_end_catch()
 {
 	struct __cxa_exception	*except = __cxa_get_globals()->caughtExceptions;
-	::_SysDebug("__cxa_end_catch - %p", except);
+	DEBUG("__cxa_end_catch - %p", except);
 	except->handlerCount --;
 	__cxa_get_globals()->caughtExceptions = except->nextException;
 	

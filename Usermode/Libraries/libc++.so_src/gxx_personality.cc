@@ -15,6 +15,14 @@
 #include <cassert>
 #include <cxxabi.h>	// __dynamic_cast
 
+#define DEBUG_ENABLED	1
+
+#if DEBUG_ENABLED
+# define DEBUG(v...)	::_SysDebug(v)
+#else
+# define DEBUG(v...)	do{}while(0)
+#endif
+
 // === PROTOTYPES ===
 extern "C" _Unwind_Reason_Code __gxx_personality_v0(int version, _Unwind_Action actions, uint64_t exceptionClass,
 		struct _Unwind_Exception *exceptionObject, struct _Unwind_Context *context);
@@ -79,12 +87,12 @@ extern "C" _Unwind_Reason_Code __gxx_personality_v0(int version, _Unwind_Action 
 		// If a handler was found
 		if( frame_action == 2 ) {
 			// - return _URC_HANDLER_FOUND
-			_SysDebug("SEARCH: 0x%llx Handler %p(%i)",
+			DEBUG("SEARCH: 0x%llx Handler %p(%i)",
 				_Unwind_GetIP(context), landingpad, switch_value);
 			return _URC_HANDLER_FOUND;
 		}
 		// - If no handler (either nothing, or cleanups), return _URC_CONTINUE_UNWIND
-		_SysDebug("SEARCH: 0x%llx no handler %p(%i)",
+		DEBUG("SEARCH: 0x%llx no handler %p(%i)",
 			_Unwind_GetIP(context), landingpad, switch_value);
 		return _URC_CONTINUE_UNWIND;
 	}
@@ -105,7 +113,7 @@ extern "C" _Unwind_Reason_Code __gxx_personality_v0(int version, _Unwind_Action 
 			switch_value = 0;
 		}
 	
-		_SysDebug("Install context IP=0x%x, R%i=%p/R%i=%i",
+		DEBUG("Install context IP=0x%x, R%i=%p/R%i=%i",
 			(uintptr_t)landingpad,
 			__builtin_eh_return_data_regno(0), exceptionObject,
 			__builtin_eh_return_data_regno(1), switch_value
@@ -124,7 +132,7 @@ int get_frame_action(const sLSDA_Header &header, _Unwind_Context *context, const
 	uint64_t &landingpad, int64_t &switch_value)
 {
 	uint64_t ip = _Unwind_GetIP(context) - _Unwind_GetRegionStart(context);
-	_SysDebug("get_frame_action: IP = 0x%llx + 0x%llx", _Unwind_GetRegionStart(context), ip);
+	DEBUG("get_frame_action: IP = 0x%llx + 0x%llx", _Unwind_GetRegionStart(context), ip);
 	// Check if there is a handler for this exception in this frame
 	// - Search call site table for this return address (corresponds to a try block)
 	uintptr_t	cs_ldgpad;
@@ -153,13 +161,13 @@ int get_frame_action(const sLSDA_Header &header, _Unwind_Context *context, const
 	}
 	if( lsda_ptr >= header.ActionTable ) {
 		// No match!
-		_SysDebug("__gxx_personality_v0: No entry for IP 0x%x", ip);
+		DEBUG("__gxx_personality_v0: No entry for IP 0x%x", ip);
 		return 0;
 	}
 	
 	// Found it
 	if( cs_ldgpad == 0 ) {
-		_SysDebug("No landingpad, hence no action");
+		DEBUG("No landingpad, hence no action");
 		if( cs_action != 0 ) {
 			_SysDebug("%s: NOTICE cs_ldgpad==0 but cs_action(0x%llx)!=0",
 				__func__, cs_action);
@@ -167,7 +175,7 @@ int get_frame_action(const sLSDA_Header &header, _Unwind_Context *context, const
 		return 0;
 	}
 	else if( cs_action == 0 ) {
-		_SysDebug("No action, cleanups only");
+		DEBUG("No action, cleanups only");
 		switch_value = 0;
 		landingpad = header.LPStart + cs_ldgpad;
 		return 1;	// 1 = cleanup only
@@ -247,20 +255,21 @@ const ::std::type_info *get_exception_type(const void *exception_object)
 bool exception_matches_single(const std::type_info *throw_type, const struct sLSDA_Header &header, int type_index)
 {
 	const ::std::type_info *catch_type = get_type_info(header, type_index);
+	DEBUG("catch_type = %p", catch_type);
 
 	if( !catch_type )
 	{
-		_SysDebug("catch(...)");
+		DEBUG("catch(...)");
 		return true;
 	}
 	else if( !throw_type )
 	{
-		_SysDebug("threw UNK");
+		DEBUG("threw UNK");
 		return false;
 	}
 	else
 	{
-		_SysDebug("catch(%s), throw %s", catch_type->name(), throw_type->name());
+		DEBUG("catch(%s), throw %s", catch_type->name(), throw_type->name());
 		size_t ofs = 0;
 		if( !catch_type->__is_child(*throw_type, ofs) ) {
 			_SysDebug("> No match");

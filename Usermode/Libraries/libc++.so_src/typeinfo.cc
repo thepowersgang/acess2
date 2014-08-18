@@ -47,6 +47,7 @@ type_info::type_info(const type_info& rhs):
 }
 type_info& type_info::operator=(const type_info& rhs)
 {
+	_SysDebug("type_info::operator=, was %s now %s", __type_name, rhs.__type_name);
 	__type_name = rhs.__type_name;
 	return *this;
 }
@@ -72,13 +73,13 @@ bool type_info::is_subclass() const
 // Acess-defined
 bool type_info::__is_child(const type_info &poss_child, unsigned long &offset) const
 {
+	_SysDebug("typeids = this:%s , poss_child:%s", typeid(*this).name(), typeid(poss_child).name());
+
 	// Check #1: Child is same type
 	if( poss_child == *this ) {
 		offset = 0;
 		return true;
 	}
-
-	_SysDebug("typeids = this:%s , poss_child:%s", typeid(*this).name(), typeid(poss_child).name());
 	
 	// Check #2: This type must be a class
 	if( !this->is_class() ) {

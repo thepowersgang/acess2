@@ -8,6 +8,7 @@
 #ifndef _LIBCXX_NEW_
 #define _LIBCXX_NEW_
 
+
 #include "cstddef"
 
 //extern void* operator new(size_t size) throw (::std::bad_alloc);
@@ -21,6 +22,22 @@ inline void* operator new(size_t /*size*/, void* ptr) throw() {
 inline void* operator new[](size_t /*size*/, void* ptr) throw() {
 	return ptr;
 }
+
+#include "exception"
+
+namespace std {
+
+class bad_alloc:
+	public ::std::exception
+{
+public:
+	bad_alloc() noexcept;
+	~bad_alloc() noexcept;
+	
+	const char *what() const noexcept;
+};
+
+}	// namespace std
 
 #endif
 

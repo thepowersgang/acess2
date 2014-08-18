@@ -10,21 +10,16 @@
 
 #define noexcept	throw()
 
-#include "string"
-
 namespace std {
 
 class exception
 {
-	string	m_what_str;
 public:
 	exception() noexcept;
 	exception(const exception& e) noexcept;
 	exception& operator= (const exception& e) noexcept;
 	virtual ~exception() noexcept;
 	virtual const char* what() const noexcept;
-protected:
-	exception(const string& what_str) noexcept;
 };
 
 class bad_exception:
@@ -32,6 +27,7 @@ class bad_exception:
 {
 public:
 	bad_exception() noexcept;
+	const char* what() const noexcept;
 };
 
 typedef void (*terminate_handler)();

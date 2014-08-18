@@ -250,7 +250,7 @@ private:
 			position.m_cur->prev->next = newi;
 			position.m_cur->prev = newi;
 		}
-		return ++position;
+		return ++iterator(*this, newi);
 	}
 };
 

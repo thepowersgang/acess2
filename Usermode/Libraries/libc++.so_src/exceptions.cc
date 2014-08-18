@@ -3,7 +3,7 @@
  * - By John Hodge (thePowersGang)
  *
  * exceptions.cc
- * - ::std::exception and friends
+ * - exception and friends
  */
 #include <string>
 #include <exception>
@@ -11,55 +11,69 @@
 #include <acess/sys.h>
 
 // === CODE ===
-::std::exception::exception() throw():
-	m_what_str("-empty-")
+namespace std {
+
+exception::exception() throw()
 {
 }
-::std::exception::exception(const exception& other) throw():
-	m_what_str(other.m_what_str)
+exception::exception(const exception&) throw()
 {
 }
-::std::exception::exception(const string& str) throw():
-	m_what_str(str)
+exception& exception::operator=(const exception&) throw()
 {
-}
-::std::exception& ::std::exception::operator=(const exception& other) throw()
-{
-	m_what_str = other.m_what_str;
 	return *this;
 }
-::std::exception::~exception() throw()
+exception::~exception() throw()
 {
 }
-const char* ::std::exception::what() const throw()
+const char* exception::what() const throw()
 {
-	return m_what_str.c_str();
+	return "generic exception";
 }
 
-void ::std::terminate()
+void terminate()
 {
-	_SysDebug("::std::terminate()");
+	_SysDebug("terminate()");
 	_exit(0);
 }
 
+_bits::str_except::str_except(const string& what_arg):
+	m_str(what_arg)
+{
+}
+_bits::str_except::~str_except() noexcept
+{
+}
+_bits::str_except& _bits::str_except::operator=(const str_except& e) noexcept
+{
+	m_str = e.m_str;
+	return *this;
+}
+const char* _bits::str_except::what() const throw()
+{
+	return m_str.c_str();
+}
+
 // --- Standar Exceptions ---
-::std::logic_error::logic_error(const ::std::string& what_str):
-	exception(what_str)
+logic_error::logic_error(const string& what_str):
+	_bits::str_except(what_str)
 {
 }
 
-::std::out_of_range::out_of_range(const ::std::string& what_str):
+out_of_range::out_of_range(const string& what_str):
 	logic_error(what_str)
 {
 }
 
-::std::length_error::length_error(const ::std::string& what_str):
+length_error::length_error(const string& what_str):
 	logic_error(what_str)
 {
 }
 
-::std::runtime_error::runtime_error(const ::std::string& what_str):
-	exception(what_str)
+runtime_error::runtime_error(const string& what_str):
+	_bits::str_except(what_str)
 {
 }
+
+}	// namespace std
 

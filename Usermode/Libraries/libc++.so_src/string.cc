@@ -10,6 +10,6 @@
 
 void ::std::_throw_out_of_range(const char *message)
 {
-	throw ::std::out_of_range(message);
+	throw ::std::out_of_range( ::std::string(message) );
 }
 

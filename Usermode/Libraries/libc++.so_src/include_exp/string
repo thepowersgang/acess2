@@ -10,6 +10,7 @@
 
 #include "_libcxx_helpers.h"
 #include <allocator>
+#include <initializer_list>
 
 namespace std {
 
@@ -37,6 +38,14 @@ struct char_traits<char>
 		size_t	ret = 0;
 		while(*s++)	ret ++;
 		return ret;
+	}
+	static int compare (const char_type* p, const char_type* q, size_t n) {
+ 		while (n--) {
+			if( !eq(*p,*q) )
+				return lt(*p,*q) ? -1 : 1;
+			++p; ++q;
+		}
+		return 0;
 	}
 };
 
@@ -74,6 +83,9 @@ public:
 	typedef typename allocator_type::reference	reference;
 	typedef typename allocator_type::const_reference	const_reference;
 	typedef size_t	size_type;
+	
+	typedef charT*	iterator;
+	typedef const charT*	const_iterator;
 
 private:
 	struct dynamic_info
@@ -237,6 +249,9 @@ public:
 	bool empty() const {
 		return length() == 0;
 	}
+	#if _CXX11_AVAIL
+	void shrink_to_fit();
+	#endif
 	
 	// Access
 	reference operator[] (size_type pos) {
@@ -257,6 +272,22 @@ public:
 			_throw_out_of_range("basic_string - at");
 		return m_content->m_data[pos];
 	}
+	#if _CXX11_AVAIL
+	reference back() {
+		own_content();
+		return m_content->m_data[m_content->m_size];
+	}
+	const_reference back() const {
+		return m_content->m_data[m_content->m_size];
+	}
+	reference front() {
+		own_content();
+		return m_content->m_data[0];
+	}
+	const_reference front() const {
+		return m_content->m_data[0];
+	}
+	#endif
 	
 	// Modifiers
 	basic_string& operator +=(const basic_string& str) {
@@ -339,16 +370,135 @@ public:
 		return *this;
 	}
 	
+	basic_string& insert(size_type pos, const basic_string& str);
+	basic_string& insert(size_type pos, const basic_string& str, size_type subpos, size_type sublen);
+	basic_string& insert(size_type pos, const charT& s);
+	basic_string& insert(size_type pos, const charT& s, size_type n);
+	basic_string& insert(size_type pos, size_type n, charT c);
+	iterator insert(const_iterator p, size_type n, charT c);
+	iterator insert(const_iterator p, charT c);
+	template <class InputIterator>
+	iterator insert(iterator p, InputIterator first, InputIterator last);
+	#if _CXX11_AVAIL
+	basic_string& insert(const_iterator p, initializer_list<charT> il);
+	#endif
+	
+	basic_string& erase(size_type pos = 0, size_type len = npos);
+	iterator erase(const_iterator p);
+	iterator erase(const_iterator first, const_iterator last);
+	
+	basic_string& replace(size_type pos, size_type len, const basic_string& str);
+	basic_string& replace(const_iterator i1, const_reference i2, const basic_string& str);
+	basic_string& replace(size_type pos, size_type len, const basic_string& str, size_type subpos, size_type sublen);
+	basic_string& replace(size_type pos, size_type len, const charT *s);
+	basic_string& replace(const_iterator i1, const_reference i2, const charT* s);
+	basic_string& replace(size_type pos, size_type len, const charT *s, size_type n);
+	basic_string& replace(const_iterator i1, const_reference i2, const charT* s, size_type n);
+	basic_string& replace(size_type pos, size_type len, size_type n, charT c);
+	basic_string& replace(const_iterator i1, const_reference i2, size_type n, charT c);
+	template <class InputIterator>
+	basic_string& replace(const_iterator i1, const_reference i2, InputIterator first, InputIterator last);
+	basic_string& replace(const_iterator i1, const_iterator i2, initializer_list<charT> il);
+	
+	void swap(basic_string& str)
+	{
+		auto tmp = m_content;
+		m_content = str.m_content;
+		str.m_content = tmp;
+	}
+	
+	#if _CXX11_AVAIL
+	void pop_back();
+	#endif
+	
 	// String operations
-	const char *c_str() const {
+	const charT *c_str() const noexcept
+	{
 		// TODO: this is const, but also might need to do processing
 		if(m_content) {
 			_libcxx_assert(m_content->m_data[m_content->m_size] == '\0');
 		}
 		return (m_content ? m_content->m_data : "");
 	}
-	const char *data() const {
+	const charT *data() const
+	{
 		return (m_content ? m_content->m_data : NULL);
+	}
+	allocator_type get_allocator() const noexcept
+	{
+		return m_allocator;
+	}
+	size_type copy(charT* s, size_type len, size_type pos = 0) const;
+	
+	size_type find(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type find(const charT* s, size_type pos = 0) const;
+	size_type find(const charT* s, size_type pos, size_type n) const;
+	size_type find(charT c, size_type pos = 0) const noexcept;
+	
+	size_type rfind(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type rfind(const charT* s, size_type pos = 0) const;
+	size_type rfind(const charT* s, size_type pos, size_type n) const;
+	size_type rfind(charT c, size_type pos = 0) const noexcept;
+	
+	size_type find_first_of(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type find_first_of(const charT* s, size_type pos = 0) const;
+	size_type find_first_of(const charT* s, size_type pos, size_type n) const;
+	size_type find_first_of(charT c, size_type pos = 0) const noexcept;
+	
+	size_type find_last_of(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type find_last_of(const charT* s, size_type pos = 0) const;
+	size_type find_last_of(const charT* s, size_type pos, size_type n) const;
+	size_type find_last_of(charT c, size_type pos = 0) const noexcept;
+
+	size_type find_first_not_of(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type find_first_not_of(const charT* s, size_type pos = 0) const;
+	size_type find_first_not_of(const charT* s, size_type pos, size_type n) const;
+	size_type find_first_not_of(charT c, size_type pos = 0) const noexcept;
+
+	size_type find_last_not_of(const basic_string& str, size_type pos = 0) const noexcept;
+	size_type find_last_not_of(const charT* s, size_type pos = 0) const;
+	size_type find_last_not_of(const charT* s, size_type pos, size_type n) const;
+	size_type find_last_not_of(charT c, size_type pos = 0) const noexcept;
+
+	basic_string substr(size_type pos = 0, size_type len = npos) const;
+	
+	int compare(const basic_string& str) const noexcept {
+		return compare(0, size(), str.data(), str.size());
+	}
+	int compare(size_type pos, size_type len, const basic_string& str) const {
+		_libcxx_assert(pos <= size());
+		_libcxx_assert(len <= size());
+		_libcxx_assert(pos+len <= size());
+		return compare(pos, len, str.data(), str.size());
+	}
+	int compare(size_type pos, size_type len, const basic_string& str, size_type subpos, size_type sublen) const {
+		// TODO: check
+		_libcxx_assert(subpos <= str.size());
+		_libcxx_assert(sublen <= str.size());
+		_libcxx_assert(subpos+sublen <= str.size());
+		return compare(pos, len, str.data()+subpos, sublen);
+	}
+	int compare(const charT* s) const {
+		return compare(0, npos, s, traits::length(s));
+	}
+	int compare(size_type pos, size_type len, const charT* s) const {
+		return compare(pos, len, s, traits::length(s));
+	}
+	int compare(size_type pos, size_type len, const charT* s, size_type n) const {
+		if( n <= len ) {
+			int rv = traits::compare(data()+pos, s, n);
+			if( rv == 0 && n < len ) {
+				rv = -1;
+			}
+			return rv;
+		}
+		else {
+			int rv = traits::compare(data()+pos, s, len);
+			if(rv == 0) {
+				rv = 1;
+			}
+			return rv;
+		}
 	}
 	
 	static const size_type npos = -1;
@@ -383,6 +533,8 @@ private:
 };
 
 typedef basic_string<char>	string;
+
+#define _libcxx_str	basic_string<charT,traits,Alloc>
 
 template <class charT, class traits, class Alloc>
 basic_string<charT,traits,Alloc> operator+(const basic_string<charT,traits,Alloc>& lhs, const basic_string<charT,traits,Alloc>& rhs)
@@ -430,6 +582,21 @@ basic_string<charT,traits,Alloc> operator+(const charT lhs, const basic_string<c
 	return ret;
 }
 
+// Three overloads each
+// name: Actual operator, opp: reversed operator
+#define _libcxx_string_def_cmp(name, opp) \
+	template <class charT, class traits, class Alloc> \
+	bool operator name(const _libcxx_str& lhs, const _libcxx_str& rhs) { return lhs.compare(rhs) name 0; } \
+	template <class charT, class traits, class Alloc> \
+	bool operator name(const charT* lhs, const _libcxx_str& rhs) { return rhs.compare(lhs) opp 0; } \
+	template <class charT, class traits, class Alloc> \
+	bool operator name(const _libcxx_str& lhs, const charT* rhs) { return lhs.compare(rhs) name 0; }
+
+_libcxx_string_def_cmp(<, >)
+_libcxx_string_def_cmp(<=, >=)
+_libcxx_string_def_cmp(==, ==)
+_libcxx_string_def_cmp(>=, <=)
+_libcxx_string_def_cmp(>, <)
 };
 
 #endif
