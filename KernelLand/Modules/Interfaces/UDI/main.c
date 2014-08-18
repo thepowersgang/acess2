@@ -37,6 +37,10 @@ tUDI_DriverModule	*gpUDI_LoadedModules;
  */
 int UDI_Install(char **Arguments)
 {
+	if( Arguments && Arguments[0] && strcmp(Arguments[0], "disable") == 0 ) {
+		// Module disabled by user
+		return MODULE_ERR_NOTNEEDED;
+	}
 	Module_RegisterLoader( &gUDI_Loader );
 
 	Proc_SpawnWorker(UDI_int_DeferredThread, NULL);
