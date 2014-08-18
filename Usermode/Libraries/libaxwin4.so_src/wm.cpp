@@ -97,6 +97,18 @@ extern "C" void AxWin4_SetTitle(tAxWin4_Window *Window, const char *Title)
 	::AxWin::SendMessage(message);
 }
 
+extern "C" void AxWin4_DamageRect(tAxWin4_Window *Window, unsigned int X, unsigned int Y, unsigned int W, unsigned int H)
+{
+	CSerialiser	message;
+	message.WriteU8(IPCMSG_DAMAGERECT);
+	message.WriteU16(Window->m_id);
+	message.WriteU16(X);
+	message.WriteU16(Y);
+	message.WriteU16(W);
+	message.WriteU16(H);
+	::AxWin::SendMessage(message);
+}
+
 extern "C" void *AxWin4_GetWindowBuffer(tAxWin4_Window *Window)
 {
 	if( Window->m_fd == -1 )
@@ -106,7 +118,8 @@ extern "C" void *AxWin4_GetWindowBuffer(tAxWin4_Window *Window)
 		req.WriteU16(Window->m_id);
 		
 		CDeserialiser	response = GetSyncReply(req, IPCMSG_GETWINBUF);
-		if( response.ReadU16() != Window->m_id ) {
+		if( response.ReadU16() != Window->m_id )
+		{
 			
 		}
 		

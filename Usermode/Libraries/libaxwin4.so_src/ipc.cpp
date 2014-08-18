@@ -21,6 +21,7 @@ namespace AxWin {
 
 IIPCChannel*	gIPCChannel;
 ::std::mutex	glSyncReply;
+bool	gSyncReplyActive;
 bool	gSyncReplyValid;
 CDeserialiser	gSyncReplyBuf;
 
@@ -82,11 +83,16 @@ void SendMessage(CSerialiser& message)
 void RecvMessage(CDeserialiser& message)
 {
 	uint8_t id = message.ReadU8();
+	_SysDebug("RecvMessage: id=%i", id);
 	switch(id)
 	{
 	case IPCMSG_REPLY:
 		// Flag reply and take a copy of this message
-		if( gSyncReplyValid )
+		if( !gSyncReplyActive )
+		{
+			_SysDebug("Unexpected reply message %i", message.ReadU8());
+		}
+		else if( gSyncReplyValid )
 		{
 			// Oh... that was unexpected
 			_SysDebug("Unexpected second reply message %i", message.ReadU8());
@@ -106,6 +112,7 @@ void RecvMessage(CDeserialiser& message)
 CDeserialiser GetSyncReply(CSerialiser& request, unsigned int Message)
 {
 	::std::lock_guard<std::mutex>	lock(glSyncReply);
+	gSyncReplyActive = true;
 	gSyncReplyValid = false;
 	// Send once lock is acquired
 	SendMessage(request);
@@ -116,14 +123,18 @@ CDeserialiser GetSyncReply(CSerialiser& request, unsigned int Message)
 		if( !AxWin4_WaitEventQueue(0) )
 			throw ::std::runtime_error("Connection dropped while waiting for reply");
 	}
+	gSyncReplyActive = false;
 	
 	uint8_t id = gSyncReplyBuf.ReadU8();
 	if( id != Message )
 	{
-		_SysDebug("Unexpected reply message '%i', message.ReadU8()");
+		_SysDebug("Unexpected reply message id=%i, expected %i",
+			id, Message);
+		throw ::std::runtime_error("Sequencing error, unexpected reply");
 	}
 	
-	return gSyncReplyBuf;
+	// Use move to avoid copying
+	return ::std::move(gSyncReplyBuf);
 }
 
 extern "C" void AxWin4_GetScreenDimensions(unsigned int ScreenIndex, unsigned int *Width, unsigned int *Height)

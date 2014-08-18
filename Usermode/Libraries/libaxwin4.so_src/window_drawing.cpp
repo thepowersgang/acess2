@@ -45,5 +45,18 @@ extern "C" void AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned
 	}
 }
 
+extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ID)
+{
+	CSerialiser	message;
+	message.WriteU8(IPCMSG_DRAWCTL);
+	message.WriteU16(Window->m_id);
+	message.WriteU16(X);
+	message.WriteU16(Y);
+	message.WriteU16(W);
+	message.WriteU16(H);
+	message.WriteU16(ID);
+	::AxWin::SendMessage(message);
+}
+
 };	// namespace AxWin
 

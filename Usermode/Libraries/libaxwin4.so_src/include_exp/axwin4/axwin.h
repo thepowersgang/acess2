@@ -34,6 +34,9 @@ extern void	AxWin4_SetTitle(tAxWin4_Window *Window, const char *Title);
 extern void	AxWin4_MoveWindow(tAxWin4_Window *Window, int X, int Y);
 extern void	AxWin4_ResizeWindow(tAxWin4_Window *Window, unsigned int W, unsigned int H);
 
+extern void	AxWin4_DamageRect(tAxWin4_Window *Window, unsigned int X, unsigned int Y, unsigned int W, unsigned int H);
+extern void*	AxWin4_GetWindowBuffer(tAxWin4_Window *Window);
+
 extern void	AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, void *Data);
 
 #include "definitions.h"
