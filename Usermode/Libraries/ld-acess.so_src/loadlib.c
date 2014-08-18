@@ -4,6 +4,7 @@
 */
 #include "common.h"
 #include <stdint.h>
+#include <stdbool.h>
 #include <acess/sys.h>
 
 #define DEBUG	0
@@ -266,7 +267,8 @@ int GetSymbol(const char *name, void **Value, size_t *Size, void *IgnoreBase)
 			return 1;
 		}
 	}
-	
+
+	bool have_weak = false;	
 	for(int i = 0; i < MAX_LOADED_LIBRARIES && gLoadedLibraries[i].Base != 0; i ++)
 	{
 		// Allow ignoring the current module
@@ -277,13 +279,25 @@ int GetSymbol(const char *name, void **Value, size_t *Size, void *IgnoreBase)
 		
 		//SysDebug(" GetSymbol: Trying 0x%x, '%s'",
 		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
-		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, Value, Size)) {
-			//SysDebug("GetSymbol: Remote %p - %p", gLoadedLibraries[i].Base, *Value);
-			return 1;
+		void	*tmpval;
+		size_t	tmpsize;
+		int rv = GetSymbolFromBase(gLoadedLibraries[i].Base, name, &tmpval, &tmpsize);
+		if(rv)
+		{
+			*Value = tmpval;
+			*Size = tmpsize;
+			if( rv == 1 ) {
+				return 1;
+			}
+			have_weak = true;
 		}
 	}
-	//SysDebug("GetSymbol: None");
-	return 0;
+	if(have_weak) {
+		return 2;
+	}
+	else {
+		return 0;
+	}
 }
 
 /**

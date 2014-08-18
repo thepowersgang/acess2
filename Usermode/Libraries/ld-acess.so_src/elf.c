@@ -4,8 +4,10 @@
  *
  * elf.c
  * - ELF32/ELF64 relocation
+ *
+ * TODO: Have GetSymbol() return a symbol "strength" on success. Allows STB_WEAK to be overriden by STB_GLOBAL
  */
-#ifndef DEBUG	// This code is #include'd from the kernel, so DEBUG may already be defined
+#ifndef KERNEL_VERSION
 # define DEBUG	0
 #endif
 
@@ -29,7 +31,8 @@
 
 #define WARNING(f,...)	SysDebug("WARN: "f ,## __VA_ARGS__)	// Malformed file
 #define NOTICE(f,...)	SysDebug("NOTICE: "f ,## __VA_ARGS__)	// Missing relocation
-#define TRACE(f,...)	DEBUG_OUT("TRACE:%s:%i "f, __func__, __LINE__ ,## __VA_ARGS__)	// Debugging trace
+//#define TRACE(f,...)	DEBUG_OUT("TRACE:%s:%i "f, __func__, __LINE__ ,## __VA_ARGS__)	// Debugging trace
+#define TRACE(f,...)	DEBUG_OUT("TRACE:%s "f, __func__,## __VA_ARGS__)	// Debugging trace
 
 #ifndef DISABLE_ELF64
 # define SUPPORT_ELF64
@@ -234,7 +237,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	const Elf32_Ehdr	*hdr = Base;
 	char	*libPath;
 	intptr_t	iRealBase = -1;
-	intptr_t	iBaseDiff;
 	Elf32_Rel	*rel = NULL;
 	Elf32_Rela	*rela = NULL;
 	void	*plt = NULL;
@@ -275,10 +277,11 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	// Page Align real base
 	iRealBase &= ~0xFFF;
-	TRACE("True Base = 0x%x, Compiled Base = 0x%x", Base, iRealBase);
 	
 	// Adjust "Real" Base
-	iBaseDiff = (intptr_t)Base - iRealBase;
+	const intptr_t	iBaseDiff = (intptr_t)Base - iRealBase;
+
+	TRACE("True Base = 0x%x, Compiled Base = 0x%x, Difference = 0x%x", Base, iRealBase, iBaseDiff);
 
 	// Check if a PT_DYNAMIC segement was found
 	if(!dynamicTab) {
@@ -357,17 +360,18 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			size_t	newsize;
 			if( ELF32_ST_BIND(sym->st_info) != STB_WEAK )
 			{
-				TRACE("Sym %i'%s' %p += 0x%x", i, name, sym->st_value, iBaseDiff);
+				TRACE("Sym %i'%s' = %p (local)", i, name, sym->st_value + iBaseDiff);
 				sym->st_value += iBaseDiff;
 			}
-			else if( !GetSymbol(name, &newval, &newsize, Base) )
+			// If GetSymbol doesn't return a strong/global symbol value
+			else if( GetSymbol(name, &newval, &newsize, Base) != 1 )
 			{
-				TRACE("Sym %i'%s' %p += 0x%x (Local weak)", i, name, sym->st_value, iBaseDiff);
+				TRACE("Sym %i'%s' = %p (Local weak)", i, name, sym->st_value + iBaseDiff);
 				sym->st_value += iBaseDiff;
 			}
 			else
 			{
-				TRACE("Sym %i'%s' %p = %p+0x%x (Extern weak)", i, name, newval, newsize);
+				TRACE("Sym %i'%s' = %p+0x%x (Extern weak)", i, name, newval, newsize);
 				sym->st_value = (uintptr_t)newval;
 				sym->st_size = newsize;
 			}
@@ -690,13 +694,17 @@ int Elf32GetSymbolInfo(void *Base, const char *Name, void **Addr, size_t *Size, 
 
 int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 {
-	 int	section;
+	 int	section, binding;
 	TRACE("Elf32GetSymbol(%p,%s,...)", Base, Name);
-	if( Elf32GetSymbolInfo(Base, Name, ret, Size, &section, NULL, NULL) )
+	if( Elf32GetSymbolInfo(Base, Name, ret, Size, &section, &binding, NULL) )
 		return 0;
 	if( section == SHN_UNDEF ) {
-		TRACE("Elf32GetSymbol: Undefined", *ret, (Size?*Size:0), section);
+		TRACE("Elf32GetSymbol: Undefined %p", *ret, (Size?*Size:0), section);
 		return 0;
+	}
+	if( binding == STB_WEAK ) {
+		TRACE("Elf32GetSymbol: Weak, return %p+0x%x,section=%i", *ret, (Size?*Size:0), section);
+		return 2;
 	}
 	TRACE("Elf32GetSymbol: Found %p+0x%x,section=%i", *ret, (Size?*Size:0), section);
 	return 1;
