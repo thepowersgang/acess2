@@ -1,4 +1,9 @@
 /*
+ * Acess2 GUI v4
+ * - By John Hodge (thePowersGang)
+ *
+ * ipc.cpp
+ * - Client-Server communication (dispatch)
  */
 #define __STDC_LIMIT_MACROS
 #include <ipc.hpp>
@@ -13,6 +18,7 @@ extern "C" {
 #include <assert.h>
 };
 #include <CIPCChannel_AcessIPCPipe.hpp>
+#include <draw_control.hpp>
 
 namespace AxWin {
 namespace IPC {
@@ -69,7 +75,7 @@ void DeregisterClient(CClient& client)
 }
 
 
-void SendNotify_Dims(CClient& client, unsigned int NewW, unsigned int NewH)
+void SendMessage_NotifyDims(CClient& client, unsigned int NewW, unsigned int NewH)
 {
 	_SysDebug("TODO: CClient::SendNotify_Dims");
 }
@@ -77,6 +83,7 @@ void SendNotify_Dims(CClient& client, unsigned int NewW, unsigned int NewH)
 
 void HandleMessage_Nop(CClient& client, CDeserialiser& message)
 {
+	// Do nothing
 }
 void HandleMessage_Reply(CClient& client, CDeserialiser& message)
 {
@@ -225,7 +232,7 @@ void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
 void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 {
 	uint16_t	win_id = message.ReadU16();
-	_SysDebug("_SetWindowAttr: (%i)", win_id);
+	_SysDebug("_GetWindowBuffer: (%i)", win_id);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -236,9 +243,30 @@ void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 	
 	CSerialiser	reply;
 	reply.WriteU8(IPCMSG_REPLY);
+	reply.WriteU8(IPCMSG_GETWINBUF);
 	reply.WriteU16(win_id);
 	reply.WriteU64(handle);
 	client.SendMessage(reply);
+}
+
+void HandleMessage_DamageRect(CClient& client, CDeserialiser& message)
+{
+	uint16_t	winid = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	
+	_SysDebug("_DamageRect: (%i %i,%i %ix%i)", winid, x, y, w, h);
+	
+	CWindow*	win = client.GetWindow(winid);
+	if(!win) {
+		throw IPC::CClientFailure("_PushData: Bad window");
+	}
+	
+	CRect	area(x,y,w,h);
+	
+	win->Repaint(area);
 }
 
 void HandleMessage_PushData(CClient& client, CDeserialiser& message)
@@ -272,10 +300,35 @@ void HandleMessage_Blit(CClient& client, CDeserialiser& message)
 }
 void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO HandleMessage_DrawCtl");
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	uint16_t	ctrl_id = message.ReadU16();
+	
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_DrawCtl: Bad window");
+	}
+	
+	const CControl* ctrl = CControl::GetByID(ctrl_id);
+	if(!ctrl) {
+		throw IPC::CClientFailure("_DrawCtl: Invalid control ID");
+	}
+	
+	CRect	area(x,y,w,h);
+	ctrl->Render(win->m_surface, area);
 }
 void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 {
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	::std::string	str = message.ReadString();
+	
 	assert(!"TODO HandleMessage_DrawText");
 }
 
@@ -294,7 +347,7 @@ MessageHandler_op_t	*message_handlers[] = {
 	[IPCMSG_GETWINATTR] = &HandleMessage_GetWindowAttr,
 	[IPCMSG_SENDIPC]    = &HandleMessage_SendIPC,	// Use the GUI server for low-bandwith IPC
 	[IPCMSG_GETWINBUF]  = &HandleMessage_GetWindowBuffer,
-	[IPCMSG_DAMAGERECT] = nullptr,
+	[IPCMSG_DAMAGERECT] = &HandleMessage_DamageRect,
 	[IPCMSG_PUSHDATA]   = &HandleMessage_PushData,	// to a window's buffer
 	[IPCMSG_BLIT]       = &HandleMessage_Blit,	// Copy data from one part of the window to another
 	[IPCMSG_DRAWCTL]    = &HandleMessage_DrawCtl,	// Draw a control

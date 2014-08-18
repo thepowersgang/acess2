@@ -72,7 +72,7 @@ void CCompositor::Redraw()
 			{
 				// TODO: just reblit
 				CRect	rel_rect = window->m_surface.m_rect.RelativeIntersection(rect);
-				//_SysDebug("Reblit (%i,%i) %ix%i", rel_rect.m_x, rel_rect.m_y, rel_rect.m_w, rel_rect.m_h);
+				_SysDebug("Reblit (%i,%i) %ix%i", rel_rect.m_x, rel_rect.m_y, rel_rect.m_w, rel_rect.m_h);
 				BlitFromSurface( window->m_surface, rel_rect );
 				//window->Repaint( rel_rect );
 			}
@@ -97,7 +97,7 @@ void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
 	for( unsigned int i = 0; i < src_rect.m_h; i ++ )
 	{
 		m_video.BlitLine(
-			dest.GetScanline(src_rect.m_y, src_rect.m_x),
+			dest.GetScanline(src_rect.m_y+i, src_rect.m_x),
 			dest.m_rect.m_y + src_rect.m_y + i,
 			dest.m_rect.m_x + src_rect.m_x,
 			src_rect.m_w

@@ -27,16 +27,15 @@ CWindow::~CWindow()
 
 void CWindow::Repaint(const CRect& rect)
 {
-	#if 0
-	for( auto rgn : m_regions )
+	if( m_is_shown )
 	{
-		if( rect.Contains(rgn->m_rect) )
-		{
-			CRect	rel_rect(rect, rgn->m_rect);
-			rgn->Repaint(m_surface, rel_rect);
-		} 
+		CRect	outrect(
+			m_surface.m_rect.m_x + rect.m_x, 
+			m_surface.m_rect.m_y + rect.m_y, 
+			rect.m_w, rect.m_h
+			);
+		m_compositor.DamageArea(outrect);
 	}
-	#endif
 }
 
 void CWindow::Show(bool bShow)
@@ -58,7 +57,7 @@ void CWindow::Move(int X, int Y)
 void CWindow::Resize(unsigned int W, unsigned int H)
 {
 	m_surface.Resize(W, H);
-	IPC::SendNotify_Dims(m_client, W, H);
+	IPC::SendMessage_NotifyDims(m_client, W, H);
 }
 uint64_t CWindow::ShareSurface()
 {
