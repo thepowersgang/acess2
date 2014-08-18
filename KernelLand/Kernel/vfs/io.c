@@ -263,6 +263,7 @@ off_t VFS_Truncate(int FD, off_t Size)
 	
 	if( !h->Node->Type->Truncate)
 	{
+		Log_Notice("VFS", "Nodetype '%s' doesn't have a Truncate method", h->Node->Type->TypeName);
 		errno = ENOTIMPL;
 		return -1;	
 	}

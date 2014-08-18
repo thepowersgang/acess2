@@ -10,6 +10,7 @@
 #include <vfs.h>
 #include <vfs_ext.h>
 #include <vfs_int.h>
+#include <mm_virt.h>	// MM_USER_MAX
 
 #define MMAP_PAGES_PER_BLOCK	16
 
@@ -27,17 +28,19 @@ struct sVFS_MMapPageBlock
 void	*VFS_MMap_Anon(void *Destination, size_t Length, Uint FlagsSet, Uint FlagsMask);
 int	VFS_MMap_MapPage(tVFS_Node *Node, unsigned int PageNum, tVFS_MMapPageBlock *pb, void *mapping_dest, unsigned int Protection);
 //int	VFS_MUnmap(void *Addr, size_t Length);
+bool	_range_free(const tPage *Base, Uint NumPages);
 
 // === CODE ===
 void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
 {
-	ENTER("pDestHint iLength xProtection xFlags xFD XOffset", DestHint, Length, Protection, Flags, FD, Offset);
+	ENTER("pDestHint xLength xProtection xFlags xFD XOffset", DestHint, Length, Protection, Flags, FD, Offset);
 
 	if( Flags & MMAP_MAP_ANONYMOUS )
 		Offset = (tVAddr)DestHint & 0xFFF;
 	
 	unsigned int npages = ((Offset & (PAGE_SIZE-1)) + Length + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	unsigned int pagenum = Offset / PAGE_SIZE;
+	LOG("npages=%u,pagenum=%u", npages, pagenum);
 
 	tVAddr mapping_base = (tVAddr)DestHint;
 
@@ -50,15 +53,37 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	else
 	{
 		Log_Warning("VFS", "MMap: TODO Handle non-fixed mappings");
-		if( DestHint == NULL )
+		
+		// Locate a free location in the address space (between brk and MM_USER_MAX)
+		// TODO: Prefer first location after DestHint, but can go below
+		
+		// Search downwards from the top of user memory
+		mapping_base = 0;
+		for( tPage *dst = (tPage*)MM_USER_MAX - npages; dst > (tPage*)PAGE_SIZE; dst -- )
 		{
-			// TODO: Locate space for the allocation
-			Log_Warning("VFS", "Mmap: Handle NULL destination hint");
+			if( _range_free(dst, npages) ) {
+				mapping_base = (tVAddr)dst;
+				break;
+			}
+		}
+		if( mapping_base == 0 )
+		{
+			Log_Warning("VFS", "MMap: Out of address space");
+			errno = ENOMEM;
 			LEAVE('n');
 			return NULL;
 		}
 	}
 	tPage	*mapping_dest = (void*)(mapping_base & ~(PAGE_SIZE-1));
+
+	if( !_range_free(mapping_dest, npages) )
+	{
+		LOG("Specified range is not free");
+		//errno = EINVAL;
+		//LEAVE('n');
+		//return NULL;
+		Log_Warning("VFS", "MMap: Overwriting/replacing maps at %p+%x", mapping_base, Length);
+	}
 
 	// Handle anonymous mappings
 	if( Flags & MMAP_MAP_ANONYMOUS )
@@ -80,7 +105,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// - Sorted list of 16 page blocks
 	for( pb = h->Node->MMapInfo; pb; pb_pnp = &pb->Next, pb = pb->Next )
 	{
-		if( pb->BaseOffset + MMAP_PAGES_PER_BLOCK <= pagenum )
+		if( pb->BaseOffset + MMAP_PAGES_PER_BLOCK > pagenum )
 			break;
 	}
 
@@ -283,5 +308,19 @@ int VFS_MMap_MapPage(tVFS_Node *Node, unsigned int pagenum, tVFS_MMapPageBlock *
 
 int VFS_MUnmap(void *Addr, size_t Length)
 {
+	UNIMPLEMENTED();
 	return 0;
+}
+
+bool _range_free(const tPage *Base, Uint NumPages)
+{
+	for( int i = 0; i < NumPages; i ++ )
+	{
+		if( MM_GetPhysAddr(Base + i) )
+		{
+			// Oh.
+			return false;
+		}
+	}
+	return true;
 }

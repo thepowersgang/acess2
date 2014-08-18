@@ -12,6 +12,8 @@
 #include <memfs_helpers.h> 
 #include <semaphore.h>
 
+#define PAGE_COUNT(v)	(((v)+(PAGE_SIZE-1))/PAGE_SIZE)
+
 // === TYPES ===
 #define PAGES_PER_BLOCK	1024
 typedef struct sSHM_BufferBlock
@@ -23,6 +25,7 @@ typedef struct
 {
 	tMemFS_FileHdr	FileHdr;
 	tVFS_Node	Node;
+	size_t	nPages;
 	tSHM_BufferBlock	FirstBlock;
 } tSHM_Buffer;
 
@@ -30,6 +33,7 @@ typedef struct
  int	SHM_Install(char **Arguments);
  int	SHM_Uninstall(void);
 tSHM_Buffer	*SHM_CreateBuffer(const char *Name);
+bool	SHM_AddPages(tSHM_Buffer *Buffer, size_t num);
 void	SHM_DeleteBuffer(tSHM_Buffer *Buffer);
 // - Root directory
  int	SHM_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
@@ -39,9 +43,10 @@ tVFS_Node	*SHM_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 // - Buffers
 void	SHM_Reference(tVFS_Node *Node);
 void	SHM_Close(tVFS_Node *Node);
+off_t	SHM_Truncate(tVFS_Node *Node, off_t NewSize);
 size_t	SHM_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
 size_t	SHM_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
- int	SHM_MMap(struct sVFS_Node *Node, off_t Offset, int Length, void *Dest);
+ int	SHM_MMap(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Dest);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, SHM, SHM_Install, SHM_Uninstall, NULL);
@@ -61,6 +66,7 @@ tVFS_NodeType	gSHM_FileNodeType = {
 	.Write = SHM_Write,
 	.Close = SHM_Close,
 	.MMap  = SHM_MMap,
+	.Truncate = SHM_Truncate,
 	.Reference = SHM_Reference,
 };
 tDevFS_Driver	gSHM_DriverInfo = {
@@ -95,6 +101,40 @@ tSHM_Buffer *SHM_CreateBuffer(const char *Name)
 	ret->Node.Type = &gSHM_FileNodeType;
 	ret->Node.ReferenceCount = 1;
 	return ret;
+}
+bool SHM_AddPages(tSHM_Buffer *Buffer, size_t num)
+{
+	tSHM_BufferBlock	*block = &Buffer->FirstBlock;
+	// Search for final block
+	size_t	idx = Buffer->nPages;
+	while( block->Next ) {
+		block = block->Next;
+		idx -= PAGES_PER_BLOCK;
+	}
+	ASSERTC(idx, <=, PAGES_PER_BLOCK);
+	
+	for( size_t i = 0; i < num; i ++ )
+	{
+		if( idx == PAGES_PER_BLOCK )
+		{
+			block->Next = calloc(1, sizeof(tSHM_BufferBlock));
+			if(!block->Next) {
+				Log_Warning("SHM", "Out of memory, allocating new buffer block");
+				return false;
+			}
+			block = block->Next;
+			idx = 0;
+		}
+		ASSERT(block->Pages[idx] == 0);
+		block->Pages[idx] = MM_AllocPhys();
+		if( !block->Pages[idx] ) {
+			Log_Warning("SHM", "Out of memory, allocating page");
+			return false;
+		}
+		Buffer->nPages += 1;
+		idx ++;
+	}
+	return true;
 }
 void SHM_DeleteBuffer(tSHM_Buffer *Buffer)
 {
@@ -185,6 +225,35 @@ void SHM_Close(tVFS_Node *Node)
 		UNIMPLEMENTED();
 	}
 }
+off_t SHM_Truncate(tVFS_Node *Node, off_t NewSize)
+{
+	ENTER("pNode XNewSize", Node, NewSize);
+	tSHM_Buffer	*buffer = Node->ImplPtr;
+	LOG("Node->Size = 0x%llx", Node->Size);
+	if( PAGE_COUNT(NewSize) != PAGE_COUNT(Node->Size) )
+	{
+		 int	page_difference = PAGE_COUNT(NewSize) - PAGE_COUNT(Node->Size);
+		LOG("page_difference = %i", page_difference);
+		if( page_difference < 0 )
+		{
+			// Truncate down
+			// TODO: What if underlying pages are mapped?... should it matter?
+			UNIMPLEMENTED();
+		}
+		else
+		{
+			// Truncate up
+			SHM_AddPages(buffer, page_difference);
+		}
+	}
+	else
+	{
+		LOG("Page count hasn't changed");
+	}
+	Node->Size = NewSize;
+	LEAVE('X', NewSize);
+	return NewSize;
+}
 size_t SHM_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	UNIMPLEMENTED();
@@ -196,9 +265,38 @@ size_t SHM_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	UNIMPLEMENTED();
 	return -1;
 }
-int SHM_MMap(struct sVFS_Node *Node, off_t Offset, int Length, void *Dest)
+int SHM_MMap(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Dest)
 {
-	UNIMPLEMENTED();
-	return 1;
+	tSHM_Buffer	*buf = Node->ImplPtr;
+	if( Offset > Node->Size )	return 1;
+	if( Offset + Length > Node->Size )	return 1;
+	
+	const int pagecount = (Length + Offset % PAGE_SIZE) / PAGE_SIZE;
+	int pagenum = Offset / PAGE_SIZE;
+	
+	tSHM_BufferBlock	*block = &buf->FirstBlock;
+	while( pagenum > PAGES_PER_BLOCK ) {
+		block = block->Next;
+		ASSERT(block);
+		pagenum -= PAGES_PER_BLOCK;
+	}
+	
+	tPage *dst = Dest;
+	for( int i = 0; i < pagecount; i ++ )
+	{
+		if( pagenum == PAGES_PER_BLOCK ) {
+			block = block->Next;
+			ASSERT(block);
+			pagenum = 0;
+		}
+		
+		ASSERT(block->Pages[pagenum]);
+		LOG("%p => %i:%P", dst, pagenum, block->Pages[pagenum]);
+		MM_Map(dst, block->Pages[pagenum]);
+		
+		pagenum ++;
+		dst ++;
+	}
+	return 0;
 }
 

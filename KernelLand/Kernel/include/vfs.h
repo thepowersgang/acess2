@@ -313,7 +313,7 @@ struct sVFS_NodeType
 	 * \return Boolean Failure
 	 * \note If NULL, the VFS implements it using .Read
 	 */
-	 int	(*MMap)(struct sVFS_Node *Node, off_t Offset, int Length, void *Dest);
+	 int	(*MMap)(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Dest);
 	
 	/**
 	 * \brief Resize a file
