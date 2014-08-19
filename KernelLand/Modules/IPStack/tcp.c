@@ -346,6 +346,7 @@ int TCP_INT_HandleServerPacket(tInterface *Interface, tTCPListener *Server, cons
 	conn->LastACKSequence = ntohl( Header->SequenceNumber );
 	
 	conn->Node.ImplInt = Server->NextID ++;
+	conn->Node.Size = -1;
 	
 	// Hmm... Theoretically, this lock will never have to wait,
 	// as the interface is locked to the watching thread, and this
@@ -900,6 +901,7 @@ tTCPConnection *TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnect
 	conn->LocalPort = -1;
 	conn->RemotePort = -1;
 
+	conn->Node.Size = -1;
 	conn->Node.ReferenceCount = 1;
 	conn->Node.ImplPtr = conn;
 	conn->Node.NumACLs = 1;
