@@ -12,7 +12,7 @@ extern void	Stack_AddInterface(const char *Name, int AddrType, const void *Addr,
 extern void	Stack_AddRoute(int Type, const void *Network, int MaskBits, const void *NextHop);
 
 extern void	Stack_AddArg(const char *Fmt, ...);
-extern int	Stack_Start(const char *Subcommand);
+extern int	Stack_Start(const char *TestName, const char *Subcommand);
 extern void	Stack_Kill(void);
 
 extern int	Stack_SendCommand(const char *CommandString, ...);

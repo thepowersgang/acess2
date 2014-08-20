@@ -92,7 +92,7 @@ void sigchld_handler(int signum)
 	fprintf(stderr, "FAILURE: Child exited (%i)\n", status);
 }
 
-int Stack_Start(const char *Subcommand)
+int Stack_Start(const char *RunName, const char *Subcommand)
 {
 	Stack_AddArg(Subcommand);
 	
@@ -107,8 +107,8 @@ int Stack_Start(const char *Subcommand)
 	fcntl(giStack_InFD, F_SETFD, FD_CLOEXEC);
 
 	FILE	*fp;
-	fp = fopen("stdout.txt", "a"); fprintf(fp, "--- Startup\n"); fclose(fp);
-	fp = fopen("stderr.txt", "a"); fprintf(fp, "--- Startup\n"); fclose(fp);
+	fp = fopen("stdout.txt", "a"); fprintf(fp, "--- TEST: %s\n", RunName); fclose(fp);
+	fp = fopen("stderr.txt", "a"); fprintf(fp, "--- TEST: %s\n", RunName); fclose(fp);
 
 	posix_spawn_file_actions_t	fa;
 	posix_spawn_file_actions_init(&fa);

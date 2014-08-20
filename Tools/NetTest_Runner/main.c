@@ -23,12 +23,16 @@ int main(int argc, char *argv[])
 		return 1;
 
 	typedef bool t_test(void);
-	t_test	*tests[] = {
-		Test_ARP_Basic,
-		Test_TCP_Basic,
-		//Test_TCP_WindowSizes,
-		Test_TCP_Reset,
-		NULL
+	struct {
+		t_test	*fcn;
+		const char *name;
+	} tests[] = {
+		#define _(fcn)	{fcn, #fcn}
+		_(Test_ARP_Basic),
+		_(Test_TCP_Basic),
+		//_(Test_TCP_WindowSizes),
+		_(Test_TCP_Reset),
+		{NULL,NULL}
 		};
 
 	// Truncate the two output files
@@ -40,18 +44,18 @@ int main(int argc, char *argv[])
 
 	 int	n_pass = 0;
 	 int	n_fail = 0;
-	for(int i = 0; tests[i]; i ++ )
+	for(int i = 0; tests[i].fcn; i ++ )
 	{
 		Stack_AddDevice("/tmp/acess2net", (char[]){TEST_MAC});
 		Stack_AddInterface("eth0", 4, (const char[]){TEST_IP}, 24);
 		Stack_AddRoute(4, "\0\0\0\0", 0, (const char[]){HOST_IP});
-		if( Stack_Start("cmdline") )
+		if( Stack_Start(tests[i].name, "cmdline") )
 			goto teardown;
 		
 		if( Net_Receive(0, 1, &argc, 1000) == 0 )
 			goto teardown;
 		
-		bool	result = tests[i]();
+		bool	result = tests[i].fcn();
 		
 		printf("%s: %s\n", gsTestName, (result ? "PASS" : "FAIL"));
 		if(result)
