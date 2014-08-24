@@ -21,12 +21,12 @@ clean:
 utest generate_exp utest-build utest-run:
 	@echo > /dev/null
 
-$(OUTPUTDIR)Libs/%.o: %.c Makefile
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
 $(OUTPUTDIR)Libs/%S.o: %S.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@ -fPIC
+$(OUTPUTDIR)Libs/%.o: %.c Makefile
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 $(OUTPUTDIR)Libs/%.o: $(ARCHDIR)-%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@

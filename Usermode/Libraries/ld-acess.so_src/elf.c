@@ -119,7 +119,7 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 int elf_doRelocate_386(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int bRela)
 {
 	const Elf32_Sym	*sym = &Info->symtab[ ELF32_R_SYM(r_info) ];
-	void	*symval = (void*)sym->st_value;
+	void	*symval = (void*)(intptr_t)sym->st_value;
 	size_t	size = sym->st_size;
 	TRACE("%i '%s'", ELF32_R_TYPE(r_info), Info->strtab + sym->st_name);
 	switch( ELF32_R_TYPE(r_info) )
@@ -183,7 +183,7 @@ int elf_doRelocate_386(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf3
 int elf_doRelocate_arm(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int bRela)
 {
 	const Elf32_Sym	*sym = &Info->symtab[ ELF32_R_SYM(r_info) ];
-	void	*symval = (void*)sym->st_value;
+	void	*symval = (void*)(intptr_t)sym->st_value;
 	size_t	size = sym->st_size;
 	TRACE("%i '%s'", ELF32_R_TYPE(r_info), Info->strtab + sym->st_name);
 	uintptr_t	val = (uintptr_t)symval;
@@ -679,7 +679,7 @@ int Elf32GetSymbolInfo(void *Base, const char *Name, void **Addr, size_t *Size, 
 			TRACE("*sym = {value:0x%x,size:0x%x,info:0x%x,other:0x%x,shndx:%i}",
 				sym->st_value, sym->st_size, sym->st_info,
 				sym->st_other, sym->st_shndx);
-			if(Addr)	*Addr = (void*)( sym->st_value );
+			if(Addr)	*Addr = (void*)(intptr_t)( sym->st_value );
 			if(Size)	*Size = sym->st_size;
 			if(Binding)	*Binding = ELF32_ST_BIND(sym->st_info);
 			if(Type)	*Type = ELF32_ST_TYPE(sym->st_info);

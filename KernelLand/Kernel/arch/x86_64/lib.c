@@ -146,6 +146,18 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	#endif
 }
 
+void __AtomicTestSetLoop(Uint *Ptr, Uint Value)
+{
+	__ASM__(
+		"1:\n\t"
+		"xor %%eax, %%eax;\n\t"
+		"lock cmpxchg %0, (%1);\n\t"	// if( Ptr==0 ) { ZF=1; Ptr=Value } else { ZF=0; _=Ptr }
+		"jnz 1b;\n\t"
+		:: "r"(Value), "r"(Ptr)
+		: "eax" // EAX clobbered
+		);
+}
+
 // === DEBUG IO ===
 #if USE_GDB_STUB
 void initGdbSerial(void)

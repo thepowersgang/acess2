@@ -7,6 +7,7 @@
 #include <string.h>
 #include "common.h"
 #include <ctype.h>
+#include <inttypes.h>
 
 // === CONSTANTS ===
 #define DEFAULT_SHELL	"/Acess/SBin/login"
@@ -499,7 +500,7 @@ int SpawnDaemon(tInitProgram *Program)
 	// Log spawn header
 	{
 		char	buffer[101];
-		size_t len = snprintf(buffer, 100, "[%lli] init spawning ", _SysTimestamp());
+		size_t len = snprintf(buffer, 100, "[%"PRIi64"] init spawning ", _SysTimestamp());
 		_SysWrite(out, buffer, len);
 		for( int i = 0; Program->Command[i]; i ++ )
 		{

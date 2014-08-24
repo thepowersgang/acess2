@@ -105,5 +105,7 @@ extern void	SHORTREL(struct sShortSpinlock *Lock);
 extern void	Debug_PutCharDebug(char ch);
 extern void	Debug_PutStringDebug(const char *Str);
 
+extern void	__AtomicTestSetLoop(Uint *Ptr, Uint Value);
+
 #endif
 

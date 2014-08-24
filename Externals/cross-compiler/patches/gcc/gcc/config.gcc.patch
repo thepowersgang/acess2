@@ -12,10 +12,15 @@
 +  ;;
  *-*-darwin*)
 
-@@ -1192,2 +1196,7 @@
+@@ -1192,2 +1196,12 @@
  	;;
 +i[3-7]86-*-acess2*)
 +	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h newlib-stdint.h acess2.h"
++	tmake_file="i386/t-i386elf i386/t-crtstuff t-svr4"
++	use_fixproto=yes
++	;;
++x86_64-*-acess2*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h acess2.h"
 +	tmake_file="i386/t-i386elf i386/t-crtstuff t-svr4"
 +	use_fixproto=yes
 +	;;
