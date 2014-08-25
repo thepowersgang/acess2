@@ -73,8 +73,8 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 #define assert(expr)	ASSERTV(expr, "")
 #define ASSERT(expr)	ASSERTV(expr, "")
 #define ASSERTR(expr,rv)	ASSERTRV(expr, rv, "")
-#define ASSERTC(l,rel,r)	ASSERTV ((l) rel (r), ": 0x%x"#rel"0x%x", l, r)
-#define ASSERTCR(l,rel,r,rv)	ASSERTRV((l) rel (r), rv, ": 0x%x"#rel"0x%x", l, r)
+#define ASSERTC(l,rel,r)	ASSERTV ((l) rel (r), ": 0x%x"#rel"0x%x", (Uint)l, (Uint)r)
+#define ASSERTCR(l,rel,r,rv)	ASSERTRV((l) rel (r), rv, ": 0x%x"#rel"0x%x", (Uint)l, (Uint)r)
 /**
  * \}
  */
