@@ -208,7 +208,7 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 		win->Show( message.ReadU8() != 0 );
 		break;
 	case IPC_WINATTR_FLAGS:
-		_SysDebug("TODO: IPC_WINATTR_FLAGS");
+		win->SetFlags( message.ReadU8() );	// TODO: U8? why so small?
 		break;
 	case IPC_WINATTR_TITLE:
 		assert(!"TODO: IPC_WINATTR_TITLE");
@@ -306,6 +306,7 @@ void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
 	uint16_t	ctrl_id = message.ReadU16();
+	uint16_t 	frame = message.ReadU16();
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {

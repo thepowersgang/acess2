@@ -3,7 +3,7 @@ include ../../Makefile.cfg
 
 DIR := Apps/AxWin/4.0
 
-OBJ := main.o
+OBJ := main.o taskbar.o
 
 BIN := AxWinUI
 

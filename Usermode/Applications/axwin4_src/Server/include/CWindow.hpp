@@ -31,6 +31,7 @@ public:
 	void Show(bool bShow);	
 	void Move(int X, int Y);
 	void Resize(unsigned int W, unsigned int H);
+	void SetFlags(uint32_t Flags);
 	
 	uint64_t ShareSurface();
 	

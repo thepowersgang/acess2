@@ -8,6 +8,7 @@
  * Handles drawing of resizable controls defined by a bitmap and four region sizes
  */
 #include <draw_control.hpp>
+#include <axwin4/definitions.h>
 
 // === CODE ===
 namespace AxWin {
@@ -129,6 +130,15 @@ CControl StdButton(2, 1, 0, 2, 1, 0, ::std::vector<uint32_t> {
 	0xC0C0C0, 0xC0C0C0, 0xC0C0C0, 0xC0C0C0, 0xC0C0C0,
 	});
 
+// Toolbar
+CControl StdToolbar(2, 1, 0, 2, 1, 0, ::std::vector<uint32_t> {
+	0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+	0x000000, 0xA0A0A0, 0x0A0000, 0xA0A0A0, 0x000000,
+	0x000000, 0xA0A0A0, 0xFFFFFF, 0xA0A0A0, 0x000000,
+	0x000000, 0xA0A0A0, 0x0A0000, 0xA0A0A0, 0x000000,
+	0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+	});
+
 // Text Area
 CControl StdText(2, 1, 0, 2, 1, 0, ::std::vector<uint32_t> {
 	0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
@@ -152,8 +162,9 @@ const CControl* CControl::GetByID(uint16_t id)
 {
 	switch(id)
 	{
-	case 0x00:	return &StdButton;
-	case 0x01:	return &StdText;
+	case AXWIN4_CTL_BUTTON:	return &StdButton;
+	case AXWIN4_CTL_TOOLBAR:	return &StdToolbar;
+	case AXWIN4_CTL_TEXTBOX:	return &StdText;
 	default:	return nullptr;
 	}
 }

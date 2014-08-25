@@ -7,20 +7,25 @@
  */
 #include <axwin4/axwin.h>
 #include <assert.h>
+#include "include/common.h"
+#include "include/taskbar.h"
 
+// === PROTOTYPES ===
 tAxWin4_Window *CreateBGWin(int w, int h);
-tAxWin4_Window *CreateTaskbar(int w, int h);
+
+// === GLOABLS ===
+unsigned int	giScreenWidth = 640;
+unsigned int	giScreenHeight = 480;
 
 // === CODE ===
 int main(int argc, const char *argv[])
 {
 	assert( AxWin4_Connect("ipcpipe:///Devices/ipcpipe/axwin4") );
 	
-	unsigned int w, h;
-	AxWin4_GetScreenDimensions(0, &w, &h);
+	AxWin4_GetScreenDimensions(0, &giScreenWidth, &giScreenHeight);
 	
-	tAxWin4_Window *bgwin = CreateBGWin(w, h);
-	tAxWin4_Window *menu = CreateTaskbar(w, h);
+	tAxWin4_Window *bgwin = CreateBGWin(giScreenWidth, giScreenHeight);
+	Taskbar_Create();
 	
 	_SysDebug("Beginning queue");
 	while( AxWin4_WaitEventQueue(0) )
@@ -53,29 +58,5 @@ tAxWin4_Window *CreateBGWin(int w, int h)
 	AxWin4_ShowWindow(bgwin, true);
 	
 	return bgwin;
-}
-
-tAxWin4_Window *CreateTaskbar(int w, int h)
-{
-	 int	winheight = 30;
-	tAxWin4_Window *win = AxWin4_CreateWindow("taskbar");
-	AxWin4_MoveWindow(win, 0, 0);
-	AxWin4_ResizeWindow(win, w, winheight);
-	
-	AxWin4_SetWindowFlags(win, AXWIN4_WNDFLAG_NODECORATE);
-	Taskbar_Redraw(win);
-	AxWin4_ShowWindow(win, true);
-	
-	return win;
-}
-
-void Taskbar_Redraw(tAxWin4_Window *win)
-{
-	 int	w = 640;
-	 int	h = 30;
-	AxWin4_DrawControl(win, 0, 0, w, h, 0x01);	// Standard button, suitable for a toolbar
-	AxWin4_DrawControl(win, 5, 5, h-10, h-10, 0x00);	// Standard button
-	
-	AxWin4_DamageRect(bgwin, 0, 0, w, h);
 }
 

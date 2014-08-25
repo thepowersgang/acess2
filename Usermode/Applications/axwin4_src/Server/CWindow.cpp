@@ -59,6 +59,11 @@ void CWindow::Resize(unsigned int W, unsigned int H)
 	m_surface.Resize(W, H);
 	IPC::SendMessage_NotifyDims(m_client, W, H);
 }
+void CWindow::SetFlags(uint32_t Flags)
+{
+	// TODO: CWindow::SetFlags
+	_SysDebug("TOOD: CWindow::SetFlags");
+}
 uint64_t CWindow::ShareSurface()
 {
 	assert(!"TODO: CWindow::ShareSurface");

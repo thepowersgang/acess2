@@ -45,7 +45,7 @@ extern "C" void AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned
 	}
 }
 
-extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ID)
+extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ID, unsigned int Frame)
 {
 	CSerialiser	message;
 	message.WriteU8(IPCMSG_DRAWCTL);
@@ -55,6 +55,21 @@ extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigne
 	message.WriteU16(W);
 	message.WriteU16(H);
 	message.WriteU16(ID);
+	message.WriteU16(Frame);
+	::AxWin::SendMessage(message);
+}
+
+extern "C" void AxWin4_DrawText(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t FontID, const char *String)
+{
+	CSerialiser	message;
+	message.WriteU8(IPCMSG_DRAWTEXT);
+	message.WriteU16(Window->m_id);
+	message.WriteU16(X);
+	message.WriteU16(Y);
+	message.WriteU16(W);
+	message.WriteU16(H);
+	message.WriteU16(FontID);
+	message.WriteString(String);
 	::AxWin::SendMessage(message);
 }
 
