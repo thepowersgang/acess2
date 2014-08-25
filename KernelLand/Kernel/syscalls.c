@@ -444,7 +444,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 
 	// -- Debug
 	//#if DEBUG_BUILD
-	case SYS_DEBUG:
+	case SYS_DEBUGS:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		Log("Log: %08lli [%i] %s", now(), Threads_GetTID(), (const char*)Regs->Arg1);
+		break;
+	case SYS_DEBUGF:
 		CHECK_STR_NONULL( (char*)Regs->Arg1 );
 		LogF("Log: %08lli [%i] ", now(), Threads_GetTID());
 		LogF((const char*)Regs->Arg1,
