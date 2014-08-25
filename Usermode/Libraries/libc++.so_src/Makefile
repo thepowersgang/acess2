@@ -8,8 +8,8 @@ CFLAGS   += -Wall -Werror -Wextra
 CXXFLAGS += -Wall -Werror -Wextra
 ASFLAGS  +=
 LDFLAGS  += -nostdlib
-PRELINK  := $(CRTI) $(CRTBEGIN) $(OUTPUTDIR)/Libs/crt0S.o
-LIBS     += -lc $(LIBGCC_PATH) $(CRTEND) $(CRTN)
+PRELINK  := $(CRTI) $(CRTBEGINS) $(CRT0S)
+LIBS     += -lc $(LIBGCC_PATH) $(CRTENDS) $(CRTN)
 USE_CXX_LINK := yes
 
 OBJ  = misc.o new.o guard.o cxxabi.o typeinfo.o

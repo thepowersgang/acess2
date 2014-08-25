@@ -7,8 +7,8 @@ CPPFLAGS +=
 CFLAGS   += -nostdlib -Wall -Werror -Wextra
 ASFLAGS  +=
 LDFLAGS  += -nostdlib
-PRELINK  := $(CRTI) $(CRTBEGIN) $(OUTPUTDIR)/Libs/crt0S.o
-LIBS     += $(LIBGCC_PATH) $(CRTEND) $(CRTN)
+PRELINK  := $(CRTI) $(CRTBEGINS) $(CRTS)
+LIBS     += $(LIBGCC_PATH) $(CRTENDS) $(CRTN)
 
 INCFILES := stdio.h stdlib.h
 
