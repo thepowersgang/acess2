@@ -1,0 +1,300 @@
+/*
+ */
+#ifndef _LIBCXXEXTRAS_PRINTF_
+#define _LIBCXXEXTRAS_PRINTF_
+
+#include <cstddef>
+#include <cstdlib>
+#include <cstdio>
+#include <functional>
+
+namespace cxxextras {
+
+class cprintf_toomanyargs:
+	public ::std::exception
+{
+};
+class cprintf_toofewargs:
+	public ::std::exception
+{
+};
+class cprintf_badformat:
+	public ::std::exception
+{
+	const char *m_reason;
+public:
+	cprintf_badformat(const char *reason):
+		m_reason(reason)
+	{
+	}
+	const char* what() const noexcept override {
+		return m_reason;
+	}
+};
+
+namespace _bits {
+
+typedef ::std::function<size_t(const char*,size_t)>	t_cprintf_callback;
+
+enum e_cprintf_type
+{
+	TYPE_AUTO,
+	TYPE_BOOLEAN,
+	TYPE_BINARY,
+	TYPE_OCT,
+	TYPE_INT,
+	TYPE_INTU,
+	TYPE_INTS,
+	TYPE_HEXLC,
+	TYPE_HEXUC,
+	TYPE_STRING,
+};
+
+struct PrintfFlags
+{
+	unsigned int width;
+	unsigned int precision;
+	unsigned int flags;
+	
+	struct Left {};
+	constexpr PrintfFlags(PrintfFlags x, Left  _): width(x.width), precision(x.precision), flags(x.flags | 1) {}
+	struct Sign {};
+	constexpr PrintfFlags(PrintfFlags x, Sign  _): width(x.width), precision(x.precision), flags(x.flags | 2) {}
+	struct Space {};
+	constexpr PrintfFlags(PrintfFlags x, Space _): width(x.width), precision(x.precision), flags(x.flags | 4) {}
+	struct Alt {};
+	constexpr PrintfFlags(PrintfFlags x, Alt   _): width(x.width), precision(x.precision), flags(x.flags | 8) {}
+	struct Zero {};
+	constexpr PrintfFlags(PrintfFlags x, Zero  _): width(x.width), precision(x.precision), flags(x.flags | 16) {}
+	
+	struct ArgWidth {};
+	constexpr PrintfFlags(PrintfFlags x, ArgWidth _, unsigned int v): width(v), precision(x.precision), flags(x.flags) {}
+	struct ArgPrec {};
+	constexpr PrintfFlags(PrintfFlags x, ArgPrec  _, unsigned int v): width(x.width), precision(v), flags(x.flags) {}
+	
+	struct FAuto {};
+	constexpr PrintfFlags(PrintfFlags x, FAuto   _): width(x.width), precision(x.precision), flags(x.flags | 0x000) {}
+	struct FString {};
+	constexpr PrintfFlags(PrintfFlags x, FString _): width(x.width), precision(x.precision), flags(x.flags | 0x100) {}
+	struct FBool {};
+	constexpr PrintfFlags(PrintfFlags x, FBool   _): width(x.width), precision(x.precision), flags(x.flags | 0x200) {}
+	struct FBinary {};
+	constexpr PrintfFlags(PrintfFlags x, FBinary _): width(x.width), precision(x.precision), flags(x.flags | 0x300) {}
+	struct FOct {};
+	constexpr PrintfFlags(PrintfFlags x, FOct   _): width(x.width), precision(x.precision), flags(x.flags | 0x400) {}
+	struct FUDec {};
+	constexpr PrintfFlags(PrintfFlags x, FUDec  _): width(x.width), precision(x.precision), flags(x.flags | 0x500) {}
+	struct FSDec {};
+	constexpr PrintfFlags(PrintfFlags x, FSDec  _): width(x.width), precision(x.precision), flags(x.flags | 0x600) {}
+	struct FHexL {};
+	constexpr PrintfFlags(PrintfFlags x, FHexL  _): width(x.width), precision(x.precision), flags(x.flags | 0x700) {}
+	struct FHexU {};
+	constexpr PrintfFlags(PrintfFlags x, FHexU  _): width(x.width), precision(x.precision), flags(x.flags | 0x800) {}
+	
+	PrintfFlags():
+		width(0), precision(0), flags(0)
+	{
+	}
+};
+struct s_cprintf_fmt
+{
+	bool isValid = false;
+	unsigned int precision = 0;
+	unsigned int minLength = 0;
+	bool	padLeft = false;
+	bool	showSign = false;
+	bool	showSpace = false;
+	bool	altFormat = false;
+	bool	padZero = false;
+	enum e_cprintf_type	type;
+};
+
+constexpr bool isdigit_s(const char ch) {
+	return '0' <= ch && ch <= '9';
+}
+constexpr unsigned todigit(const char ch) {
+	return ch - '0';
+}
+	
+
+};	// namespace _bits
+
+template <typename Arg> size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags &fmt, Arg arg);
+
+size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags& fmt, const char* arg) {
+	unsigned int len;
+	for(len = 0; arg[len]; len ++)
+		;
+	return puts(arg, len);
+}
+size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags& fmt, int arg) {
+	size_t len = ::std::snprintf(nullptr, 0, "%i", arg);
+	char buf[len+1];
+	::std::snprintf(buf, len+1, "%i", arg);
+	return puts(buf, len);
+}
+
+namespace _bits
+{
+namespace _printf
+{
+	size_t run(_bits::t_cprintf_callback puts, const char *fmt);
+	template <typename... Args> size_t run(_bits::t_cprintf_callback puts, const char * fmt, Args... args);
+
+	// --- Print formatted value
+	template <typename Fmt>
+	size_t run_fmt_done(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Fmt fmtcode)
+	{
+		throw cprintf_toofewargs();
+	}
+	template <typename Fmt, typename Arg, typename... Args>
+	size_t run_fmt_done(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Fmt fmtcode, Arg val,  Args... args)
+	{
+		return ::cxxextras::cprintf_val(puts, PrintfFlags(item, fmtcode), val) + run(puts, fmt+1, args...);
+	}
+	// --- Format code
+	template <typename ...Args>
+	size_t run_fmt_fmt(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		return *fmt == '\0' ? throw "ERROR: NUL byte in format specifier"
+		     : *fmt == '?' ? run_fmt_done(puts, fmt, item, PrintfFlags::FAuto(),  args...)
+		     : *fmt == 's' ? run_fmt_done(puts, fmt, item, PrintfFlags::FString(),args...)
+		     : *fmt == 'B' ? run_fmt_done(puts, fmt, item, PrintfFlags::FBool(),  args...)
+		     : *fmt == 'b' ? run_fmt_done(puts, fmt, item, PrintfFlags::FBinary(),args...)
+		     : *fmt == 'o' ? run_fmt_done(puts, fmt, item, PrintfFlags::FOct(),   args...)
+		     : *fmt == 'i' ? run_fmt_done(puts, fmt, item, PrintfFlags::FSDec(),  args...)
+		     : *fmt == 'u' ? run_fmt_done(puts, fmt, item, PrintfFlags::FUDec(),  args...)
+		     : *fmt == 'x' ? run_fmt_done(puts, fmt, item, PrintfFlags::FHexL(),  args...)
+		     : *fmt == 'X' ? run_fmt_done(puts, fmt, item, PrintfFlags::FHexU(),  args...)
+		     : throw cprintf_badformat("Unknown character in format string");
+	}
+	// --- Size modifier (not implemented, not needed?)
+	template <typename ...Args>
+	size_t run_fmt_size(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		// TODO: Size characters?
+		return run_fmt_fmt(puts, fmt, item, args...);
+	}
+	// --- Precision
+	template <typename ...Args>
+	size_t run_fmt_prec_val(_bits::t_cprintf_callback puts, const char * fmt, unsigned int val, PrintfFlags item, Args... args)
+	{
+		return _bits::isdigit_s(*fmt) ? run_fmt_prec_val(puts, fmt+1, val*10+_bits::todigit(*fmt), item, args...)
+		     : run_fmt_size(puts, fmt, PrintfFlags(item, PrintfFlags::ArgPrec(), val), args...);
+	}
+	template <typename ...Args>
+	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
+	{
+		return run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgPrec(), size), args...);
+	}
+	template <typename Arg, typename ...Args>
+	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
+	{
+		throw cprintf_badformat("Invalid type for printf precision modifier");
+	}
+	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item)
+	{
+		throw cprintf_toofewargs();
+	}
+	template <typename ...Args>
+	size_t run_fmt_prec(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		return _bits::isdigit_s(*fmt) ? run_fmt_prec_val(puts, fmt+1, _bits::todigit(*fmt), item, args...)
+		     : *fmt == '*' ? run_fmt_prec_arg(puts, fmt+1, item, args...)
+		     : run_fmt_size(puts, fmt, item, args...);
+	}
+	template <typename ...Args>
+	size_t run_fmt_prec_opt(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		return *fmt == '.' ? run_fmt_prec(puts, fmt+1, item, args...)
+		     : run_fmt_size(puts, fmt, item, args...);
+	}
+	// --- Field Width ---	
+	template <typename ...Args>
+	size_t run_fmt_width_val(_bits::t_cprintf_callback puts, const char * fmt, unsigned int val, PrintfFlags item, Args... args)
+	{
+		return  _bits::isdigit_s(*fmt) ? run_fmt_width_val(puts, fmt+1, val*10+_bits::todigit(*fmt), item, args...)
+		      : run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgWidth(), val), args...);
+	}
+	template <typename ...Args>
+	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
+	{
+		return run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgWidth(), size), args...);
+	}
+	template <typename Arg, typename ...Args>
+	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
+	{
+		throw cprintf_badformat("Invalid type for printf width modifier");
+	}
+	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item)
+	{
+		throw cprintf_toofewargs();
+	}
+	template <typename ...Args>
+	size_t run_fmt_width(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		return _bits::isdigit_s(*fmt) ? run_fmt_width_val(puts, fmt+1, _bits::todigit(*fmt), item, args...)
+		     : *fmt == '*' ? run_fmt_width_arg(puts, fmt+1, item, args...)
+		     : run_fmt_prec_opt(puts, fmt, item, args...);
+	}
+	// --- Flags
+	template <typename ...Args>
+	size_t run_fmt_flags(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	{
+		return
+		  *fmt == '-' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Left()) , args...)
+		: *fmt == '+' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Sign()) , args...)
+		: *fmt == ' ' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Space()), args...)
+		: *fmt == '#' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Alt())  , args...)
+		: *fmt == '0' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Zero()) , args...)
+		: run_fmt_width(puts, fmt, item, args...);
+	}
+	// --- Literal '%'
+	template <typename ...Args>
+	size_t run_fmt_start(_bits::t_cprintf_callback puts, const char * fmt, Args... args)
+	{
+		//printf("> DEBUG: '%s'\n", fmt);
+		return *fmt == '%'
+			? (puts("%", 1), 1 + run(puts, fmt+1, args...))
+			: run_fmt_flags(puts, fmt, PrintfFlags(), args...);
+	}
+	// --- Root
+	template <typename... Args>
+	size_t run(_bits::t_cprintf_callback puts, const char * fmt, Args... args)
+	{
+		int ofs;
+		for( ofs = 0; fmt[ofs] != '\0' && fmt[ofs] != '%'; ofs ++ )
+			;
+		if( fmt[ofs] != '%' )
+			throw cprintf_toomanyargs();
+		if(ofs > 0) puts(fmt, ofs);
+		//printf("> DEBUG: run: '%s'\n", fmt+ofs);
+		return ofs + run_fmt_start(puts, fmt+ofs+1, args...);
+	}
+	size_t run(_bits::t_cprintf_callback puts, const char *fmt)
+	{
+		int ofs;
+		for( ofs = 0; fmt[ofs] != '\0' && fmt[ofs] != '%'; ofs ++ )
+			;
+		if( fmt[ofs] == '%' )
+			throw cprintf_toofewargs();
+		if(ofs > 0) puts(fmt, ofs);
+		return ofs;
+	}
+
+}
+
+};	// namespace _bits
+
+template <typename ... Args>
+size_t cprintf(_bits::t_cprintf_callback puts, const char *fmt, Args... args)
+{
+	return _bits::_printf::run(puts, fmt, args...);
+}
+
+};
+
+#endif
+
+// vim: ft=cpp
+
