@@ -34,8 +34,6 @@ public:
 
 namespace _bits {
 
-typedef ::std::function<size_t(const char*,size_t)>	t_cprintf_callback;
-
 enum e_cprintf_type
 {
 	TYPE_AUTO,
@@ -108,6 +106,7 @@ struct s_cprintf_fmt
 	bool	padZero = false;
 	enum e_cprintf_type	type;
 };
+;
 
 constexpr bool isdigit_s(const char ch) {
 	return '0' <= ch && ch <= '9';
@@ -119,42 +118,55 @@ constexpr unsigned todigit(const char ch) {
 
 };	// namespace _bits
 
-template <typename Arg> size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags &fmt, Arg arg);
+typedef ::std::function<void(const char*,size_t)>	cprintf_cb;
+template <typename Arg> size_t cprintf_val(cprintf_cb puts, const _bits::PrintfFlags &fmt, Arg arg);
 
-size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags& fmt, const char* arg) {
+size_t cprintf_val(cprintf_cb puts, const _bits::PrintfFlags& fmt, const char* arg) {
 	unsigned int len;
 	for(len = 0; arg[len]; len ++)
 		;
-	return puts(arg, len);
+	puts(arg, len);
+	return len;
 }
-size_t cprintf_val(_bits::t_cprintf_callback puts, const _bits::PrintfFlags& fmt, int arg) {
+size_t cprintf_val(cprintf_cb puts, const _bits::PrintfFlags& fmt, int arg) {
 	size_t len = ::std::snprintf(nullptr, 0, "%i", arg);
 	char buf[len+1];
 	::std::snprintf(buf, len+1, "%i", arg);
-	return puts(buf, len);
+	puts(buf, len);
+	return len;
+}
+size_t cprintf_val(cprintf_cb puts, const _bits::PrintfFlags& fmt, unsigned int arg) {
+	size_t len = ::std::snprintf(nullptr, 0, "%u", arg);
+	char buf[len+1];
+	::std::snprintf(buf, len+1, "%u", arg);
+	puts(buf, len);
+	return len;
 }
 
 namespace _bits
 {
 namespace _printf
 {
-	size_t run(_bits::t_cprintf_callback puts, const char *fmt);
-	template <typename... Args> size_t run(_bits::t_cprintf_callback puts, const char * fmt, Args... args);
+	size_t run(cprintf_cb puts, const char *fmt);
+	template <typename... Args> size_t run(cprintf_cb puts, const char * fmt, Args... args);
 
 	// --- Print formatted value
 	template <typename Fmt>
-	size_t run_fmt_done(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Fmt fmtcode)
+	constexpr size_t run_fmt_done(cprintf_cb puts, const char * fmt, PrintfFlags item, Fmt fmtcode)
 	{
 		throw cprintf_toofewargs();
 	}
 	template <typename Fmt, typename Arg, typename... Args>
-	size_t run_fmt_done(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Fmt fmtcode, Arg val,  Args... args)
+	size_t run_fmt_done(cprintf_cb puts, const char * fmt, PrintfFlags item, Fmt fmtcode, Arg val,  Args... args)
 	{
-		return ::cxxextras::cprintf_val(puts, PrintfFlags(item, fmtcode), val) + run(puts, fmt+1, args...);
+		if( !puts )
+			return run(puts, fmt+1, args...);
+		else
+			return ::cxxextras::cprintf_val(puts, PrintfFlags(item, fmtcode), val) + run(puts, fmt+1, args...);
 	}
 	// --- Format code
 	template <typename ...Args>
-	size_t run_fmt_fmt(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_fmt(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		return *fmt == '\0' ? throw "ERROR: NUL byte in format specifier"
 		     : *fmt == '?' ? run_fmt_done(puts, fmt, item, PrintfFlags::FAuto(),  args...)
@@ -170,68 +182,68 @@ namespace _printf
 	}
 	// --- Size modifier (not implemented, not needed?)
 	template <typename ...Args>
-	size_t run_fmt_size(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_size(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		// TODO: Size characters?
 		return run_fmt_fmt(puts, fmt, item, args...);
 	}
 	// --- Precision
 	template <typename ...Args>
-	size_t run_fmt_prec_val(_bits::t_cprintf_callback puts, const char * fmt, unsigned int val, PrintfFlags item, Args... args)
+	size_t run_fmt_prec_val(cprintf_cb puts, const char * fmt, unsigned int val, PrintfFlags item, Args... args)
 	{
 		return _bits::isdigit_s(*fmt) ? run_fmt_prec_val(puts, fmt+1, val*10+_bits::todigit(*fmt), item, args...)
 		     : run_fmt_size(puts, fmt, PrintfFlags(item, PrintfFlags::ArgPrec(), val), args...);
 	}
 	template <typename ...Args>
-	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
+	size_t run_fmt_prec_arg(cprintf_cb puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
 	{
 		return run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgPrec(), size), args...);
 	}
 	template <typename Arg, typename ...Args>
-	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
+	size_t run_fmt_prec_arg(cprintf_cb puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
 	{
 		throw cprintf_badformat("Invalid type for printf precision modifier");
 	}
-	size_t run_fmt_prec_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item)
+	size_t run_fmt_prec_arg(cprintf_cb puts, const char *fmt, PrintfFlags item)
 	{
 		throw cprintf_toofewargs();
 	}
 	template <typename ...Args>
-	size_t run_fmt_prec(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_prec(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		return _bits::isdigit_s(*fmt) ? run_fmt_prec_val(puts, fmt+1, _bits::todigit(*fmt), item, args...)
 		     : *fmt == '*' ? run_fmt_prec_arg(puts, fmt+1, item, args...)
 		     : run_fmt_size(puts, fmt, item, args...);
 	}
 	template <typename ...Args>
-	size_t run_fmt_prec_opt(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_prec_opt(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		return *fmt == '.' ? run_fmt_prec(puts, fmt+1, item, args...)
 		     : run_fmt_size(puts, fmt, item, args...);
 	}
 	// --- Field Width ---	
 	template <typename ...Args>
-	size_t run_fmt_width_val(_bits::t_cprintf_callback puts, const char * fmt, unsigned int val, PrintfFlags item, Args... args)
+	size_t run_fmt_width_val(cprintf_cb puts, const char* fmt, unsigned int val, PrintfFlags item, Args... args)
 	{
 		return  _bits::isdigit_s(*fmt) ? run_fmt_width_val(puts, fmt+1, val*10+_bits::todigit(*fmt), item, args...)
 		      : run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgWidth(), val), args...);
 	}
 	template <typename ...Args>
-	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
+	size_t run_fmt_width_arg(cprintf_cb puts, const char *fmt, PrintfFlags item, unsigned int size, Args... args)
 	{
 		return run_fmt_prec_opt(puts, fmt, PrintfFlags(item, PrintfFlags::ArgWidth(), size), args...);
 	}
 	template <typename Arg, typename ...Args>
-	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
+	size_t run_fmt_width_arg(cprintf_cb puts, const char *fmt, PrintfFlags item, Arg size, Args... args)
 	{
 		throw cprintf_badformat("Invalid type for printf width modifier");
 	}
-	size_t run_fmt_width_arg(_bits::t_cprintf_callback puts, const char *fmt, PrintfFlags item)
+	size_t run_fmt_width_arg(cprintf_cb puts, const char *fmt, PrintfFlags item)
 	{
 		throw cprintf_toofewargs();
 	}
 	template <typename ...Args>
-	size_t run_fmt_width(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_width(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		return _bits::isdigit_s(*fmt) ? run_fmt_width_val(puts, fmt+1, _bits::todigit(*fmt), item, args...)
 		     : *fmt == '*' ? run_fmt_width_arg(puts, fmt+1, item, args...)
@@ -239,7 +251,7 @@ namespace _printf
 	}
 	// --- Flags
 	template <typename ...Args>
-	size_t run_fmt_flags(_bits::t_cprintf_callback puts, const char * fmt, PrintfFlags item, Args... args)
+	size_t run_fmt_flags(cprintf_cb puts, const char * fmt, PrintfFlags item, Args... args)
 	{
 		return
 		  *fmt == '-' ? run_fmt_flags(puts, fmt+1, PrintfFlags(item, PrintfFlags::Left()) , args...)
@@ -251,35 +263,31 @@ namespace _printf
 	}
 	// --- Literal '%'
 	template <typename ...Args>
-	size_t run_fmt_start(_bits::t_cprintf_callback puts, const char * fmt, Args... args)
+	size_t run_fmt_start(cprintf_cb puts, const char * fmt, Args... args)
 	{
-		//printf("> DEBUG: '%s'\n", fmt);
 		return *fmt == '%'
 			? (puts("%", 1), 1 + run(puts, fmt+1, args...))
 			: run_fmt_flags(puts, fmt, PrintfFlags(), args...);
 	}
 	// --- Root
 	template <typename... Args>
-	size_t run(_bits::t_cprintf_callback puts, const char * fmt, Args... args)
+	size_t run(cprintf_cb puts, const char * fmt, Args... args)
 	{
 		int ofs;
 		for( ofs = 0; fmt[ofs] != '\0' && fmt[ofs] != '%'; ofs ++ )
 			;
 		if( fmt[ofs] != '%' )
 			throw cprintf_toomanyargs();
-		if(ofs > 0) puts(fmt, ofs);
-		//printf("> DEBUG: run: '%s'\n", fmt+ofs);
+		if(ofs > 0 && puts) puts(fmt, ofs);
 		return ofs + run_fmt_start(puts, fmt+ofs+1, args...);
 	}
-	size_t run(_bits::t_cprintf_callback puts, const char *fmt)
+	size_t run(cprintf_cb puts, const char *fmt)
 	{
 		int ofs;
 		for( ofs = 0; fmt[ofs] != '\0' && fmt[ofs] != '%'; ofs ++ )
 			;
-		if( fmt[ofs] == '%' )
-			throw cprintf_toofewargs();
-		if(ofs > 0) puts(fmt, ofs);
-		return ofs;
+		if(ofs > 0 && puts) puts(fmt, ofs);
+		return ofs + (fmt[ofs] == '%' ? run_fmt_start(puts, fmt+ofs+1) : 0);
 	}
 
 }
@@ -287,8 +295,9 @@ namespace _printf
 };	// namespace _bits
 
 template <typename ... Args>
-size_t cprintf(_bits::t_cprintf_callback puts, const char *fmt, Args... args)
+size_t cprintf(cprintf_cb puts, const char *fmt, Args... args)
 {
+	_bits::_printf::run(nullptr, fmt, args...);
 	return _bits::_printf::run(puts, fmt, args...);
 }
 
