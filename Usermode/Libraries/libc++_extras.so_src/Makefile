@@ -12,9 +12,8 @@ LIBS     += -lc++
 
 include ../Makefile.tpl
 
-EXP_%.txt: TEST_%.native
-	./$< > $@
-	rm $<
-
 %.native: %.cpp
 	$(NCXX) $< -o $@ -Wall -std=c++11 -I include_exp/
+
+TEST_cprintf.native: include_exp/cxxextras_printf
+

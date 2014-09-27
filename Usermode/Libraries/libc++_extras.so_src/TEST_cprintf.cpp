@@ -14,15 +14,15 @@ void my_puts(const char *str, size_t len)
 int main()
 {
 	printf("Success\n");
-	::cxxextras::cprintf(my_puts, "%s %i %+#-010x\n", "hello_world", 1337, 0x1234565);
+	cprintf(my_puts, "%s %i %+#-010x\n", "hello_world", 1337, 0x1234565);
 	
-	printf("Too Few\n");
-	ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%s %i %+#-010x\n"), ::cxxextras::cprintf_toofewargs );
-	printf("Too Many\n");
-	ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%s\n", "tst", 12345), ::cxxextras::cprintf_toomanyargs );
-	
-	printf("Bad Format\n");
-	ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%-\n"), ::cxxextras::cprintf_badformat );
+	//printf("Too Few\n");
+	//ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%s %i %+#-010x\n"), ::cxxextras::cprintf_toofewargs );
+	//printf("Too Many\n");
+	//ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%s\n", "tst", 12345), ::cxxextras::cprintf_toomanyargs );
+	//
+	//printf("Bad Format\n");
+	//ASSERT_EXCEPTION( ::cxxextras::cprintf(my_puts, "%-\n"), ::cxxextras::cprintf_badformat );
 	
 	return 0;
 }
