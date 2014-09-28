@@ -7,6 +7,15 @@ GCC_DIR:=$(GCC_ARCHIVE:%.tar.bz2=%)
 BINUTILS_ARCHIVE:=$(lastword $(sort $(wildcard binutils-*.tar.bz2)))
 BINUTILS_DIR:=$(BINUTILS_ARCHIVE:%.tar.bz2=%)
 
+ifeq ($(GCC_ARCHIVE),)
+ $(warning Unable to find a GCC archive matching gcc-*.tar.bz2)
+ $(error No archive found)
+endif
+ifeq ($(BINUTILS_ARCHIVE),)
+ $(warning Unable to find a binutils archive matching binutils-*.tar.bz2)
+ $(error No archive found)
+endif
+
 BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/emulparams/acess2_amd64.sh ld/Makefile.in
 GCC_CHANGES := config.sub gcc/config.gcc gcc/config/acess2.h libgcc/config.host
 # libstdc++-v3/crossconfig.m4 config/override.m4
@@ -61,7 +70,7 @@ $(GCC_DIR)/libstdc++-v3/configure: $(GCC_DIR)/libstdc++-v3/crossconfig.m4
 
 $(BDIR_BINUTILS)/Makefile: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
 	@mkdir -p $(BDIR_BINUTILS)
-	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)" --enable-shared
+	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)" --enable-shared --without-docdir
 
 $(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
 	@make -C $(BDIR_BINUTILS) all -j $(PARLEVEL)
@@ -69,7 +78,8 @@ $(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
 
 $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES)) $(GCC_DIR)/libstdc++-v3/configure
 	@mkdir -p $(BDIR_GCC)
-	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(SYSROOT)"
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(SYSROOT)" --without-docdir
+	@echo "MAKEINFO = :" >> $(BDIR_GCC)/Makefile
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
 	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) $(GCC_TARGETS:%=all-%) -j $(PARLEVEL)
