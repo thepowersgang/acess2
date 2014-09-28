@@ -11,16 +11,17 @@
 #define _INTTYPES_H_
 
 #include <stdint.h>
+#include <limits.h>
 
-#if INT64MAX == LONG_MAX
+#if INT64_MAX == LONG_MAX
 # define _PRI64	"l"
 #else
 # define _PRI64	"ll"
 #endif
 
-#define PRId64	_PRI64"ld"
-#define PRIdLEAST64	_PRI64"ld"
-#define PRIdFAST64	_PRI64"ld"
+#define PRId64	_PRI64"d"
+#define PRIdLEAST64	_PRI64"d"
+#define PRIdFAST64	_PRI64"d"
 #define PRIdMAX
 #define PRIdPTR
 #define PRIi64	_PRI64"i"
