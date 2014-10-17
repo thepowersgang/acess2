@@ -9,7 +9,8 @@ CPPFLAGS += -I$(AXWIN4DIR)Common/include/
 CFLAGS   += -Wextra
 CXXFLAGS +=
 ASFLAGS  +=
-LDFLAGS  += -soname libaxwin4.so -Map map.txt -lc -lc++
+LDFLAGS  += -soname libaxwin4.so -Map map.txt
+LIBS  += -lc -lc++
 
 OBJ  = main.o ipc.o ipc_acessipcpipe.o
 OBJ += wm.o window_drawing.o

@@ -34,6 +34,7 @@
 #define _SysFDFlags	acess__SysFDFlags
 #define _SysClose	acess__SysClose
 #define _SysRead	acess__SysRead
+#define _SysTruncate	acess__SysTruncate
 #define _SysWrite	acess__SysWrite
 #define _SysSeek	acess__SysSeek
 #define _SysTell	acess__SysTell
@@ -46,5 +47,9 @@
 #define _SysSelect	acess__SysSelect
 #define _SysMkDir	acess__SysMkDir
 #define _SysUnlink	acess__SysUnlink
+#define _SysMMap	acess__SysMMap
+#define _SysMUnMap	acess__SysMUnMap
+#define _SysMarshalFD	acess__SysMarshalFD
+#define _SysUnMarshalFD	acess__SysUnMarshalFD
 
 #define _errno	acess__errno

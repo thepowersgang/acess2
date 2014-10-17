@@ -16,6 +16,10 @@ OBJ  = misc.o new.o guard.o cxxabi.o typeinfo.o
 OBJ += string.o mutex.o
 OBJ += exceptions.o exception_handling.o system_error.o
 OBJ += gxx_personality.o
+ifeq ($(ARCHDIR),native)
+# - Include libgcc_eh (separate in linux), and the linux libc (space avoids hack in Makefile.tpl)
+LIBS += -lgcc_eh -l c
+endif
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libc++.so
 ifeq ($(ARCHDIR),native)

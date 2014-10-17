@@ -7,6 +7,7 @@
  */
 #include <unistd.h>	// mktemp
 #include <stdlib.h>	// mkstemp
+#include <stdio.h>
 #include <string.h>	// str*
 #include <errno.h>
 
@@ -25,7 +26,7 @@ int mkstemp(char *template)
 	
 	for( int i = 0; i < 1000000; i ++ )
 	{
-		sprintf(template+tpl_len-6, "%06d", i);
+		snprintf(template+tpl_len-6, 6+1, "%06d", i);
 		int fd = open(template, O_EXCL|O_CREAT, 0600);
 		if(fd == -1)	continue ;
 	

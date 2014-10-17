@@ -24,6 +24,14 @@ LDFLAGS := $(LDFLAGS:--%=-Wl,--%)
 _LIBS := $(filter -l%,$(LDFLAGS))
 _LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
 
+ifeq ($(ARCHDIR),native)
+ LIBS := $(patsubst -lc,-lc_acess,$(LIBS))
+ LIBS := $(patsubst -lc++,-lc++_acess,$(LIBS))
+ ifneq ($(BIN),libc_acess.so)
+  LIBS += -lc_acess
+ endif
+endif
+
 OBJ := $(addprefix $(_OBJPREFIX),$(OBJ))
 
 UTESTS := $(patsubst TEST_%.c,%,$(wildcard TEST_*.c))

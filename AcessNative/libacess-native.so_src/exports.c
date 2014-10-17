@@ -10,6 +10,8 @@ int *libc_geterrno(void)
 	return &acess__errno;
 }
 
+void _ZN4_sys5debugEPKcz(const char *fmt, ...)	__attribute__((alias("acess__SysDebug")));
+
 #undef acess__SysSpawn
 
 int acess__SysSpawn(const char *binary, const char **argv, const char **envp, int nfd, int fds[], struct s_sys_spawninfo *info)

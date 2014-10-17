@@ -19,6 +19,10 @@ LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
 _LIBS := $(filter -l%,$(LIBS))
 _LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
 
+ifeq ($(ARCHDIR),native)
+ LDFLAGS := -L$(OUTPUTDIR)Libs/ $(subst -lc++ ,-lc++_acess ,$(LDFLAGS))
+ LIBS := $(subst -lc++ ,-lc++_acess ,$(LIBS))
+endif
 ifeq ($(VERBOSE),)
 V := @
 else

@@ -115,7 +115,12 @@ extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_
 extern int	_SysMkDir(const char *dirname);
 extern int	_SysUnlink(const char *pathname);
 extern void*	_SysMMap(void *addr, size_t length, unsigned int _flags, int fd, uint64_t offset);
-#define _SysMMap(addr,length,flags,prot,fd,offset)	_SysMMap(addr,length,(flags|(prot<<16)), fd, offset)
+#ifdef _SysMMap
+# undef _SysMMap
+# define _SysMMap(addr,length,flags,prot,fd,offset)	acess__SysMMap(addr,length,(flags|(prot<<16)), fd, offset)
+#else
+# define _SysMMap(addr,length,flags,prot,fd,offset)	_SysMMap(addr,length,(flags|(prot<<16)), fd, offset)
+#endif
 extern int	_SysMUnMap(void *addr, size_t length);
 extern uint64_t	_SysMarshalFD(int FD);
 extern int	_SysUnMarshalFD(uint64_t Handle);

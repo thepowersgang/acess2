@@ -95,6 +95,10 @@ size_t acess__SysWrite(int FD, const void *Src, size_t Bytes) {
 	SYSTRACE("_SysWrite(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
+uint64_t acess__SysTruncate(int fd, uint64_t size) {
+	TODO();
+	return 0;
+}
 
 int acess__SysSeek(int FD, int64_t Ofs, int Dir)
 {
@@ -155,6 +159,26 @@ int acess__SysUnlink(const char *pathname)
 	// TODO:
 	TODO();
 	return 0;
+}
+void* acess__SysMMap(void *addr, size_t length, unsigned int _flags, int fd, uint64_t offset)
+{
+	TODO();
+	return NULL;
+}
+int acess__SysMUnMap(void *addr, size_t length)
+{
+	TODO();
+	return 0;
+}
+uint64_t acess__SysMarshalFD(int FD)
+{
+	TODO();
+	return 0;
+}
+int acess__SysUnMarshalFD(uint64_t Handle)
+{
+	TODO();
+	return -1;
 }
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
@@ -489,6 +513,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysAllocate),
 	DEFSYM(_SysSetMemFlags),
 	DEFSYM(_SysDebug),
+	{"_ZN4_sys5debugEPKcz", &acess__SysDebug},
 	DEFSYM(_SysSetFaultHandler),
 	DEFSYM(_SysWaitEvent),
 	

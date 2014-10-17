@@ -231,7 +231,8 @@ EXPORT void free(void *mem)
 	}
 }
 
-bool _libc_free(void *mem)
+// Exported for libc++
+EXPORT bool _libc_free(void *mem)
 {
 	heap_head	*head = (heap_head*)mem - 1;
 

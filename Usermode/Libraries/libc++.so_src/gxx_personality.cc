@@ -416,6 +416,7 @@ static uint64_t _get_base(uint8_t encoding, _Unwind_Context *context)
 	default:
 		::_SysDebug("_get_base: Unknown encoding relativity 0x%x", (encoding & DW_EH_PE_relmask));
 		::abort();
+		for(;;);
 	}
 }
 static uint64_t _read_encoded(const void *&ptr, _Unwind_Context *context, int encoding)

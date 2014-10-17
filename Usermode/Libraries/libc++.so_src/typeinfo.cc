@@ -100,6 +100,7 @@ bool type_info::__is_child(const type_info &poss_child, unsigned long &offset) c
 		// Multiple inheritance
 		_SysDebug("TODO: type_info::__is_child - Multiple inheritance");
 		abort();
+		for(;;);
 	}
 	else {
 		// Oops!
@@ -107,6 +108,7 @@ bool type_info::__is_child(const type_info &poss_child, unsigned long &offset) c
 			typeid(poss_child).name()
 			);
 		abort();
+		for(;;);
 	}
 }
 

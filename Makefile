@@ -125,8 +125,12 @@ install-Kernel: $(CC)
 install-Filesystem: $(CC)
 	@$(SUBMAKE) install -C Usermode/Filesystem
 
+ifeq ($(ARCHDIR),native)
+.PHONY: $(CC)
+else
 $(CC):
 	@echo ---
 	@echo $(CC) does not exist, recompiling
 	@echo ---
 	make -C Externals/cross-compiler/
+endif

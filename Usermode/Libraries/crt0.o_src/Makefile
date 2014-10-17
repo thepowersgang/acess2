@@ -31,15 +31,3 @@ $(OUTPUTDIR)Libs/%.o: $(ARCHDIR)-%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#$(OUTPUTDIR)Libs/crt0.o: obj-$(ARCH)/crt0_asm.o obj-$(ARCH)/crt0_c.o
-#	@mkdir -p $(dir $@)
-#	$(LD) -r -o $@ $?
-
-#obj-$(ARCH)/crt0_asm.o: crt0.$(ARCHDIR).$(ASSUFFIX)
-#	@mkdir -p $(dir $@)
-#	$(AS) $(ASFLAGS) $< -o $@
-
-#obj-$(ARCH)/crt0_c.o: crt0.c
-#	@mkdir -p $(dir $@)
-#	$(CC) -c $< -o $@
-
