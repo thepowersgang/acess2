@@ -2,7 +2,7 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -lnet -lreadline
+LIBS += -lnet -lreadline
 
 OBJ = main.o server.o input.o
 OBJ += window.o pseudo_curses.o

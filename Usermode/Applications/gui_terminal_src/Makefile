@@ -2,7 +2,7 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -laxwin3 -lunicode
+LIBS += -laxwin3 -lunicode
 
 OBJ = main.o vt100.o display.o
 BIN = terminal

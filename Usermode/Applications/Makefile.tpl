@@ -20,8 +20,8 @@ _LIBS := $(filter -l%,$(LIBS))
 _LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
 
 ifeq ($(ARCHDIR),native)
- LDFLAGS := -L$(OUTPUTDIR)Libs/ $(subst -lc++ ,-lc++_acess ,$(LDFLAGS))
- LIBS := $(subst -lc++ ,-lc++_acess ,$(LIBS))
+ LDFLAGS := -L$(OUTPUTDIR)Libs/ $(patsubst -lc++,-lc++_acess,$(LDFLAGS))
+ LIBS := $(patsubst -lc++,-lc++_acess,$(LIBS))
 endif
 ifeq ($(VERBOSE),)
 V := @

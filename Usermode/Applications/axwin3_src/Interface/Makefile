@@ -8,7 +8,7 @@ DIR := Apps/AxWin/3.0
 BIN := AxWinUI
 OBJ := main.o
 
-LDFLAGS += -laxwin3
+LIBS += -laxwin3
 
 -include ../../Makefile.tpl
 

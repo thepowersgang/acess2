@@ -3,7 +3,8 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += -I./include
-LDFLAGS  += -lreadline
+LDFLAGS  +=
+LIBS     += -lreadline
 
 BIN = CLIShell
 OBJ = main.o lib.o
