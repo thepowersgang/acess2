@@ -56,7 +56,7 @@
 // TODO: INVLPG_ALL is expensive
 #define GET_TEMP_MAPPING(cr3) do { \
 	__ASM__("cli"); \
-	__AtomicTestSetLoop( (Uint *)TMPCR3(), (cr3) | 3 ); \
+	__AtomicTestSetLoop( (Uint *)&TMPCR3(), (cr3) | 3 ); \
 	INVLPG_ALL(); \
 } while(0)
 #define REL_TEMP_MAPPING() do { \
