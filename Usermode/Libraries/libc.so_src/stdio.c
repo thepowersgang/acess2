@@ -692,6 +692,10 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	if( _GetFileMode(fp) != FILE_FLAG_MODE_READ ) {
 		errno = 0;
 		LOG_WARN("not open for read");
+		if( fp == stdin ) {
+			LOG_WARN("BUGCHECK FAIL: stdin was not open for read");
+			exit(129);
+		}
 		return -1;
 	}
 
