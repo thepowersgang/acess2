@@ -271,7 +271,7 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	// Print Stack Backtrace
 	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
-	MM_DumpTables(0, -1);
+	//MM_DumpTables(0, -1);
 
 	return 1;	
 }
