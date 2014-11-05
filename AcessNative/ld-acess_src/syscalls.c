@@ -171,7 +171,6 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	tRequestHeader	*req;
 	void	*dataPtr;
 	uint64_t	retValue;
-	 int	i;
 	
 	// DEBUG!
 //	printf("&tRequestHeader->Params = %i\n", offsetof(tRequestHeader, Params));
@@ -244,8 +243,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 		exit(127);
 	}
 	
+	if( !(req->NParams >= 2) ) {
+		fprintf(stderr, "syscalls.c: Too few return params (%i)", req->NParams);
+		exit(127);
+	}
 	dataPtr = (void*)&req->Params[req->NParams];
-	assert(req->NParams >= 2);
 	// return
 	assert(req->Params[0].Type == ARG_TYPE_INT64);
 	assert(req->Params[0].Length == sizeof(uint64_t));
@@ -264,7 +266,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 		exit(127);
 	}
 	retCount = 0;
-	for( i = 2; i < req->NParams; i ++ )
+	for( unsigned int i = 2; i < req->NParams; i ++ )
 	{
 		#if 0
 		 int	 j;

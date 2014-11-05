@@ -46,6 +46,7 @@ KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/ -I$(LDACESS_SRC)include_exp/ -D
 CFLAGS += -Wall -g -std=gnu99
 CPPFLAGS += $(shell sdl-config --cflags) -I /usr/include/
 LDFLAGS += $(shell sdl-config --libs) -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
+LDFLAGS += -Wl,-Map,obj-$(PLATFORM)/Map.txt
 
 ifeq ($(PLATFORM),win)
 	BIN := ../AcessKernel.exe

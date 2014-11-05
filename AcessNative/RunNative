@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Execute the specified root application using the ARCH=native build
+#
+_=$PWD; cd $(dirname $0); DIR=$PWD; cd $_
+DISTROOT=$(dirname $DIR)/Usermode/Output/native/
+VTERM=/Devices/pts/vt0
+
+# 1. Start up AcessKernel
+# - Set DISTROOT to the output directory of ARCH=native
+# - Don't start a root application
+${DIR}/AcessKernel --distroot $DISTROOT > ${DIR}/log/native_AcessKernel.log &
+sleep 1
+LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/4.0/AxWinServer

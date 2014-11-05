@@ -20,7 +20,7 @@ $(warning $(BINLINK))
 
 CFLAGS   += -Wall
 CFLAGS   += -Werror
-CFLAGS   += -g -shared -fPIC
+CFLAGS   += -g -shared -fPIC -std=c99
 CPPFLAGS += -DARCHDIR_is_x86_64=1
 LDFLAGS  += -g -shared -Wl,--no-undefined -lc
 

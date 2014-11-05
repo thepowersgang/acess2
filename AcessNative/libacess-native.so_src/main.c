@@ -59,7 +59,7 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 			path[len] = 0;
 			int fd = acess__SysOpen(path, 6);	// WRITE,READ,no EXEC
 			if( fd == -1 ) {
-				fprintf(stderr, "Unable to preopen '%s'\n", path);
+				fprintf(stderr, "Unable to preopen '%s' errno=%i\n", path, acess__errno);
 			}
 			
 			if( !splitter )
@@ -77,7 +77,7 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 int acessnative_spawn(const char *Binary, int SyscallID, const char * const * argv, const char * const * envp)
 {
 	 int	envc = 0;
-	while( envp[envc++] )
+	while( envp && envp[envc++] )
 		envc ++;
 
 	// Set environment variables for libacess-native
@@ -89,7 +89,7 @@ int acessnative_spawn(const char *Binary, int SyscallID, const char * const * ar
 	
 	const char *newenv[envc+2+1];
 	 int	i = 0;
-	for( ; envp[i]; i ++ )
+	for( ; envp && envp[i]; i ++ )
 	{
 		const char	*ev = envp[i];
 		if( strncmp(ev, ENV_VAR_KEY"=", sizeof(ENV_VAR_KEY"=")) == 0 ) {
@@ -100,7 +100,7 @@ int acessnative_spawn(const char *Binary, int SyscallID, const char * const * ar
 	}
 	if( !bKeyHit )
 		newenv[i++] = keystr;
-	newenv[i++] = "LD_LIBRARY_PATH=Libs/";	// HACK
+	newenv[i++] = getenv("LD_LIBRARY_PATH") - (sizeof("LD_LIBRARY_PATH=")-1);	// VERY hacky
 	newenv[i] = NULL;
 	
 	// TODO: Detect native_spawn failing

@@ -229,12 +229,12 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 	// Send it off
 	SendData(Request, RequestSize);
 
-	if( Request->CallID == SYS_EXIT )	return 0;
-
 	// Wait for a response (no timeout)
 	ReadData(Request, sizeof(*Request), 0);
+	
+	size_t	recvbytes = sizeof(*Request);
 	// TODO: Sanity
-	size_t	recvbytes = sizeof(*Request), expbytes = Request->MessageLength;
+	size_t	expbytes = Request->MessageLength;
 	char	*ptr = (void*)Request->Params;
 	while( recvbytes < expbytes )
 	{
