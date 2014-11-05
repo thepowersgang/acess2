@@ -118,9 +118,11 @@ extern "C" void *AxWin4_GetWindowBuffer(tAxWin4_Window *Window)
 		req.WriteU16(Window->m_id);
 		
 		CDeserialiser	response = GetSyncReply(req, IPCMSG_GETWINBUF);
-		if( response.ReadU16() != Window->m_id )
+		unsigned int rspwin = response.ReadU16();
+		if( rspwin != Window->m_id )
 		{
-			
+			_SysDebug("AxWin4_GetWindowBuffer: GETWINBUF reply for different window (%u != %u)", rspwin, Window->m_id);
+			return NULL;
 		}
 		
 		uint64_t handle = response.ReadU64();
