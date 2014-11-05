@@ -83,8 +83,12 @@ mtest: mtest-build mtest-run
 	@echo > /dev/null
 mtest-build:
 	# Network
+	@echo "== Build Module Tests"
+	@echo "-- nativelib"
 	@CC=$(NCC) $(SUBMAKE) -C Tools/nativelib
+	@echo "-- NetTest"
 	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest
+	@echo "-- NetTest Runner"
 	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest_Runner
 mtest-run:
 	@echo "=== Network Module Test ==="
