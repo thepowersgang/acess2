@@ -79,7 +79,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	{
 		ASSERTC(wrpos->Col, <=, Term->TextWidth);
 		VT_int_UpdateScreen( Term, 0 );
-		//wrpos->Row ++;
+		wrpos->Row ++;
 		wrpos->Col = 0;
 	}
 
@@ -124,7 +124,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	case '\0':	// Ignore NULL byte
 		return;
 	case '\n':
-		LOG("Newline, update");
+		LOG("Newline, update @ %i", write_pos);
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
 		wrpos->Row ++;
 		// TODO: Force scroll?
@@ -170,11 +170,12 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		buffer[ write_pos ].Colour = Term->CurColour;
 		// Update the line before wrapping
 		if( (write_pos + 1) % Term->TextWidth == 0 ) {
-			LOG("Line wrap, update");
+			LOG("Line wrap, update @ %i", write_pos);
 			VT_int_UpdateScreen( Term, 0 );
+			// NOTE: Code at the top of PutChar handles the actual wrapping
 		}
-		write_pos ++;
 		wrpos->Col ++;
+		write_pos ++;
 		break;
 	}
 	
