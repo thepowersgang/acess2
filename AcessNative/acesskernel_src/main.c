@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 	VFS_MkDir("/Acess");	
 	VFS_Mount(gsAcessDir, "/Acess", "nativefs", "");
 
-	Debug_SetKTerminal("/Devices/pts/vt7c");
+	Debug_SetKTerminal("/Devices/pts/vt7");
 	
 	// Start syscall server
 	SyscallServer();

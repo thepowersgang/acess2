@@ -30,7 +30,9 @@ tVFS_NodeType	gVideo_NodeType = {
 };
 tDevFS_Driver	gVideo_DriverStruct = {
 	NULL, "NativeVideo",
-	{.Type = &gVideo_NodeType}
+	{
+		.Type = &gVideo_NodeType
+	}
 };
  int	giVideo_DriverID;
  int	giVideo_CurrentFormat;
@@ -255,6 +257,8 @@ int Video_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	// Video mode control
 	// - We cheat, and only have one mode
 	case VIDEO_IOCTL_GETSETMODE:
+		// - Abuse GETSETMODE to update size
+		Node->Size = giUI_Pitch * giUI_Height;
 		return 0;
 	case VIDEO_IOCTL_FINDMODE:
 	case VIDEO_IOCTL_MODEINFO:
