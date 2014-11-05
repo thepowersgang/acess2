@@ -13,6 +13,7 @@
 #endif
 #include <unistd.h>
 #include <string.h>
+#include <stdbool.h>
 #include "../../KernelLand/Kernel/include/logdebug.h"
 
 #define VALGRIND_CLIENT	0

@@ -15,7 +15,7 @@ KERNEL_SRC = ../../KernelLand/Kernel/
 LDACESS_SRC = ../../Usermode/Libraries/ld-acess.so_src/
 
 # - Kernel objects (from KernelLand/Kernel)
-KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o
+KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o memfs_helpers.o
 KERNEL_OBJ += mutex.o semaphore.o rwlock.o workqueue.o events.o
 #KERNEL_OBJ += libc.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
