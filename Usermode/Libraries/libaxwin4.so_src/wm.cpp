@@ -127,6 +127,10 @@ extern "C" void *AxWin4_GetWindowBuffer(tAxWin4_Window *Window)
 		
 		uint64_t handle = response.ReadU64();
 		Window->m_fd = _SysUnMarshalFD(handle);
+		if( Window->m_fd == -1 ) {
+			_SysDebug("AxWin4_GetWindowBuffer: Unable to unmarshal resultant FD (0x%llx)", handle);
+			return NULL;
+		}
 		
 		_SysDebug("AxWin4_GetWindowBuffer: %llx = %i", handle, Window->m_fd);
 	}
