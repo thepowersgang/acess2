@@ -290,16 +290,38 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	return retValue;
 }
 
+int native_int_getfd(void)
+{
+	for(int ret = 0; ret < MAX_FPS; ret ++ )
+		if( gaSyscall_LocalFPs[ret] == NULL )
+			return ret;
+	return -1;
+}
 
 int native_open(const char *Path, int Flags)
 {
-	int	ret;
-       for(ret = 0; ret < MAX_FPS && gaSyscall_LocalFPs[ret]; ret ++ )	;
-       if(ret == MAX_FPS)	return -1;
+	int	ret = native_int_getfd();
+	if(ret == -1)	return -1;
        // TODO: Handle directories
-       gaSyscall_LocalFPs[ret] = fopen(&Path[4], "r+");
+       gaSyscall_LocalFPs[ret] = fopen(Path, "r+");
        if(!gaSyscall_LocalFPs[ret])	return -1;
        return ret;
+}
+
+int native_shm(const char *Tag, int Flags)
+{
+	// int ret = native_int_getfd();
+	//if(ret == -1)	return -1;
+	//if( strcmp(Tag, "anon") == 0 )
+	//	path = "/AcessNative/anon/RAND";
+	//	FD = shm_open(path, O_RDWD);
+	//shm_unlink(path);
+	//else
+	//	path = "/Acessnative/named/<TAG>";
+	// int FD = shm_open(path, O_RDWD);
+	//shm_unlink(path);
+	//gaSyscall_LocalFPs[ret] = 
+	return -1;
 }
 
 void native_close(int FD)

@@ -17,6 +17,7 @@ extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
 extern int	acess__errno;
 
 extern int	native_open(const char *Path, int Flags);
+extern int	native_shm(const char *Tag, int Flags);
 extern void	native_close(int FD);
 extern size_t	native_read(int FD, void *Dest, size_t Bytes);
 extern size_t	native_write(int FD, const void *Src, size_t Bytes);

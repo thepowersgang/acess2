@@ -21,7 +21,7 @@ KERNEL_OBJ += mutex.o semaphore.o rwlock.o workqueue.o events.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
 KERNEL_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o vfs/select.o
 KERNEL_OBJ += vfs/fs/root.o vfs/fs/devfs.o
-KERNEL_OBJ += drv/fifo.o drv/proc.o drv/dgram_pipe.o	# drv/shm.o
+KERNEL_OBJ += drv/fifo.o drv/proc.o drv/dgram_pipe.o
 KERNEL_OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
 KERNEL_OBJ += drv/vterm_vt100.o drv/vterm_2d.o
 KERNEL_OBJ += drv/pty.o
@@ -30,6 +30,7 @@ N_OBJ := main.o net_wrap.o
 # - Local objects (use the kernel includes)
 OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
+#OBJ += shm.o
 OBJ += net.o syscall_getpath.o
 
 BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
