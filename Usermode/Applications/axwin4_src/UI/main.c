@@ -44,15 +44,22 @@ tAxWin4_Window *CreateBGWin(int w, int h)
 	
 	// Load background image
 	uint32_t *buf = AxWin4_GetWindowBuffer(bgwin);
-	for( size_t y = 0; y < h; y ++ )
+	if( buf )
 	{
-		for(size_t x = 0; x < w; x ++ )
+		for( size_t y = 0; y < h; y ++ )
 		{
-			uint8_t	r = y * 256 / h;
-			uint8_t	g = 0;
-			uint8_t	b = x * 256 / w;
-			buf[y*w+x] = (r << 16) | (g << 8) | b;
+			for(size_t x = 0; x < w; x ++ )
+			{
+				uint8_t	r = y * 256 / h;
+				uint8_t	g = 0;
+				uint8_t	b = x * 256 / w;
+				buf[y*w+x] = (r << 16) | (g << 8) | b;
+			}
 		}
+	}
+	else
+	{
+		//AxWin4_FillRect(bgwin, 0, 0, w, h, 0x0000CC);
 	}
 	//AxWin4_DamageRect(bgwin, 0, 0, w, h);
 	AxWin4_ShowWindow(bgwin, true);

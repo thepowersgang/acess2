@@ -16,7 +16,8 @@ CWindow::CWindow(CCompositor& compositor, CClient& client, const ::std::string& 
 	m_surface(0,0,0,0),
 	m_compositor(compositor),
 	m_client(client),
-	m_name(name)
+	m_name(name),
+	m_is_shown(false)
 {
 	_SysDebug("CWindow::CWindow()");
 }
