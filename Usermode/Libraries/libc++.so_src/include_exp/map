@@ -59,9 +59,11 @@ public:
 		return !(*this == x);
 	}
 	value_type& operator*() {
+		_libcxx_assert(m_index < m_map->m_size);
 		return m_map->m_items[m_index];
 	}
 	value_type* operator->() {
+		_libcxx_assert(m_index < m_map->m_size);
 		return &m_map->m_items[m_index];
 	}
 };
@@ -171,7 +173,6 @@ public:
 		iterator it = upper_bound(k);
 		if( it == end() || m_comp(k, it->first) ) {	// if k < it->first, no match
 			insert_at(it.m_index, value_type(k,mapped_type()) );
-			++ it;
 		}
 		return it->second;
 	}
@@ -343,9 +344,8 @@ private:
 		#endif
 	}
 	void insert_at(size_type ofs, const value_type& val) {
-		//assert( ofs == 0 || m_comp(m_items[ofs-1].first, val.first) );
-		//assert( ofs == m_size || m_comp(m_items[ofs].first, val.first) );
-		//::_sys::debug("map::insert_at(%i,)", ofs);
+		//_libcxx_assert( ofs == 0 || m_comp(m_items[ofs-1].first, val.first) );
+		//_libcxx_assert( ofs == m_size || m_comp(m_items[ofs].first, val.first) );
 		// Resize up
 		reserve( m_size + 1 );
 		// Move following items up

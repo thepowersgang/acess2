@@ -18,6 +18,7 @@
 namespace _sys {
 extern void abort() __asm__ ("abort") __attribute__((noreturn));
 extern void debug(const char *, ...);
+extern void hexdump(const char *, const void *, unsigned int);
 };
 
 #if _CXX11_AVAIL
