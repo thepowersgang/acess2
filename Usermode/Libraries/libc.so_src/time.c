@@ -145,15 +145,40 @@ size_t strftime(char*restrict s, size_t maxsize, const char*restrict format, con
 		if( *format == 0 )
 			break;
 		format ++;
+		
+		// If EOS is hit on a '%', break early
+		if( *format == 0 )
+			break;
 		switch(*format++)
 		{
-		case 0:	format--;	break;
-		case '%':	ofs += _puts(s, maxsize, ofs, format-1, 1);	break;
-		case 'd':	// The day of the month as a decimal number (range 01 to 31).
+		// Literal '%', 
+		case '%':
+			ofs += _puts(s, maxsize, ofs, format-1, 1);
+			break;
+		// The day of the month as a decimal number (range 01 to 31).
+		case 'd':
 			{
 			char tmp[2] = {'0','0'};
 			tmp[0] += (timeptr->tm_mday / 10) % 10;
 			tmp[1] += timeptr->tm_mday % 10;
+			ofs += _puts(s, maxsize, ofs, tmp, 2);
+			}
+			break;
+		// Two-digit 24 hour
+		case 'H':
+			{
+			char tmp[2] = {'0','0'};
+			tmp[0] += (timeptr->tm_hour / 10) % 10;
+			tmp[1] +=  timeptr->tm_hour % 10;
+			ofs += _puts(s, maxsize, ofs, tmp, 2);
+			}
+			break;
+		// Two-digit minutes
+		case 'M':
+			{
+			char tmp[2] = {'0','0'};
+			tmp[0] += (timeptr->tm_min / 10) % 10;
+			tmp[1] +=  timeptr->tm_min % 10;
 			ofs += _puts(s, maxsize, ofs, tmp, 2);
 			}
 			break;
