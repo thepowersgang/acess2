@@ -9,6 +9,8 @@
  */
 #include <draw_control.hpp>
 #include <axwin4/definitions.h>
+#include <acess/sys.h>
+#include <cassert>
 
 // === CODE ===
 namespace AxWin {
@@ -22,7 +24,8 @@ CControl::CControl(int EdgeX, int FillX, int InnerX, int EdgeY, int FillY, int I
 	m_inner_y(InnerY),
 	m_data(data)
 {
-	
+	_SysDebug("CControl(X={E:%i,F:%i,I:%i}, Y={E:%i,F:%i,I:%i}, data={Size:%i})",
+		m_edge_x, m_fill_x, m_inner_x, m_edge_y, m_fill_y, m_inner_y, m_data.size());
 }
 
 void CControl::Render(CSurface& dest, const CRect& rect) const
@@ -46,6 +49,7 @@ void CControl::Render(CSurface& dest, const CRect& rect) const
 		renderLine(dest, y++, scanline, rect, &m_data[(base_ofs+i)*ctrl_width]);
 	base_ofs += m_edge_y;
 	// FillY
+	assert(m_fill_y > 0 || y == top_fill_end);
 	while( y < top_fill_end )
 	{
 		for( int i = 0; i < m_fill_y && y < top_fill_end; i ++ )
@@ -78,6 +82,7 @@ void CControl::Render(CSurface& dest, const CRect& rect) const
 
 void CControl::renderLine(CSurface& dest, int y, ::std::vector<uint32_t>& scanline, const CRect& rect, const uint32_t* ctrl_line) const
 {
+	_SysDebug("renderLine: (y=%i,rect={(%i,%i)  %ix%i}", y, rect.m_x, rect.m_y, rect.m_w, rect.m_h);
 	const int left_fill_end = rect.m_w / 2 - m_inner_x;
 	const int right_fill_end = rect.m_w - m_edge_x;
 	

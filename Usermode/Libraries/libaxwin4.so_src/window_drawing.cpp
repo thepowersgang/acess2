@@ -48,6 +48,7 @@ extern "C" void AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned
 extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ID, unsigned int Frame)
 {
 	CSerialiser	message;
+	//_SysDebug("AxWin4_DrawControl: (Window->ID=%i, (%i,%i) %ix%i %i 0x%06x", Window->m_id, X, Y, W, H, ID, Frame);
 	message.WriteU8(IPCMSG_DRAWCTL);
 	message.WriteU16(Window->m_id);
 	message.WriteU16(X);

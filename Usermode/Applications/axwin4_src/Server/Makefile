@@ -15,6 +15,7 @@ BIN := AxWinServer
 
 LIBS += -lc++
 CXXFLAGS += -O3
+USE_CXX_LINK = 1 
 
 include ../../Makefile.tpl
 

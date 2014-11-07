@@ -24,6 +24,7 @@
 #define _SysUnloadBin	acess__SysUnloadBin
 #define _SysSetFaultHandler	acess__SysSetFaultHandler
 #define _SysDebug	acess__SysDebug
+#define _SysDebugHex	acess__SysDebugHex
 #define _SysGetPhys	acess__SysGetPhys
 #define _SysAllocate	acess__SysAllocate
 #define _SysSetMemFlags	acess__SysSetMemFlags

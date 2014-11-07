@@ -109,7 +109,7 @@ void CClient_AcessIPCPipe::HandleReceive()
 	if( len == (size_t)-1 )
 		throw ::std::system_error(errno, ::std::system_category());
 	//_SysDebug("CClient_AcessIPCPipe::HandleReceive - Rx %i/%i bytes", len, rxbuf.capacity());
-	//_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", rxbuf.data(), len);
+	_SysDebugHex("CClient_AcessIPCPipe::HandleReceive", rxbuf.data(), len);
 	rxbuf.resize(len);
 	
 	CDeserialiser	msg( ::std::move(rxbuf) );

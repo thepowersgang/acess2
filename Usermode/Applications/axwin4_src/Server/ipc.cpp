@@ -276,7 +276,7 @@ void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
-	//_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
+	_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -307,6 +307,7 @@ void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 	uint16_t	h = message.ReadU16();
 	uint16_t	ctrl_id = message.ReadU16();
 	uint16_t 	frame = message.ReadU16();
+	_SysDebug("_DrawCtl: (%i, (%i,%i) %ix%i %i %06x)", win_id, x, y, w, h, ctrl_id, frame);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
