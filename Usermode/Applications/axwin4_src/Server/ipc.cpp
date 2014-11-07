@@ -65,6 +65,7 @@ void HandleSelect(const fd_set& rfds)
 
 void RegisterClient(CClient& client)
 {
+	_SysDebug("RegisterClient(&client=%p)", &client);
 	// allocate a client ID, and save
 	for( int i = 0; i < 100; i ++ )
 	{
@@ -84,7 +85,14 @@ void RegisterClient(CClient& client)
 CClient* GetClientByID(uint16_t id)
 {
 	auto it = glClients.find(id);
-	return (it == glClients.end() ? nullptr : it->second);
+	if(it == glClients.end()) {
+		//_SysDebug("Client %i not registered", id);
+		return nullptr;
+	}
+	else {
+		//_SysDebug("Client %i %i = %p", id, it->first, it->second);
+		return it->second;
+	}
 }
 
 void DeregisterClient(CClient& client)

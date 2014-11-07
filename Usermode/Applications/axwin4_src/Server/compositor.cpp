@@ -107,7 +107,7 @@ void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
 
 void CCompositor::MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y, int dX, int dY)
 {
-	_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
+	//_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
 	m_video.SetCursorPos(X+dX, Y+dY);
 	CWindow	*dstwin = getWindowForCoord(X, Y);
 	if( dstwin )
@@ -120,6 +120,7 @@ void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int 
 {
 	_SysDebug("MouseButton(%i, %i,%i, %i=%i)", Cursor, X, Y, Button, Press);
 	CWindow	*dstwin = getWindowForCoord(X, Y);
+	_SysDebug("- dstwin = %p", dstwin);
 	if( dstwin )
 	{
 		// 1. Give focus and bring to front
@@ -150,7 +151,12 @@ void CWindowIDBuffer::set(unsigned int X, unsigned int Y, unsigned int W, unsign
 		.Client = win->client().id(),
 		.Window = win->id(),
 		};
-	
+	for( unsigned int row = 0; row < H; row ++ )
+	{
+		TWindowID* dst = &m_buf[ (Y+row) * m_w ];
+		for( unsigned int col = 0; col < W; col ++ )
+			dst[col] = ent;
+	}
 }
 CWindow* CWindowIDBuffer::get(unsigned int X, unsigned int Y)
 {
@@ -160,9 +166,12 @@ CWindow* CWindowIDBuffer::get(unsigned int X, unsigned int Y)
 	if( pos >= m_buf.size() )
 		return nullptr;
 	auto id = m_buf[pos];
+	//_SysDebug("CWindowIDBuffer::get id = {%i,%i}", id.Client, id.Window);
 	auto client = ::AxWin::IPC::GetClientByID(id.Client);
-	if( client == nullptr )
+	if( client == nullptr ) {
+		//_SysDebug("CWindowIDBuffer::get client=%p", client);
 		return nullptr;
+	}
 	return client->GetWindow(id.Window);
 }
 

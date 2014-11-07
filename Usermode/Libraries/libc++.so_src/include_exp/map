@@ -198,7 +198,7 @@ public:
 		const key_type&	k = val.first;
 		iterator it = upper_bound(k);
 		if( it == end() || m_comp(k, it->first) ) {	// if k < it->first, no match
-			insert_at(it.m_index, value_type(k,mapped_type()) );
+			insert_at(it.m_index, val);
 			return pair<iterator,bool>(it, true);
 		}
 		else {
