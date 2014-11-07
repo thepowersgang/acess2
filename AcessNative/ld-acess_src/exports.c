@@ -254,10 +254,7 @@ int acess__SysLoadModule(const char *Path)
 // --- Timekeeping ---
 int64_t acess__SysTimestamp(void)
 {
-	// TODO: Better impl
-	TODO();
-//	return now()*1000;
-	return 0;
+	return native_timestamp();
 }
 
 // --- Memory Management ---

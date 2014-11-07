@@ -13,6 +13,7 @@
 # include <spawn.h>	// posix_spawn
 #endif
 #include "request.h"
+#include <sys/time.h>
 
 #define assert(cnd) do{ \
 	if( !(cnd) ) { \
@@ -380,4 +381,11 @@ int native_spawn(const char *filename, const char *const argv[], const char *con
 	}
 	
 	return rv;
+}
+
+int64_t native_timestamp(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec*1000 + tv.tv_usec / 1000;
 }
