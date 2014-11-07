@@ -82,7 +82,7 @@ void CControl::Render(CSurface& dest, const CRect& rect) const
 
 void CControl::renderLine(CSurface& dest, int y, ::std::vector<uint32_t>& scanline, const CRect& rect, const uint32_t* ctrl_line) const
 {
-	_SysDebug("renderLine: (y=%i,rect={(%i,%i)  %ix%i}", y, rect.m_x, rect.m_y, rect.m_w, rect.m_h);
+	//_SysDebug("renderLine: (y=%i,rect={(%i,%i) %ix%i}", y, rect.m_x, rect.m_y, rect.m_w, rect.m_h);
 	const int left_fill_end = rect.m_w / 2 - m_inner_x;
 	const int right_fill_end = rect.m_w - m_edge_x;
 	

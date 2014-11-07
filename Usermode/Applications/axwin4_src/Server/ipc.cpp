@@ -185,7 +185,7 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 {
 	uint16_t	win_id = message.ReadU16();
 	uint16_t	attr_id = message.ReadU16();
-	_SysDebug("_SetWindowAttr: (%i, %i)", win_id, attr_id);
+	_SysDebug("_SetWindowAttr: (Win=%i, ID=%i)", win_id, attr_id);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -307,7 +307,7 @@ void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 	uint16_t	h = message.ReadU16();
 	uint16_t	ctrl_id = message.ReadU16();
 	uint16_t 	frame = message.ReadU16();
-	_SysDebug("_DrawCtl: (%i, (%i,%i) %ix%i %i %06x)", win_id, x, y, w, h, ctrl_id, frame);
+	_SysDebug("_DrawCtl: (%i, (%i,%i) %ix%i Ctl%i frame?=0x%04x)", win_id, x, y, w, h, ctrl_id, frame);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
