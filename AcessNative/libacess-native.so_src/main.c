@@ -48,6 +48,7 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 	printf("preopens = %s\n", preopens);
 	if( preopens )
 	{
+		 int	exp_fd = 0;
 		while( *preopens )
 		{
 			const char *splitter = strchr(preopens, ':');
@@ -64,7 +65,15 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 			int fd = acess__SysOpen(path, 6);	// WRITE,READ,no EXEC
 			if( fd == -1 ) {
 				fprintf(stderr, "Unable to preopen '%s' errno=%i\n", path, acess__errno);
+				exit(1);
 			}
+			if( fd != exp_fd ) {
+				//  Oh... this is bad
+				fprintf(stderr, "Pre-opening '%s' resulted in an incorrect FD (expected %i, got %i)",
+					path, exp_fd, fd);
+				exit(1);
+			}
+			exp_fd += 1;
 			
 			if( !splitter )
 				break;
@@ -129,19 +138,5 @@ void Warning(const char *format, ...)
 	vfprintf(stdout, format, args);
 	va_end(args);
 	printf("\n");
-}
-
-void __libc_csu_fini()
-{
-}
-
-void __libc_csu_init()
-{
-}
-
-void __stack_chk_fail(void)
-{
-	fprintf(stderr, "__stack_chk_fail");
-	exit(1);
 }
 
