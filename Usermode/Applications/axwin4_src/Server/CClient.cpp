@@ -12,7 +12,8 @@
 namespace AxWin {
 
 CClient::CClient(::AxWin::IIPCChannel& channel):
-	m_channel(channel)
+	m_channel(channel),
+	m_id(0)
 {
 	
 }
@@ -35,10 +36,13 @@ CWindow* CClient::GetWindow(int ID)
 void CClient::SetWindow(int ID, CWindow* window)
 {
 	_SysDebug("SetWindow(ID=%i,window=%p)", ID, window);
-	if( m_windows[ID] ) {
-		delete m_windows[ID];
+	auto it = m_windows.find(ID);
+	if( it != m_windows.end() ) {
+		_SysDebug("CLIENT BUG: Window ID %i is already used by %p", ID, it->second);
 	}
-	m_windows[ID] = window;
+	else {
+		m_windows[ID] = window;
+	}
 }
 
 void CClient::HandleMessage(CDeserialiser& message)

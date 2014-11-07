@@ -25,7 +25,8 @@ namespace IPC {
 
 CCompositor*	gpCompositor;
 ::std::list<IIPCChannel*>	glChannels;
-//::std::map<uint16_t,CClient*>	glClients;
+::std::map<uint16_t,CClient*>	glClients;
+uint16_t	giNextClient = 1;
 
 void Initialise(const CConfigIPC& config, CCompositor& compositor)
 {
@@ -65,13 +66,30 @@ void HandleSelect(const fd_set& rfds)
 void RegisterClient(CClient& client)
 {
 	// allocate a client ID, and save
-	//client.m_id = 123;
-	//glClients[client.m_id] = &client;
+	for( int i = 0; i < 100; i ++ )
+	{
+		uint16_t id = giNextClient++;
+		if(giNextClient == 0)	giNextClient = 1;
+		auto r = glClients.insert( ::std::pair<uint16_t,CClient*>(id, &client) );
+		if( r.second == true )
+		{
+			client.set_id(id);
+			return;
+		}
+	}
+	// Wut? 100 attempts and fail!
+	assert(!"Todo - Better way of handling client ID reuse");
+}
+
+CClient* GetClientByID(uint16_t id)
+{
+	auto it = glClients.find(id);
+	return (it == glClients.end() ? nullptr : it->second);
 }
 
 void DeregisterClient(CClient& client)
 {
-	//glClients.erase( client.m_id );
+	glClients.erase( client.id() );
 }
 
 
@@ -163,7 +181,7 @@ void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
 	::std::string	name = message.ReadString();
 	
 	::_SysDebug("_CreateWindow: (%i, '%s')", new_id, name.c_str());
-	client.SetWindow( new_id, gpCompositor->CreateWindow(client, name) );
+	client.SetWindow( new_id, new CWindow(*gpCompositor, client, name, new_id) );
 }
 
 void HandleMessage_DestroyWindow(CClient& client, CDeserialiser& message)

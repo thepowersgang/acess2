@@ -27,6 +27,13 @@ CSurface::CSurface(int x, int y, unsigned int w, unsigned int h):
 
 CSurface::~CSurface()
 {
+	if( m_fd == -1 ) {
+		delete[] m_data;
+	}
+	else {
+		size_t	size = m_rect.m_w*m_rect.m_h*4;
+		_SysMUnMap(m_data, size);
+	}
 }
 
 uint64_t CSurface::GetSHMHandle()

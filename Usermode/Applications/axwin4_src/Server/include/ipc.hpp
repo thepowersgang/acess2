@@ -28,6 +28,7 @@ extern void	Initialise(const CConfigIPC& config, CCompositor& compositor);
 extern int	FillSelect(::fd_set& rfds);
 extern void	HandleSelect(const ::fd_set& rfds);
 extern void	RegisterClient(CClient& client);
+extern CClient*	GetClientByID(uint16_t id);
 extern void	DeregisterClient(CClient& client);
 
 extern void	SendMessage_NotifyDims(CClient& client, unsigned int NewW, unsigned int NewH);

@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <mutex>
+#include <cassert>
 
 namespace AxWin {
 
@@ -22,7 +23,7 @@ extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 {
 	// Allocate a window ID
 	::std::lock_guard<std::mutex>	lock(glWindowList);
-	int id = ::std::find(gWindowList.begin(), gWindowList.end(), nullptr) - gWindowList.end();
+	int id = ::std::find(gWindowList.begin(), gWindowList.end(), nullptr) - gWindowList.begin();
 	if( id >= MAX_WINDOW_ID ) {
 		throw ::std::runtime_error("AxWin4_CreateWindow - Out of IDs (TODO: Better exception)");
 	}
@@ -30,6 +31,7 @@ extern "C" tAxWin4_Window *AxWin4_CreateWindow(const char *Name)
 	{
 		gWindowList.push_back(nullptr);
 	}
+	assert(gWindowList[id] == nullptr);
 	
 	// Create window structure locally
 	tAxWin4_Window *ret = new tAxWin4_Window();
