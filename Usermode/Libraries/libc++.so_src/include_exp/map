@@ -193,14 +193,52 @@ public:
 	
 	// Modifiers
 	// - insert
-	pair<iterator,bool> insert(const value_type& val);
+	pair<iterator,bool> insert(const value_type& val)
+	{
+		const key_type&	k = val.first;
+		iterator it = upper_bound(k);
+		if( it == end() || m_comp(k, it->first) ) {	// if k < it->first, no match
+			insert_at(it.m_index, value_type(k,mapped_type()) );
+			return pair<iterator,bool>(it, true);
+		}
+		else {
+			return pair<iterator,bool>(it, false);
+		}
+	}
 	iterator insert(iterator position, const value_type& val);
 	template <class InputInterator>
 	void insert(InputInterator first, InputInterator last);
 	// - erase
-	void erase(iterator position);
-	size_type erase(const key_type& k);
-	void erase(iterator first, iterator last);
+	void erase(iterator position)
+	{
+		auto pos = position;
+		erase(pos, ++position);
+	}
+	size_type erase(const key_type& k)
+	{
+		auto it = find(k);
+		if( it != end() ) {
+			erase(it);
+			return 1;
+		}
+		else {
+			return 0;
+		}
+	}
+	void erase(iterator first, iterator last)
+	{
+		_libcxx_assert(first.m_index <= last.m_index);
+		unsigned int ofs = first.m_index;
+		unsigned int count = last.m_index - first.m_index;
+		for( unsigned int i = 0; i < count; i ++ )
+		{
+			// Construct new item
+			m_alloc.destroy(&m_items[ofs]);
+			m_size --;
+			// Move following items down
+			shift_items(&m_items[ofs+1], &m_items[ofs], m_size-ofs);
+		}
+	}
 	// - swap
 	void swap(map& x);
 	// - clear
