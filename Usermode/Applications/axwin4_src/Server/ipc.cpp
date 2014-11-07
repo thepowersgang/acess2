@@ -329,9 +329,23 @@ void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
+	uint16_t	font = message.ReadU16();
 	::std::string	str = message.ReadString();
+	_SysDebug("_DrawText: (%i (%i,%i) %ix%i Font%i \"%s\")", win_id, x, y, w, h, font, str.c_str());
 	
-	assert(!"TODO HandleMessage_DrawText");
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_DrawText: Bad window");
+	}
+	
+	// 1. Get font from client structure
+	//CFont& font = client.GetFont(font_id);
+	
+	// 2. Render
+	//CRect	area(x, y, w, h);
+	//font->Render(win->m_surface, area, str, h);
+	
+	_SysDebug("TODO: HandleMessage_DrawText");
 }
 
 typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);
