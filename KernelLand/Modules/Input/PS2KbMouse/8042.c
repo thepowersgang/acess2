@@ -24,10 +24,9 @@ void KBC8042_Init(void)
 	IRQ_AddHandler(12, KBC8042_MouseHandler, NULL);	// Set IRQ
 	
 	{
-		Uint8	temp;
 		// Attempt to get around a strange bug in Bochs/Qemu by toggling
 		// the controller on and off
-		temp = inb(0x61);
+		Uint8 temp = inb(0x61);
 		outb(0x61, temp | 0x80);
 		outb(0x61, temp & 0x7F);
 		inb(0x60);	// Clear keyboard buffer
