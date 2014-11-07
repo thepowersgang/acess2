@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include "../ld-acess_src/exports.h"
 
+extern int	gbSyscallDebugEnabled;
+
 #ifdef __WINDOWS__
 int DllMain(void)
 {
@@ -39,6 +41,8 @@ const char *getenv_p(char **envp, const char *name)
 int libacessnative_init(int argc, char *argv[], char **envp)
 {
 	Request_Preinit();
+	
+	//gbSyscallDebugEnabled = 1;
 	
 	const char *preopens = getenv_p(envp, ENV_VAR_PREOPENS);
 	printf("preopens = %s\n", preopens);
