@@ -101,9 +101,36 @@ void DeregisterClient(CClient& client)
 }
 
 
-void SendMessage_NotifyDims(CClient& client, unsigned int NewW, unsigned int NewH)
+void SendMessage_NotifyDims(CClient& client, unsigned int WinID, unsigned int NewW, unsigned int NewH)
 {
-	_SysDebug("TODO: CClient::SendNotify_Dims");
+	_SysDebug("TODO: IPC::SendMessage_NotifyDims");
+}
+void SendMessage_MouseButton(CClient& client, unsigned int WinID, unsigned int X, unsigned int Y, uint8_t Button, bool Pressed)
+{
+	CSerialiser	msg;
+	msg.WriteU8(IPCMSG_INPUTEVENT);
+	msg.WriteU8(IPC_INEV_MOUSEBTN);
+	msg.WriteU16(WinID);
+	msg.WriteU16(X);
+	msg.WriteU16(Y);
+	msg.WriteU8(Button);
+	msg.WriteU8(Pressed ? 0 : 1);
+	client.SendMessage(msg);
+}
+void SendMessage_MouseMove(CClient& client, unsigned int WinID, unsigned int X, unsigned int Y)
+{
+	_SysDebug("TODO: IPC::SendMessage_MouseButton");
+}
+void SendMessage_KeyEvent(CClient& client, unsigned int WinID, uint32_t KeySym, bool Pressed, const char *Translated)
+{
+	CSerialiser	msg;
+	msg.WriteU8(IPCMSG_INPUTEVENT);
+	msg.WriteU8(IPC_INEV_KEYBOARD);
+	msg.WriteU16(WinID);
+	msg.WriteU16(KeySym);
+	msg.WriteU8(Pressed ? 0 : 1);
+	msg.WriteString(Translated);
+	client.SendMessage(msg);
 }
 
 

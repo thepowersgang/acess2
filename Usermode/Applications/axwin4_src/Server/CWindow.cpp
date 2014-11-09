@@ -59,7 +59,7 @@ void CWindow::Move(int X, int Y)
 void CWindow::Resize(unsigned int W, unsigned int H)
 {
 	m_surface.Resize(W, H);
-	IPC::SendMessage_NotifyDims(m_client, W, H);
+	IPC::SendMessage_NotifyDims(m_client, m_id, W, H);
 }
 void CWindow::SetFlags(uint32_t Flags)
 {
@@ -74,14 +74,18 @@ uint64_t CWindow::ShareSurface()
 
 void CWindow::MouseButton(int ButtonID, int X, int Y, bool Down)
 {
+	IPC::SendMessage_MouseButton(m_client, m_id, X, Y, ButtonID, Down);
 }
 
 void CWindow::MouseMove(int NewX, int NewY)
 {
+	// TODO: Only enable move events if client requests them
+	//IPC::SendMessage_MouseMove(m_client, m_id, NewX, NewY);
 }
 
 void CWindow::KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down)
 {
+	IPC::SendMessage_KeyEvent(m_client, m_id, Scancode, Down, Translated.c_str());
 }
 
 
