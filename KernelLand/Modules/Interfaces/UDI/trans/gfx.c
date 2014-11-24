@@ -70,7 +70,7 @@ void acessgfx_channel_event_ind$bound(udi_gfx_bind_cb_t *cb)
 	rdata_t *rdata = UDI_GCB(bind_cb)->context;
 	
 	// request metalanguage-level bind
-	udi_gfx_bind_req(bind_cb)
+	udi_gfx_bind_req(bind_cb);
 	// Continued in acessgfx_bind_ack
 }
 

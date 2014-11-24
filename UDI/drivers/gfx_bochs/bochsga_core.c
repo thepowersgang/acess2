@@ -382,6 +382,7 @@ void bochsga_gfx_engine_command_req(udi_gfx_command_cb_t *cb)
 }
 void bochsga_gfx_buffer_info_req(udi_gfx_buffer_info_cb_t *cb)
 {
+	udi_cb_t *gcb = UDI_GCB(cb);
 	switch(cb->buffer_index)
 	{
 	case 0:
