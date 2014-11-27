@@ -1,14 +1,16 @@
 --- gcc/config.gcc
 +++ gcc/config.gcc
-@@ -519,3 +519,10 @@
+@@ -519,3 +519,12 @@
  # Common parts for widely ported systems.
  case ${target} in
 +*-*-acess2*)
++  extra_options="${extra_options} acess2.opt"
 +  extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o crtendT.o"
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
 +  use_gcc_stdint=provide
++  thread_file=posix
 +  ;;
  *-*-darwin*)
 

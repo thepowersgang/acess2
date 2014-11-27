@@ -5,9 +5,10 @@
     builtin_define_std ("unix");      \
     builtin_assert ("system=acess2");   \
     builtin_assert ("system=unix");   \
+    builtin_assert ("system=posix");   \
   } while(0);
 
-#define LIB_SPEC	"-lc -lld-acess -lposix"
+#define LIB_SPEC	"-lc -lld-acess -lposix %{pthread:-lpthread}"
 #define LIBSTDCXX "c++"
 #undef STARTFILE_SPEC
 #undef ENDFILE_SPEC
