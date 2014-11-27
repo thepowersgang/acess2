@@ -627,12 +627,14 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	// If the server has terminated, send SIGPIPE
 	if( pty->ServerNode && pty->ServerNode->ReferenceCount == 0 )
 	{
+		LOG("SIGPIPE, server has terminated");
 		Threads_PostSignal(SIGPIPE);
 		errno = EIO;
 		return -1;
 	}	
 
 	// Write to either FIFO or directly to output function
+	LOG("pty->OutputFcn = %p", pty->OutputFcn);
 	if( pty->OutputFcn ) {
 		pty->OutputFcn(pty->OutputHandle, Length, Buffer);
 		return Length;

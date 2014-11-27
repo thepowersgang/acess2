@@ -8,7 +8,7 @@ BIN := AxWinWM
 OBJ := main.o input.o video.o ipc_acess.o
 include common.mk
 
-LDFLAGS += -lnet
+LIBS += -lnet
 
 -include ../../Makefile.tpl
 

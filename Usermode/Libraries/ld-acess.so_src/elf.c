@@ -17,6 +17,7 @@
 
 #include "common.h"
 #include <stdint.h>
+#include <stdbool.h>
 #ifndef assert
 # include <assert.h>
 #endif
@@ -38,38 +39,24 @@
 # define SUPPORT_ELF64
 #endif
 
-typedef struct
-{
-	void	*Base;
-	intptr_t	iBaseDiff;
-	const char	*strtab;
-	Elf32_Sym	*symtab;
-} tElfRelocInfo;
-
-typedef int tElf32RelocFcn(tElfRelocInfo *Info, uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int bRela);
-
 // === CONSTANTS ===
 #if DEBUG
 //static const char	*csaDT_NAMES[] = {"DT_NULL", "DT_NEEDED", "DT_PLTRELSZ", "DT_PLTGOT", "DT_HASH", "DT_STRTAB", "DT_SYMTAB", "DT_RELA", "DT_RELASZ", "DT_RELAENT", "DT_STRSZ", "DT_SYMENT", "DT_INIT", "DT_FINI", "DT_SONAME", "DT_RPATH", "DT_SYMBOLIC", "DT_REL", "DT_RELSZ", "DT_RELENT", "DT_PLTREL", "DT_DEBUG", "DT_TEXTREL", "DT_JMPREL"};
 //static const char	*csaR_NAMES[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_386_GOT32", "R_386_PLT32", "R_386_COPY", "R_386_GLOB_DAT", "R_386_JMP_SLOT", "R_386_RELATIVE", "R_386_GOTOFF", "R_386_GOTPC", "R_386_LAST"};
 #endif
 
+#ifdef SUPPORT_ELF64
+#endif
+
 // === PROTOTYPES ===
 void	*ElfRelocate(void *Base, char **envp, const char *Filename);
  int	ElfGetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
-void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
- int	Elf32GetSymbolVars(void *Base, Elf32_Sym** symtab, Elf32_Word** pBuckets, const char **dynstrtab, uintptr_t* piBaseDiff);
- int	Elf32GetSymbolInfo(void *Base, const char *Name, void **Addr, size_t *Size, int* Section, int *Binding, int *Type);
- int	Elf32GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
-tElf32RelocFcn	elf_doRelocate_386;
-tElf32RelocFcn	elf_doRelocate_arm;
-tElf32RelocFcn	elf_doRelocate_unk;
+void	*Elf32_Relocate(void *Base, char **envp, const char *Filename);
+ int	Elf32_GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 #ifdef SUPPORT_ELF64
-int	_Elf64DoReloc_X86_64(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
-void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
- int	Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
+void	*Elf64_Relocate(void *Base, char **envp, const char *Filename);
+ int	Elf64_GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 #endif
- int	Elf32GetSymbolReloc(tElfRelocInfo *Info, const Elf32_Sym *Symbol, void **Ret, size_t *Size);
 uint32_t	ElfHashString(const char *name);
 
 // === CODE ===
@@ -84,10 +71,10 @@ void *ElfRelocate(void *Base, char **envp, const char *Filename)
 	switch(hdr->e_ident[4])
 	{
 	case ELFCLASS32:
-		return Elf32Relocate(Base, envp, Filename);
+		return Elf32_Relocate(Base, envp, Filename);
 #ifdef SUPPORT_ELF64
 	case ELFCLASS64:
-		return Elf64Relocate(Base, envp, Filename);
+		return Elf64_Relocate(Base, envp, Filename);
 #endif
 	default:
 		SysDebug("ld-acess - ElfRelocate: Unknown file class %i", hdr->e_ident[4]);
@@ -105,10 +92,10 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	switch(hdr->e_ident[4])
 	{
 	case ELFCLASS32:
-		return Elf32GetSymbol(Base, Name, ret, Size);
+		return Elf32_GetSymbol(Base, Name, ret, Size);
 #ifdef SUPPORT_ELF64
 	case ELFCLASS64:
-		return Elf64GetSymbol(Base, Name, ret, Size);
+		return Elf64_GetSymbol(Base, Name, ret, Size);
 #endif
 	default:
 		SysDebug("ld-acess - ElfRelocate: Unknown file class %i", hdr->e_ident[4]);
@@ -116,7 +103,17 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	}
 }
 
-int elf_doRelocate_386(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int bRela)
+// --------------------------------------------------------------------
+// Elf32 support
+// --------------------------------------------------------------------
+#define ELFTYPE	Elf32
+#include "elf_impl.c"
+#undef ELFTYPE
+
+Elf32_RelocFcn	elf_doRelocate_386;
+Elf32_RelocFcn	elf_doRelocate_arm;
+
+int elf_doRelocate_386(const Elf32_RelocInfo *Info, Elf32_Word r_info, Elf32_Word* ptr, Elf32_Addr addend, bool bRela)
 {
 	const Elf32_Sym	*sym = &Info->symtab[ ELF32_R_SYM(r_info) ];
 	void	*symval = (void*)(intptr_t)sym->st_value;
@@ -180,7 +177,7 @@ int elf_doRelocate_386(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf3
 	return 0;
 }
 
-int elf_doRelocate_arm(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int bRela)
+int elf_doRelocate_arm(const Elf32_RelocInfo *Info, Elf32_Word r_info, Elf32_Word* ptr, Elf32_Addr addend, bool bRela)
 {
 	const Elf32_Sym	*sym = &Info->symtab[ ELF32_R_SYM(r_info) ];
 	void	*symval = (void*)(intptr_t)sym->st_value;
@@ -227,490 +224,98 @@ int elf_doRelocate_arm(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf3
 	return 0;
 }
 
-int elf_doRelocate_unk(tElfRelocInfo *Info, uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int bRela)
+Elf32_RelocFcn*	Elf32_GetRelocFcn(unsigned Machine)
 {
-	return 1;
+	switch(Machine)
+	{
+	case EM_386:	return elf_doRelocate_386;
+	case EM_ARM:	return elf_doRelocate_arm;
+	default:	return NULL;
+	}
 }
 
-void *Elf32Relocate(void *Base, char **envp, const char *Filename)
+
+// --------------------------------------------------------------------
+// Elf64 support
+// --------------------------------------------------------------------
+#ifdef SUPPORT_ELF64
+
+#define ELFTYPE	Elf64
+#include "elf_impl.c"
+#undef ELFTYPE
+
+Elf64_RelocFcn	elf_doRelocate_x86_64;
+
+int elf_doRelocate_x86_64(const Elf64_RelocInfo *Info, Elf64_Xword r_info, Elf64_Xword* ptr, Elf64_Addr addend, bool bRela)
 {
-	const Elf32_Ehdr	*hdr = Base;
-	char	*libPath;
-	intptr_t	iRealBase = -1;
-	Elf32_Rel	*rel = NULL;
-	Elf32_Rela	*rela = NULL;
-	void	*plt = NULL;
-	 int	relSz=0, relEntSz=8;
-	 int	relaSz=0, relaEntSz=8;
-	 int	pltSz=0, pltType=0;
-	Elf32_Dyn	*dynamicTab = NULL;	// Dynamic Table Pointer
-	
-	TRACE("(Base=0x%x)", Base);
-	
-	// Check magic header
-	
-	
-	// Parse Program Header to get Dynamic Table
-	// - Determine the linked base of the executable
-	const Elf32_Phdr	*phtab = (void*)( (uintptr_t)Base + hdr->phoff );
-	const int iSegmentCount = hdr->phentcount;
-	for(int i = 0; i < iSegmentCount; i ++)
+	const Elf64_Sym	*sym = &Info->symtab[ ELF64_R_SYM(r_info) ];
+	void	*symval = (void*)(intptr_t)sym->st_value;
+	size_t	size = sym->st_size;
+	TRACE("%i '%s'", ELF64_R_TYPE(r_info), Info->strtab + sym->st_name);
+	switch( ELF64_R_TYPE(r_info) )
 	{
-		switch(phtab[i].Type)
+	case R_X86_64_NONE:
+		break;
+	case R_X86_64_64:
+		TRACE("R_X86_64_64 *0x%x = %p + 0x%x", ptr, symval, addend);
+		*ptr = (intptr_t)symval + addend;
+		break;
+	// Absolute Value of a symbol (S)
+	case R_X86_64_GLOB_DAT:
+		TRACE("R_X86_64_GLOB_DAT *0x%x = %p", ptr, symval);	if(0)
+	case R_X86_64_JUMP_SLOT:
+		TRACE("R_X86_64_JUMP_SLOT *0x%x = %p", ptr, symval);
+		*ptr = (intptr_t)symval;
+		break;
+
+	// Base Address (B+A)
+	case R_X86_64_RELATIVE:
+		TRACE("R_X86_64_RELATIVE *0x%x = 0x%x + 0x%x", ptr, Info->iBaseDiff, addend);
+		*ptr = Info->iBaseDiff + addend;
+		break;
+
+	case R_X86_64_COPY: {
+		void *old_symval = symval;
+		GetSymbol(Info->strtab + sym->st_name, &symval, &size, Info->Base);
+		if( symval == old_symval )
 		{
-		case PT_LOAD:
-			// Determine linked base address
-			if( iRealBase > phtab[i].VAddr)
-				iRealBase = phtab[i].VAddr;
-			break;
-		case PT_DYNAMIC:
-			// Find Dynamic Section
-			if(!dynamicTab) {
-				dynamicTab = (void *) (intptr_t) phtab[i].VAddr;
+			if( ELF64_ST_BIND(sym->st_info) != STB_WEAK )
+			{
+				WARNING("sym={val:%p,size:0x%x,info:0x%x,other:0x%x,shndx:%i}",
+					sym->st_value, sym->st_size, sym->st_info, sym->st_other, sym->st_shndx);
+				WARNING("Can't find required external symbol '%s' for R_X86_64_COPY", Info->strtab + sym->st_name);
+				return 1;
 			}
-			else {
-				WARNING("elf_relocate: Multiple PT_DYNAMIC segments");
-			}
-			break;
-		}
-	}
-	
-	// Page Align real base
-	iRealBase &= ~0xFFF;
-	
-	// Adjust "Real" Base
-	const intptr_t	iBaseDiff = (intptr_t)Base - iRealBase;
-
-	TRACE("True Base = 0x%x, Compiled Base = 0x%x, Difference = 0x%x", Base, iRealBase, iBaseDiff);
-
-	// Check if a PT_DYNAMIC segement was found
-	if(!dynamicTab) {
-		SysDebug(" elf_relocate: No PT_DYNAMIC segment in image %p, returning", Base);
-		return (void *)(intptr_t)(hdr->entrypoint + iBaseDiff);
-	}
-
-	// Allow writing to read-only segments, just in case they need to be relocated
-	// - Will be reversed at the end of the function
-	for( int i = 0; i < iSegmentCount; i ++ )
-	{
-		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
-			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
-			uintptr_t	end = addr + phtab[i].MemSize;
-			for( ; addr < end; addr += PAGE_SIZE )
-				_SysSetMemFlags(addr, 0, 1);	// Unset RO
-		}
-	}
-
-	// Adjust Dynamic Table
-	dynamicTab = (void *)( (intptr_t)dynamicTab + iBaseDiff );
-	
-	// === Get Symbol table and String Table ===
-	char	*dynstrtab = NULL;	// .dynamic String Table
-	Elf32_Sym	*dynsymtab = NULL;
-	Elf32_Word	*hashtable = NULL;
-	 int	iSymCount = 0;
-	for( int j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
-	{
-		const Elf32_Dyn	*dt = &dynamicTab[j];
-		switch(dt->d_tag)
-		{
-		// --- Symbol Table ---
-		case DT_SYMTAB:
-			TRACE("DYNAMIC Symbol Table 0x%x (0x%x)", dt->d_val, dt->d_val + iBaseDiff);
-			dynsymtab = (void*)((intptr_t)dt->d_val + iBaseDiff);
-			break;
-		// --- String Table ---
-		case DT_STRTAB:
-			TRACE("DYNAMIC String Table 0x%x (0x%x)", dt->d_val, dt->d_val + iBaseDiff);
-			dynstrtab = (void*)((intptr_t)dt->d_val + iBaseDiff);
-			break;
-		// --- Hash Table --
-		case DT_HASH:
-			TRACE("DYNAMIC Hash table %p (%p)", dt->d_val, dt->d_val + iBaseDiff);
-			hashtable = (void*)((intptr_t)dt->d_val + iBaseDiff);
-			iSymCount = hashtable[1];
-			break;
-		}
-	}
-
-	if(dynsymtab == NULL) {
-		SysDebug("ld-acess.so - WARNING: No Dynamic Symbol table in %p, returning", hdr);
-		return (void *)(intptr_t) (hdr->entrypoint + iBaseDiff);
-	}
-	
-	// Apply base offset to locally defined symbols
-	// - #0 is defined as ("" SHN_UNDEF), so skip it
-	for( int i = 1; i < iSymCount; i ++ )
-	{
-		Elf32_Sym	*sym = &dynsymtab[i];
-		const char *name = dynstrtab + sym->st_name;
-		(void)name;
-		if( sym->st_shndx == SHN_UNDEF )
-		{
-			TRACE("Sym %i'%s' deferred (SHN_UNDEF)", i, name);
-		}
-		else if( sym->st_shndx == SHN_ABS )
-		{
-			// Leave as is
-			SysDebug("Sym %i'%s' untouched", i, name);
+			// Don't bother doing the memcpy
+			TRACE("R_X86_64_COPY (%p, %p, %i)", ptr, symval, size);
 		}
 		else
 		{
-			void *newval;
-			size_t	newsize;
-			if( ELF32_ST_BIND(sym->st_info) != STB_WEAK )
-			{
-				TRACE("Sym %i'%s' = %p (local)", i, name, sym->st_value + iBaseDiff);
-				sym->st_value += iBaseDiff;
-			}
-			// If GetSymbol doesn't return a strong/global symbol value
-			else if( GetSymbol(name, &newval, &newsize, Base) != 1 )
-			{
-				TRACE("Sym %i'%s' = %p (Local weak)", i, name, sym->st_value + iBaseDiff);
-				sym->st_value += iBaseDiff;
-			}
-			else
-			{
-				TRACE("Sym %i'%s' = %p+0x%x (Extern weak)", i, name, newval, newsize);
-				sym->st_value = (uintptr_t)newval;
-				sym->st_size = newsize;
-			}
+			TRACE("R_X86_64_COPY (%p, %p, %i)", ptr, symval, size);
+			memcpy(ptr, symval, size);
 		}
-	}
-
-	// === Add to loaded list (can be imported now) ===
-	AddLoaded( Filename, Base );
-
-	// === Parse Relocation Data ===
-	TRACE("dynamicTab = 0x%x", dynamicTab);
-	for( int j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
-	{
-		const Elf32_Dyn	*dt = &dynamicTab[j];
-		switch(dt->d_tag)
-		{
-		// --- Shared Library Name ---
-		case DT_SONAME:
-			TRACE(".so Name '%s'", dynstrtab + dt->d_val);
-			break;
-		// --- Needed Library ---
-		case DT_NEEDED:
-			//assert(dt->d_val <= sizeof_dynstrtab);
-			libPath = dynstrtab + dt->d_val;
-			TRACE(" Required Library '%s'", libPath);
-			if(LoadLibrary(libPath, NULL, envp) == 0) {
-				SysDebug("Unable to load required library '%s'", libPath);
-				return 0;
-			}
-			TRACE(" Lib loaded");
-			break;
-		// --- PLT/GOT ---
-//		case DT_PLTGOT:	pltgot = (void*)(iBaseDiff + dt->d_val);	break;
-		case DT_JMPREL:	plt = (void*)(iBaseDiff + dt->d_val);	break;
-		case DT_PLTREL:	pltType = dt->d_val;	break;
-		case DT_PLTRELSZ:	pltSz = dt->d_val;	break;
-		
-		// --- Relocation ---
-		case DT_REL:	rel = (void*)(iBaseDiff + dt->d_val);	break;
-		case DT_RELSZ:	relSz = dt->d_val;	break;
-		case DT_RELENT:	relEntSz = dt->d_val;	break;
-		case DT_RELA:	rela = (void*)(iBaseDiff + dt->d_val);	break;
-		case DT_RELASZ:	relaSz = dt->d_val;	break;
-		case DT_RELAENT:	relaEntSz = dt->d_val;	break;
-		
-		// --- Symbol Table ---
-		case DT_SYMTAB:
-		// --- Hash Table ---
-		case DT_HASH:
-		// --- String Table ---
-		case DT_STRTAB:
-			break;
-		
-		// --- Unknown ---
-		default:
-			if(dt->d_tag > DT_JMPREL)	continue;
-			//DEBUGS(" elf_relocate: %i-%i = %s,0x%x",
-			//	i,j, csaDT_NAMES[dynamicTab[j].d_tag],dynamicTab[j].d_val);
-			break;
-		}
-	}
-	
-	// Resolve symbols (second pass)
-	// - #0 is defined as ("" SHN_UNDEF), so skip it
-	 int	fail = 0;
-	for( int i = 1; i < iSymCount; i ++ )
-	{
-		Elf32_Sym	*sym = &dynsymtab[i];
-		const char *name = dynstrtab + sym->st_name;
-		if( sym->st_shndx == SHN_UNDEF )
-		{
-			void *newval;
-			size_t	newsize;
-			if( !GetSymbol(name, &newval, &newsize, Base) ) {
-				if( ELF32_ST_BIND(sym->st_info) != STB_WEAK ) {
-					// Not a weak binding, set fail and move on
-					WARNING("Elf32Relocate: Can't find required symbol '%s' for '%s'",
-						name, Filename);
-					fail = 1;
-					continue ;
-				}
-				// Leave the symbol value as-is
-			}
-			else {
-				TRACE("Sym %i'%s' bound to %p+0x%x", i, name, newval, newsize);
-				sym->st_value = (intptr_t)newval;
-				sym->st_size = newsize;
-			}
-		}
-		else if( sym->st_shndx == SHN_ABS )
-		{
-			// Leave as is
-		}
-		else
-		{
-			// Handled previously
-			// TODO: What about weak locally-defined symbols?
-			//assert( ELF32_ST_BIND(sym->st_info) != STB_WEAK );
-		}
-	}
-	if( fail ) {
-		WARNING("Relocation of '%s' failed", Filename);
-		return NULL;
-	}
-	
-	TRACE("Beginning Relocation on '%s'", Filename);
-
-
-	tElf32RelocFcn	*do_relocate;
-	switch(hdr->machine)
-	{
-	case EM_386:
-		do_relocate = elf_doRelocate_386;
-		break;
-	case EM_ARM:
-		do_relocate = elf_doRelocate_arm;
-		break;
+		break; }
 	default:
-		SysDebug("Elf32Relocate: Unknown machine type %i", hdr->machine);
-		do_relocate = elf_doRelocate_unk;
-		fail = 1;
-		break;
+		WARNING("Unknown Relocation, %i", ELF64_R_TYPE(r_info));
+		return 2;
 	}
-	
-	TRACE("do_relocate = %p (%p or %p)", do_relocate, &elf_doRelocate_386, &elf_doRelocate_arm);
-
-	#define _doRelocate(r_info, ptr, bRela, addend)	\
-		do_relocate(&reloc_info, r_info, ptr, addend, bRela);
-
-	tElfRelocInfo	reloc_info = {
-		.Base = Base,
-		.iBaseDiff = iBaseDiff,
-		.strtab = dynstrtab,
-		.symtab = dynsymtab
-	};
-
-	// Parse Relocation Entries
-	if(rel && relSz)
-	{
-		Elf32_Word	*ptr;
-		TRACE("rel=0x%x, relSz=0x%x, relEntSz=0x%x", rel, relSz, relEntSz);
-		int max = relSz / relEntSz;
-		for( int i = 0; i < max; i++ )
-		{
-			ptr = (void*)(iBaseDiff + rel[i].r_offset);
-			fail |= _doRelocate(rel[i].r_info, ptr, 0, *ptr);
-		}
-	}
-	// Parse Relocation Entries
-	if(rela && relaSz)
-	{
-		Elf32_Word	*ptr;
-		TRACE("rela=0x%x, relaSz=0x%x, relaEntSz=0x%x", rela, relaSz, relaEntSz);
-		int count = relaSz / relaEntSz;
-		for( int i = 0; i < count; i++ )
-		{
-			ptr = (void*)(iBaseDiff + rela[i].r_offset);
-			fail |= _doRelocate(rel[i].r_info, ptr, 1, rela[i].r_addend);
-		}
-	}
-	
-	// === Process PLT (Procedure Linkage Table) ===
-	if(plt && pltSz)
-	{
-		Elf32_Word	*ptr;
-		TRACE("Relocate PLT, plt=0x%x", plt);
-		if(pltType == DT_REL)
-		{
-			Elf32_Rel	*pltRel = plt;
-			int count = pltSz / sizeof(Elf32_Rel);
-			TRACE("PLT Reloc Type = Rel, %i entries", count);
-			for(int i = 0; i < count; i ++)
-			{
-				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
-				fail |= _doRelocate(pltRel[i].r_info, ptr, 0, *ptr);
-			}
-		}
-		else
-		{
-			Elf32_Rela	*pltRela = plt;
-			int count = pltSz / sizeof(Elf32_Rela);
-			TRACE("PLT Reloc Type = Rela, %i entries", count);
-			for(int i=0;i<count;i++)
-			{
-				ptr = (void*)(iRealBase + pltRela[i].r_offset);
-				fail |= _doRelocate(pltRela[i].r_info, ptr, 1, pltRela[i].r_addend);
-			}
-		}
-	}
-
-	// Re-set readonly
-	for( int i = 0; i < iSegmentCount; i ++ )
-	{
-		// If load and not writable
-		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
-			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
-			uintptr_t	end = addr + phtab[i].MemSize;
-			for( ; addr < end; addr += PAGE_SIZE )
-				_SysSetMemFlags(addr, 1, 1);	// Unset RO
-		}
-	}
-
-	if( fail ) {
-		TRACE("ElfRelocate: Failure");
-		return NULL;
-	}	
-
-	#undef _doRelocate
-
-	TRACE("RETURN 0x%x to %p", hdr->entrypoint + iBaseDiff, __builtin_return_address(0));
-	return (void*)(intptr_t)( hdr->entrypoint + iBaseDiff );
-}
-
-int Elf32GetSymbolVars(void *Base, Elf32_Sym** symtab, Elf32_Word** pBuckets, const char **dynstrtab, uintptr_t* piBaseDiff)
-{
-	Elf32_Dyn	*dynTab = NULL;
-	uintptr_t	iBaseDiff = -1;
-	Elf32_Ehdr *hdr = Base;
-	Elf32_Phdr *phtab = (void*)( (uintptr_t)Base + hdr->phoff );
-	for( int i = 0; i < hdr->phentcount; i ++ )
-	{
-		if(phtab[i].Type == PT_LOAD && iBaseDiff > phtab[i].VAddr)
-			iBaseDiff = phtab[i].VAddr;
-		if( phtab[i].Type == PT_DYNAMIC ) {
-			dynTab = (void*)(intptr_t)phtab[i].VAddr;
-		}
-	}
-	if( !dynTab ) {
-		SysDebug("ERROR - Unable to find DYNAMIC segment in %p", Base);
-		return 1;
-	}
-	iBaseDiff = (intptr_t)Base - iBaseDiff;	// Make iBaseDiff actually the diff
-	dynTab = (void*)( (intptr_t)dynTab + iBaseDiff );
-	for( int i = 0; dynTab[i].d_tag != DT_NULL; i++)
-	{
-		switch(dynTab[i].d_tag)
-		{
-		// --- Symbol Table ---
-		case DT_SYMTAB:
-			*symtab = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);	// Rebased in Relocate
-			break;
-		case DT_STRTAB:
-			*dynstrtab = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);
-			break;
-		// --- Hash Table --
-		case DT_HASH:
-			*pBuckets = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);
-			break;
-		}
-	}
-	
-	if( !*symtab ) {
-		SysDebug("ERRO - No DT_SYMTAB in %p", Base);
-		return 1;
-	}
-	if( !*pBuckets ) {
-		SysDebug("ERRO - No DT_HASH in %p", Base);
-		return 1;
-	}
-	if( !*dynstrtab ) {
-		SysDebug("ERRO - No DT_STRTAB in %p", Base);
-		return 1;
-	}
-
-	// ... ok... maybe they haven't been relocated
-	if( (uintptr_t)*symtab < (uintptr_t)Base )
-	{
-		SysDebug("Executable not yet relocated (symtab,pBuckets,dynstrtab = %p,%p,%p + 0x%x)",
-			*symtab,*pBuckets,*dynstrtab, iBaseDiff);
-		*symtab    = (void*)( (uintptr_t)*symtab    + iBaseDiff );
-		*pBuckets  = (void*)( (uintptr_t)*pBuckets  + iBaseDiff );
-		*dynstrtab = (void*)( (uintptr_t)*dynstrtab + iBaseDiff );
-	}
-	*piBaseDiff = iBaseDiff;
 	return 0;
 }
 
-int Elf32GetSymbolInfo(void *Base, const char *Name, void **Addr, size_t *Size, int* Section, int *Binding, int *Type)
+Elf64_RelocFcn* Elf64_GetRelocFcn(unsigned Machine)
 {
-	// Locate the tables
-	uintptr_t	iBaseDiff = -1;
-	Elf32_Sym	*symtab = NULL;
-	Elf32_Word	*pBuckets = NULL;
-	const char	*dynstrtab = NULL;
-	if( Elf32GetSymbolVars(Base, &symtab, &pBuckets, &dynstrtab, &iBaseDiff) )
-		return 1;
-
-	int nbuckets = pBuckets[0];
-//	int iSymCount = pBuckets[1];
-	pBuckets = &pBuckets[2];
-	Elf32_Word* pChains = &pBuckets[ nbuckets ];
-	assert(pChains);
-
-	// Get hash
-	int iNameHash = ElfHashString(Name);
-	iNameHash %= nbuckets;
-
-	// Walk Chain
-	int idx = pBuckets[ iNameHash ];
-	do {
-		const Elf32_Sym *sym = &symtab[idx];
-		assert(sym);
-		if( strcmp(dynstrtab + sym->st_name, Name) == 0 )
-		{
-			TRACE("*sym = {value:0x%x,size:0x%x,info:0x%x,other:0x%x,shndx:%i}",
-				sym->st_value, sym->st_size, sym->st_info,
-				sym->st_other, sym->st_shndx);
-			if(Addr)	*Addr = (void*)(intptr_t)( sym->st_value );
-			if(Size)	*Size = sym->st_size;
-			if(Binding)	*Binding = ELF32_ST_BIND(sym->st_info);
-			if(Type)	*Type = ELF32_ST_TYPE(sym->st_info);
-			if(Section)	*Section = sym->st_shndx;
-			return 0;
-		}
-	} while( (idx = pChains[idx]) != STN_UNDEF && idx != pBuckets[iNameHash] );
-	
-	TRACE("No symbol");
-	return 1;
+	switch(Machine)
+	{
+	case EM_X86_64:	return elf_doRelocate_x86_64;
+	default:	return NULL;
+	}
 }
 
-int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
-{
-	 int	section, binding;
-	TRACE("Elf32GetSymbol(%p,%s,...)", Base, Name);
-	if( Elf32GetSymbolInfo(Base, Name, ret, Size, &section, &binding, NULL) )
-		return 0;
-	if( section == SHN_UNDEF ) {
-		TRACE("Elf32GetSymbol: Undefined %p", *ret, (Size?*Size:0), section);
-		return 0;
-	}
-	if( binding == STB_WEAK ) {
-		TRACE("Elf32GetSymbol: Weak, return %p+0x%x,section=%i", *ret, (Size?*Size:0), section);
-		return 2;
-	}
-	TRACE("Elf32GetSymbol: Found %p+0x%x,section=%i", *ret, (Size?*Size:0), section);
-	return 1;
-}
+#endif	// SUPPORT_ELF64
+
 
 #ifdef SUPPORT_ELF64
+#if 0
 typedef int (*t_elf64_doreloc)(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
 
 int _Elf64DoReloc_X86_64(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend)
@@ -1045,6 +650,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 	
 	return 0;
 }
+#endif
 #endif
 
 uint32_t ElfHashString(const char *name)

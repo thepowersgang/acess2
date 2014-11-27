@@ -7,6 +7,6 @@ OBJ := main.o taskbar.o
 
 BIN := AxWinUI
 
-LDFLAGS += -laxwin4
+LIBS += -laxwin4
 
 include ../../Makefile.tpl

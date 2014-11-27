@@ -27,20 +27,38 @@ CSurface::CSurface(int x, int y, unsigned int w, unsigned int h):
 
 CSurface::~CSurface()
 {
+	if( m_fd == -1 ) {
+		delete[] m_data;
+	}
+	else {
+		size_t	size = m_rect.m_w*m_rect.m_h*4;
+		_SysMUnMap(m_data, size);
+	}
 }
 
 uint64_t CSurface::GetSHMHandle()
 {
-	// 1. Free local buffer
-	delete m_data;
-	// 2. Allocate a copy in SHM
-	m_fd = _SysOpen("/Devices/shm/anon", OPENFLAG_WRITE|OPENFLAG_READ);
-	if(m_fd==-1)	throw ::std::system_error(errno, ::std::system_category());
 	size_t	size = m_rect.m_w*m_rect.m_h*4;
-	_SysTruncate(m_fd, size);
+	if( m_fd == -1 )
+	{
+		// 2. Allocate a copy in SHM
+		m_fd = _SysOpen("/Devices/shm/anon", OPENFLAG_WRITE|OPENFLAG_READ);
+		if(m_fd == -1) {
+			_SysDebug("GetSHMHandle: Unable to open anon SHM");
+			return -1;
+		}
+		// 1. Free local buffer
+		delete m_data;
+		_SysTruncate(m_fd, size);
+	}
+	else
+	{
+		_SysMUnMap(m_data, size);
+	}
 	// 3. mmap shm copy
 	m_data = static_cast<uint32_t*>( _SysMMap(nullptr, size, MMAP_PROT_WRITE, 0, m_fd, 0) );
 	if(!m_data)	throw ::std::system_error(errno, ::std::system_category());
+	
 	return _SysMarshalFD(m_fd);
 }
 

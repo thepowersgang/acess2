@@ -5,9 +5,9 @@
  * drv/vterm_input.c
  * - Virtual Terminal - Input code
  */
+#define DEBUG	0
 #include "vterm.h"
 #include <api_drv_video.h>
-#define DEBUG	0
 
 // === CODE ===
 /**
@@ -94,7 +94,7 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
 
 	if( Term != gpVT_CurTerm )	return ;
 	
-	ENTER("pTerm bShow", Term, Show);
+	ENTER("pTerm bShow", Term, bShow);
 
 	if( !bShow )
 	{
@@ -135,10 +135,13 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
  */
 void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
-	// Only update if this is the current terminal
-	if( Term != gpVT_CurTerm )	return;
-
 	ENTER("pTerm iUpdateAll", Term, UpdateAll);
+	// Only update if this is the current terminal
+	if( Term != gpVT_CurTerm ) {
+		LOG("Term != gpVT_CurTerm (%p)", gpVT_CurTerm);
+		LEAVE('-');
+		return;
+	}
 		
 	switch( Term->Mode )
 	{
@@ -146,7 +149,7 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 		size_t view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewTopRow*Term->TextWidth;
 		const tVT_Pos *wrpos = VT_int_GetWritePosPtr(Term);
 		const tVT_Char *buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
-		LOG("view_pos = %i, wrpos = %p, buffer=%p", view_pos, wrpos, buffer);
+		LOG("view_pos = %i, wrpos = %p (R%i,C%i), buffer=%p", view_pos, wrpos, wrpos->Row, wrpos->Col, buffer);
 		// Re copy the entire screen?
 		if(UpdateAll) {
 			VFS_WriteAt(
@@ -159,6 +162,7 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 		// Only copy the current line
 		else {
 			size_t	ofs = wrpos->Row * Term->TextWidth;
+			LOG("ofs = %i", ofs);
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
 				(ofs - view_pos)*sizeof(tVT_Char),

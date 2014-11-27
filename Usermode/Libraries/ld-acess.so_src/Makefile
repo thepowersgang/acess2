@@ -11,6 +11,7 @@ EXTRABIN := libld-acess.so
 EXTRACLEAN = $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
+#CPPFLAGS += -D DISABLE_ELF64
 CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99 -ffreestanding
 # -fno-leading-underscore
 CFLAGS  += $(CPPFLAGS)

@@ -2,7 +2,7 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -lnet
+LIBS += -lnet
 
 OBJ = main.o
 BIN = ping

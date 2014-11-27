@@ -13,8 +13,9 @@ OBJ += CRect.o CSurface.o
 OBJ += draw_control.o
 BIN := AxWinServer
 
-LDFLAGS += -lc++
-CXXFLAGS += -O3
+LIBS += -lc++
+#CXXFLAGS += -O3
+USE_CXX_LINK = 1 
 
 include ../../Makefile.tpl
 

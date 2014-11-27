@@ -11,6 +11,7 @@ int *libc_geterrno(void)
 }
 
 void _ZN4_sys5debugEPKcz(const char *fmt, ...)	__attribute__((alias("acess__SysDebug")));
+void _ZN4_sys7hexdumpEPKcPKvj(const char *tag, const void *ptr, size_t size) __attribute__((alias("acess__SysDebugHex")));
 
 #undef acess__SysSpawn
 

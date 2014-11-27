@@ -7,19 +7,18 @@
  */
 #include <video.hpp>
 #include <CCompositor.hpp>
+#include <CClient.hpp>
+#include <ipc.hpp>
 #include <cassert>
 
 namespace AxWin {
 
 CCompositor::CCompositor(CVideo& video):
-	m_video(video)
+	// TODO: Support multiple screens
+	m_video(video),
+	m_windowIDBuffer(video.width(), video.height())
 {
 	// 
-}
-
-CWindow* CCompositor::CreateWindow(CClient& client, const ::std::string& name)
-{
-	return new CWindow(*this, client, name);
 }
 
 void CCompositor::ShowWindow(CWindow* window)
@@ -75,6 +74,7 @@ void CCompositor::Redraw()
 				_SysDebug("Reblit (%i,%i) %ix%i", rel_rect.m_x, rel_rect.m_y, rel_rect.m_w, rel_rect.m_h);
 				BlitFromSurface( window->m_surface, rel_rect );
 				//window->Repaint( rel_rect );
+				m_windowIDBuffer.set(rel_rect.m_x, rel_rect.m_y, rel_rect.m_w, rel_rect.m_h, window);
 			}
 		}
 		
@@ -107,20 +107,72 @@ void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
 
 void CCompositor::MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y, int dX, int dY)
 {
-	_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
+	//_SysDebug("MouseButton(%i, %i,%i, %+i,%+i)", Cursor, X, Y, dX, dY);
 	m_video.SetCursorPos(X+dX, Y+dY);
-	// TODO: Pass event on to window
+	CWindow	*dstwin = getWindowForCoord(X, Y);
+	if( dstwin )
+	{
+		// TODO: Pass event on to window
+	}
 }
 
 void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int Y, eMouseButton Button, bool Press)
 {
 	_SysDebug("MouseButton(%i, %i,%i, %i=%i)", Cursor, X, Y, Button, Press);
-	// TODO: Pass event on to window
+	CWindow	*dstwin = getWindowForCoord(X, Y);
+	_SysDebug("- dstwin = %p", dstwin);
+	if( dstwin )
+	{
+		// 1. Give focus and bring to front
+		// 2. Send event
+		// TODO: Pass event on to window
+	}
 }
 
 void CCompositor::KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint)
 {
 	_SysDebug("KeyState(%i, 0x%x, %b, 0x%x)", KeyboardID, KeySym, Press, Codepoint);
+}
+
+CWindow* CCompositor::getWindowForCoord(unsigned int X, unsigned int Y)
+{
+	return m_windowIDBuffer.get(X, Y);
+}
+
+// --------------------------------------------------------------------
+CWindowIDBuffer::CWindowIDBuffer(unsigned int W, unsigned int H):
+	m_w(W),
+	m_buf(W*H)
+{
+}
+void CWindowIDBuffer::set(unsigned int X, unsigned int Y, unsigned int W, unsigned int H, CWindow* win)
+{
+	TWindowID	ent = {
+		.Client = win->client().id(),
+		.Window = win->id(),
+		};
+	for( unsigned int row = 0; row < H; row ++ )
+	{
+		TWindowID* dst = &m_buf[ (Y+row) * m_w ];
+		for( unsigned int col = 0; col < W; col ++ )
+			dst[col] = ent;
+	}
+}
+CWindow* CWindowIDBuffer::get(unsigned int X, unsigned int Y)
+{
+	if( X >= m_w )
+		return nullptr;
+	unsigned int pos = Y*m_w + X;
+	if( pos >= m_buf.size() )
+		return nullptr;
+	auto id = m_buf[pos];
+	//_SysDebug("CWindowIDBuffer::get id = {%i,%i}", id.Client, id.Window);
+	auto client = ::AxWin::IPC::GetClientByID(id.Client);
+	if( client == nullptr ) {
+		//_SysDebug("CWindowIDBuffer::get client=%p", client);
+		return nullptr;
+	}
+	return client->GetWindow(id.Window);
 }
 
 }	// namespace AxWin

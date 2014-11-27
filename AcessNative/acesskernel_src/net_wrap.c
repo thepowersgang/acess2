@@ -8,6 +8,7 @@
 #define DEBUG	1
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "../../KernelLand/Kernel/include/logdebug.h"
 #include "net_wrap.h"
 #include <string.h>

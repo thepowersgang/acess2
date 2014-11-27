@@ -356,7 +356,7 @@ restart_parse:
 			}
 			
 			if(iNestedLinks > MAX_NESTED_LINKS) {
-				Log_Notice("VFS", "VFS_ParsePath - Nested link limit exceeded");
+				Log_Notice("VFS", "VFS_ParsePath - Nested link limit exceeded on '%.*s'", ofs, Path);
 				errno = ENOENT;
 				goto _error;
 			}
@@ -391,7 +391,8 @@ restart_parse:
 		// Handle Non-Directories
 		if( !(curNode->Flags & VFS_FFLAG_DIRECTORY) )
 		{
-			Log_Warning("VFS", "VFS_ParsePath - Path segment is not a directory");
+			Log_Warning("VFS", "VFS_ParsePath - Path segment '%.*s' is not a directory (curNode{%p}->Flags = 0x%x)",
+				ofs+nextSlash, Path, curNode, curNode->Flags);
 			errno = ENOTDIR;
 			goto _error;
 		}
@@ -420,7 +421,7 @@ restart_parse:
 
 	// Check final finddir call	
 	if( !curNode->Type || !curNode->Type->FindDir ) {
-		Log_Warning("VFS", "VFS_ParsePath - FindDir doesn't exist for element of '%s'", Path);
+		Log_Warning("VFS", "VFS_ParsePath - FindDir doesn't exist for leaf of '%s' (dir '%.*s')", Path, ofs, Path);
 		errno = ENOENT;
 		goto _error;
 	}

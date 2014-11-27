@@ -1,7 +1,5 @@
-Implement Ctrl-C in vterm
 Fix TCP code
 Get IPv6 working
-Implement a DHCP client
 Get UDI working (udiref)
 Finalise AxWin API structure
 Implement input in AxWin

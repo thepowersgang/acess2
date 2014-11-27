@@ -65,7 +65,7 @@ void CallQueuedEntrypoints(char **EnvP)
 	{
 		giNumQueuedEntrypoints --;
 		const struct sQueuedEntry	*qe = &gaQueuedEntrypoints[giNumQueuedEntrypoints];
-		//_SysDebug("Calling EP for %p", qe->Base);
+		DEBUGS("Calling EP %p for %p", qe->Entry, qe->Base);
 		qe->Entry(qe->Base, 0, NULL, EnvP);
 	}
 }

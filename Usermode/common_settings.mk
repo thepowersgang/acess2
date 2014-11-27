@@ -5,6 +5,7 @@ CPPFLAGS += -I$(ACESSUSERDIR)/include/ -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += -I $(ACESSDIR)/Externals/Output/$(ARCHDIR)/include
 CFLAGS += -std=gnu99 -g
 LDFLAGS += -L $(ACESSDIR)/Externals/Output/$(ARCHDIR)/lib
+LDFLAGS += -L $(OUTPUTDIR)Libs
 
 CRTI := $(OUTPUTDIR)Libs/crti.o
 CRTBEGIN := $(shell $(CC) $(CFLAGS) -print-file-name=crtbegin.o 2>/dev/null)

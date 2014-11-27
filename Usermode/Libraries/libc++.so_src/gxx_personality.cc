@@ -336,6 +336,8 @@ static size_t _get_encoded_size(int encoding)
 	{
 	case DW_EH_PE_absptr:	// absolute
 		return sizeof(void*);
+	case DW_EH_PE_udata4:
+		return 4;
 	default:
 		_SysDebug("_get_encoded_size: Unknown encoding 0x%02x", encoding);
 		return 0;

@@ -11,6 +11,7 @@
 #include "CWindow.hpp"
 #include "serialisation.hpp"
 #include <map>
+#include <cassert>
 
 namespace AxWin {
 
@@ -18,6 +19,7 @@ class IIPCChannel;
 
 class CClient
 {
+	unsigned int	m_id;
 	IIPCChannel&	m_channel;
 	
 	::std::map<unsigned int,CWindow*>	m_windows;
@@ -25,6 +27,9 @@ class CClient
 public:
 	CClient(::AxWin::IIPCChannel& channel);
 	virtual ~CClient();
+	
+	void set_id(unsigned int id) { assert(m_id == 0); m_id = id; }
+	unsigned int id() const { return m_id; }
 	
 	CWindow*	GetWindow(int ID);
 	void	SetWindow(int ID, CWindow* window);

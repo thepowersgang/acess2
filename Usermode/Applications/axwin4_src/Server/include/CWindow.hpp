@@ -23,8 +23,11 @@ class CRegion;
 class CWindow
 {
 public:
-	CWindow(CCompositor& compositor, CClient& client, const ::std::string &name);
+	CWindow(CCompositor& compositor, CClient& client, const ::std::string &name, unsigned int id);
 	~CWindow();
+	
+	const CClient& client() const { return m_client; }
+	const unsigned int id() const { return m_id; }
 	
 	void Repaint(const CRect& rect);
 
@@ -46,6 +49,7 @@ public:
 private:
 	CCompositor&	m_compositor;
 	CClient&	m_client;
+	unsigned int	m_id;
 	const ::std::string	m_name;
 	::std::vector<CRegion*>	m_regions;
 };

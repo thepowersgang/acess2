@@ -13,6 +13,7 @@
 # include <spawn.h>	// posix_spawn
 #endif
 #include "request.h"
+#include <sys/time.h>
 
 #define assert(cnd) do{ \
 	if( !(cnd) ) { \
@@ -171,7 +172,6 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	tRequestHeader	*req;
 	void	*dataPtr;
 	uint64_t	retValue;
-	 int	i;
 	
 	// DEBUG!
 //	printf("&tRequestHeader->Params = %i\n", offsetof(tRequestHeader, Params));
@@ -244,8 +244,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 		exit(127);
 	}
 	
+	if( !(req->NParams >= 2) ) {
+		fprintf(stderr, "syscalls.c: Too few return params (%i)", req->NParams);
+		exit(127);
+	}
 	dataPtr = (void*)&req->Params[req->NParams];
-	assert(req->NParams >= 2);
 	// return
 	assert(req->Params[0].Type == ARG_TYPE_INT64);
 	assert(req->Params[0].Length == sizeof(uint64_t));
@@ -264,7 +267,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 		exit(127);
 	}
 	retCount = 0;
-	for( i = 2; i < req->NParams; i ++ )
+	for( unsigned int i = 2; i < req->NParams; i ++ )
 	{
 		#if 0
 		 int	 j;
@@ -288,16 +291,38 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	return retValue;
 }
 
+int native_int_getfd(void)
+{
+	for(int ret = 0; ret < MAX_FPS; ret ++ )
+		if( gaSyscall_LocalFPs[ret] == NULL )
+			return ret;
+	return -1;
+}
 
 int native_open(const char *Path, int Flags)
 {
-	int	ret;
-       for(ret = 0; ret < MAX_FPS && gaSyscall_LocalFPs[ret]; ret ++ )	;
-       if(ret == MAX_FPS)	return -1;
+	int	ret = native_int_getfd();
+	if(ret == -1)	return -1;
        // TODO: Handle directories
-       gaSyscall_LocalFPs[ret] = fopen(&Path[4], "r+");
+       gaSyscall_LocalFPs[ret] = fopen(Path, "r+");
        if(!gaSyscall_LocalFPs[ret])	return -1;
        return ret;
+}
+
+int native_shm(const char *Tag, int Flags)
+{
+	// int ret = native_int_getfd();
+	//if(ret == -1)	return -1;
+	//if( strcmp(Tag, "anon") == 0 )
+	//	path = "/AcessNative/anon/RAND";
+	//	FD = shm_open(path, O_RDWD);
+	//shm_unlink(path);
+	//else
+	//	path = "/Acessnative/named/<TAG>";
+	// int FD = shm_open(path, O_RDWD);
+	//shm_unlink(path);
+	//gaSyscall_LocalFPs[ret] = 
+	return -1;
 }
 
 void native_close(int FD)
@@ -356,4 +381,11 @@ int native_spawn(const char *filename, const char *const argv[], const char *con
 	}
 	
 	return rv;
+}
+
+int64_t native_timestamp(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec*1000 + tv.tv_usec / 1000;
 }

@@ -79,7 +79,7 @@ void VFS_CloneHandleList(int PID)
 	
 	ent = VFS_int_GetUserHandles(PID, 1);
 	
-	maxhandles = *Threads_GetMaxFD();
+	maxhandles = *Threads_GetMaxFD(NULL);
 	memcpy(ent->Handles, cur->Handles, maxhandles*sizeof(tVFS_Handle));
 	
 	// Reference all
@@ -105,7 +105,7 @@ void VFS_CloneHandlesFromList(int PID, int nFD, int FDs[])
 
 	LOG("Copying %i FDs from %i", nFD, PID);
 
-	maxhandles = *Threads_GetMaxFD();
+	maxhandles = *Threads_GetMaxFD(NULL);
 	if( nFD > maxhandles )
 		nFD = maxhandles;
 	for( int i = 0; i < nFD; i ++ )
@@ -156,7 +156,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	else
 	{
 		 int	pid = Threads_GetPID();
-		 int	maxhandles = *Threads_GetMaxFD();
+		 int	maxhandles = *Threads_GetMaxFD(NULL);
 		
 		tUserHandles *ent = VFS_int_GetUserHandles(pid, 0);
 		if(!ent) {
@@ -193,7 +193,7 @@ int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
 	else {
 		tUserHandles	*ent;
 		 int	pid = Threads_GetPID();
-		 int	maxhandles = *Threads_GetMaxFD();
+		 int	maxhandles = *Threads_GetMaxFD(NULL);
 		
 		ent = VFS_int_GetUserHandles(pid, 0);
 		if(!ent) {
@@ -219,7 +219,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	if(bIsUser)
 	{
 		tUserHandles	*ent;
-		 int	maxhandles = *Threads_GetMaxFD();
+		 int	maxhandles = *Threads_GetMaxFD(NULL);
 		// Find the PID's handle list
 		ent = VFS_int_GetUserHandles(Threads_GetPID(), 1);
 		// Get a handle
@@ -254,7 +254,7 @@ void VFS_ClearHandles(int PID)
 	tUserHandles *ent = VFS_int_GetUserHandles(PID, 0);
 	if( !ent )	return;
 	// Get a handle
-	 int	maxhandles = *Threads_GetMaxFD();
+	 int	maxhandles = *Threads_GetMaxFD(NULL);
 	for( int i = 0; i < maxhandles; i ++ )
 	{
 		if(ent->Handles[i].Node)	continue;

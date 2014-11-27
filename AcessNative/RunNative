@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# Execute the specified root application using the ARCH=native build
+#
+_=$PWD; cd $(dirname $0); DIR=$PWD; cd $_
+DISTROOT=$(dirname $DIR)/Usermode/Output/native/
+VTERM=/Devices/pts/vt0
+echo $DISTROOT
+
+KERNEL_PID=$$
+function cleanup {
+	trap '' SIGINT
+	echo Cleaning up $KERNEL_PID
+	kill $KERNEL_PID
+}
+
+trap cleanup SIGINT
+
+# 1. Start up AcessKernel
+# - Set DISTROOT to the output directory of ARCH=native
+# - Don't start a root application
+${DIR}/AcessKernel --distroot $DISTROOT > ${DIR}/log/native_AcessKernel.log 2>&1 &
+KERNEL_PID=$!
+echo Kernel is $KERNEL_PID
+sleep 1
+LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/4.0/AxWinServer
+
+cleanup
+

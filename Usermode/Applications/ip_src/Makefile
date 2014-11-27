@@ -2,7 +2,8 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -lnet
+LDFLAGS +=
+LIBS    += -lnet
 
 OBJ = main.o addr.o routes.o
 BIN = ip

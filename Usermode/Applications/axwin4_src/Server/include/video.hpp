@@ -23,6 +23,8 @@ public:
 	CVideo(const CConfigVideo& config);
 
 	void GetDims(unsigned int& w, unsigned int& h);	
+	unsigned int width()  const { return m_width;  }
+	unsigned int height() const { return m_height; }
 
 	void BlitLine(const uint32_t* src, unsigned int dst_y, unsigned int dst_x, unsigned int width);
 	void Flush();

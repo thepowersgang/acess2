@@ -3,7 +3,8 @@
 -include ../Makefile.cfg
 
 CFLAGS += -std=gnu99
-LDFLAGS += -lnet -lpsocket -luri
+LIBS += -lnet -lpsocket -luri
+
 OBJ = main.o
 BIN = wget
 

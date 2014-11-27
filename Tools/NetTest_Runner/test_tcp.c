@@ -13,6 +13,8 @@
 #include "tcp.h"
 #include <string.h>
 
+#define TEST_TIMERS	0
+
 #define RX_HEADER \
 	size_t	rxlen, ofs, len; \
 	char rxbuf[MTU]
@@ -53,6 +55,7 @@ bool Test_TCP_Basic(void)
 	// > RFC793 Pg.65
 	
 	// 1.1. Send SYN packet
+	TEST_STEP("1.1. Send SYN packet to CLOSED");
 	TCP_SendC(&testconn, TCP_SYN, testblob_len, testblob);
 	testconn.RSeq = 0;
 	testconn.LSeq += testblob_len;
@@ -62,6 +65,7 @@ bool Test_TCP_Basic(void)
 	TEST_ASSERT_REL(ofs, ==, rxlen);
 	
 	// 1.2. Send a SYN,ACK packet
+	TEST_STEP("1.2. Send SYN,ACK packet to CLOSED");
 	testconn.RSeq = 12345;
 	TCP_SendC(&testconn, TCP_SYN|TCP_ACK, 0, NULL);
 	// Expect a TCP_RST with SEQ=ACK
@@ -71,6 +75,7 @@ bool Test_TCP_Basic(void)
 	testconn.LSeq ++;
 	
 	// 1.3. Send a RST packet
+	TEST_STEP("1.2. Send RST packet to CLOSED");
 	TCP_SendC(&testconn, TCP_RST, 0, NULL);
 	// Expect nothing
 	TEST_ASSERT_no_rx();
@@ -188,7 +193,7 @@ bool Test_TCP_Basic(void)
 	// 2.6. Close connection (TCP FIN)
 	TCP_SendC(&testconn, TCP_ACK|TCP_FIN, 0, NULL);
 	testconn.LSeq ++;	// Empty = 1 byte
-	// Expect ACK? (Does acess do delayed ACKs here?)
+	// Expect ACK? (Does Acess do delayed ACKs here?)
 	TEST_ASSERT_rx();
 	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_ACK) );
 	TEST_ASSERT_REL( len, ==, 0 );

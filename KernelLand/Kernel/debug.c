@@ -7,7 +7,7 @@
 #include <debug_hooks.h>
 
 #define	DEBUG_MAX_LINE_LEN	256
-#define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
+#define	LOCK_DEBUG_OUTPUT	0	// Avoid interleaving of output lines?
 #define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
@@ -77,9 +77,8 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 		IPStack_SendDebugText(Str);
 
 	// Output to the kernel terminal
-	if( UseKTerm && gbDebug_IsKPanic < 2 && giDebug_KTerm != -1)
+	if( UseKTerm && gbDebug_IsKPanic < 2 && giDebug_KTerm != -1 && gbInPutChar == 0)
 	{
-		if(gbInPutChar)	return ;
 		gbInPutChar = 1;
 		VFS_Write(giDebug_KTerm, len, Str);
 		gbInPutChar = 0;
@@ -137,7 +136,10 @@ void Debug_KernelPanic(void)
 bool LogF(const char *Fmt, ...)
 {
 	#if LOCK_DEBUG_OUTPUT
-	if(CPU_HAS_LOCK(&glDebug_Lock))	return true;
+	if(CPU_HAS_LOCK(&glDebug_Lock)) {
+		Debug_Puts("[#]");
+		return true;
+	}
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
@@ -265,16 +267,13 @@ void Panic(const char *Fmt, ...)
 
 void Debug_SetKTerminal(const char *File)
 {
-	 int	tmp;
 	if(giDebug_KTerm != -1) {
-		tmp = giDebug_KTerm;
+		// Clear FD to -1 before closing (prevents writes to closed FD)
+		int oldfd = giDebug_KTerm;
 		giDebug_KTerm = -1;
-		VFS_Close(tmp);
+		VFS_Close(oldfd);
 	}
-	tmp = VFS_Open(File, VFS_OPENFLAG_WRITE);
-//	Log_Log("Debug", "Opened '%s' as 0x%x", File, tmp);
-	giDebug_KTerm = tmp;
-//	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
+	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
 }
 
 void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)

@@ -2,7 +2,7 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -laxwin3
+LIBS += -laxwin3
 
 OBJ = main.o strings.o toolbar.o
 BIN = ate

@@ -28,6 +28,7 @@ typedef intptr_t	tPAddr;
 
 typedef	int	BOOL;
 
+extern void	exit(int status) __attribute__((noreturn));
 #define HALT_CPU()	exit(1)
 
 #include <stddef.h>

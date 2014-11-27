@@ -25,7 +25,8 @@ namespace IPC {
 
 CCompositor*	gpCompositor;
 ::std::list<IIPCChannel*>	glChannels;
-//::std::map<uint16_t,CClient*>	glClients;
+::std::map<uint16_t,CClient*>	glClients;
+uint16_t	giNextClient = 1;
 
 void Initialise(const CConfigIPC& config, CCompositor& compositor)
 {
@@ -64,14 +65,39 @@ void HandleSelect(const fd_set& rfds)
 
 void RegisterClient(CClient& client)
 {
+	_SysDebug("RegisterClient(&client=%p)", &client);
 	// allocate a client ID, and save
-	//client.m_id = 123;
-	//glClients[client.m_id] = &client;
+	for( int i = 0; i < 100; i ++ )
+	{
+		uint16_t id = giNextClient++;
+		if(giNextClient == 0)	giNextClient = 1;
+		auto r = glClients.insert( ::std::pair<uint16_t,CClient*>(id, &client) );
+		if( r.second == true )
+		{
+			client.set_id(id);
+			return;
+		}
+	}
+	// Wut? 100 attempts and fail!
+	assert(!"Todo - Better way of handling client ID reuse");
+}
+
+CClient* GetClientByID(uint16_t id)
+{
+	auto it = glClients.find(id);
+	if(it == glClients.end()) {
+		//_SysDebug("Client %i not registered", id);
+		return nullptr;
+	}
+	else {
+		//_SysDebug("Client %i %i = %p", id, it->first, it->second);
+		return it->second;
+	}
 }
 
 void DeregisterClient(CClient& client)
 {
-	//glClients.erase( client.m_id );
+	glClients.erase( client.id() );
 }
 
 
@@ -163,7 +189,7 @@ void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
 	::std::string	name = message.ReadString();
 	
 	::_SysDebug("_CreateWindow: (%i, '%s')", new_id, name.c_str());
-	client.SetWindow( new_id, gpCompositor->CreateWindow(client, name) );
+	client.SetWindow( new_id, new CWindow(*gpCompositor, client, name, new_id) );
 }
 
 void HandleMessage_DestroyWindow(CClient& client, CDeserialiser& message)
@@ -185,7 +211,7 @@ void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 {
 	uint16_t	win_id = message.ReadU16();
 	uint16_t	attr_id = message.ReadU16();
-	_SysDebug("_SetWindowAttr: (%i, %i)", win_id, attr_id);
+	_SysDebug("_SetWindowAttr: (Win=%i, ID=%i)", win_id, attr_id);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -276,7 +302,7 @@ void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
-	//_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
+	_SysDebug("_PushData: (%i, (%i,%i) %ix%i)", win_id, x, y, w, h);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -307,6 +333,7 @@ void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
 	uint16_t	h = message.ReadU16();
 	uint16_t	ctrl_id = message.ReadU16();
 	uint16_t 	frame = message.ReadU16();
+	_SysDebug("_DrawCtl: (%i, (%i,%i) %ix%i Ctl%i frame?=0x%04x)", win_id, x, y, w, h, ctrl_id, frame);
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -328,9 +355,23 @@ void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
+	uint16_t	font = message.ReadU16();
 	::std::string	str = message.ReadString();
+	_SysDebug("_DrawText: (%i (%i,%i) %ix%i Font%i \"%s\")", win_id, x, y, w, h, font, str.c_str());
 	
-	assert(!"TODO HandleMessage_DrawText");
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_DrawText: Bad window");
+	}
+	
+	// 1. Get font from client structure
+	//CFont& font = client.GetFont(font_id);
+	
+	// 2. Render
+	//CRect	area(x, y, w, h);
+	//font->Render(win->m_surface, area, str, h);
+	
+	_SysDebug("TODO: HandleMessage_DrawText");
 }
 
 typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);

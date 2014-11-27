@@ -19,11 +19,6 @@ namespace AxWin {
 class CClient;
 class CVideo;
 
-struct TWindowID
-{
-	uint16_t	Client;
-	uint16_t	Window;
-};
 
 enum eMouseButton
 {
@@ -34,13 +29,29 @@ enum eMouseButton
 	MOUSEBTN_BTN5,
 };
 
+class CWindowIDBuffer
+{
+	struct TWindowID
+	{
+		uint16_t	Client;
+		uint16_t	Window;
+	};
+	unsigned int	m_w;
+	::std::vector<TWindowID>	m_buf;
+public:
+	CWindowIDBuffer(unsigned int W, unsigned int H);
+	
+	void set(unsigned int X, unsigned int Y, unsigned int W, unsigned int H, CWindow* win);
+	CWindow* get(unsigned int X, unsigned int Y);
+};
+
 class CCompositor
 {
 	CVideo&	m_video;
 	::std::list<CRect>	m_damageRects;
 	::std::list<CWindow*>	m_windows;
 
-	::std::vector<TWindowID>	m_windowIDBuffer;	// One 32-bit value per pixel
+	CWindowIDBuffer	m_windowIDBuffer;	// One 32-bit value per pixel
 	
 public:
 	CCompositor(CVideo& video);
@@ -60,6 +71,8 @@ public:
 	void	MouseButton(unsigned int Cursor, unsigned int X, unsigned int Y, eMouseButton Button, bool Press);
 	
 	void	KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint);
+public:
+	CWindow*	getWindowForCoord(unsigned int X, unsigned int Y);
 };
 
 
