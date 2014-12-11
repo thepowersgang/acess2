@@ -37,8 +37,9 @@ enum libc_eErrorNumbers {
 
 	// psockets
 	EAFNOSUPPORT,	
-	EADDRINUSE,	// Specified addres is already in use
+	EADDRINUSE,	// (POSIX.1) Specified addres is already in use
 	ETIMEDOUT,
+	EOPNOTSUPP,	// (POSIX.1) Operation not supported on socket
 	
 	EINTERNAL	// Internal Error
 };
