@@ -56,6 +56,7 @@ EXPORT char *strerror(int errnum)
 	case EAFNOSUPPORT:	return "Address family not supported";
 	case EADDRINUSE:	return "Address already in use";
 	case ETIMEDOUT:	return "Operation timed out";
+	case EOPNOTSUPP:	return "Operation not supported on socket";
 
 	case EINTERNAL:	return "Internal error";
 	}
