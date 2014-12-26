@@ -48,7 +48,7 @@ void CFontFallback::renderAtRes(CSurface& dest, const CRect& rect, uint32_t cp, 
 	assert(char_idx < 256);
 	const uint8_t*	char_ptr = &VTermFont[char_idx * FONT_HEIGHT];
 	unsigned int	out_h = Size;
-	unsigned int	out_w = (Size * FONT_WIDTH / FONT_HEIGHT) + 1;
+	unsigned int	out_w = (Size * FONT_WIDTH / FONT_HEIGHT);
 	uint32_t	char_data[out_w];
 	if( Size == FONT_HEIGHT ) {
 		// Standard blit
@@ -69,10 +69,10 @@ void CFontFallback::renderAtRes(CSurface& dest, const CRect& rect, uint32_t cp, 
 		// up-scaled blit
 		for( unsigned int row = 0; row < out_h; row ++ )
 		{
-			unsigned int yf16 = row * out_h * 0x10000 / Size;
+			unsigned int yf16 = row * FONT_HEIGHT * 0x10000 / out_h;
 			for( unsigned int col = 0; col < out_w; col ++ )
 			{
-				unsigned int xf16 = col * out_w * 0x10000 / FONT_WIDTH;
+				unsigned int xf16 = col * FONT_WIDTH * 0x10000 / out_w;
 				uint8_t alpha = getValueAtPt(char_ptr, xf16, yf16);
 				//_SysDebug("row %i (%05x), col %i (%05x): alpha = %02x", row, yf16, col, xf16, alpha);
 				char_data[col] = ((uint32_t)alpha << 24) | (FGC & 0xFFFFFF);
@@ -131,13 +131,12 @@ uint8_t CFontFallback::getValueAtPt(const uint8_t* char_ptr, unsigned int xf16, 
 
 uint8_t CFontFallback::getValueAtRaw(const uint8_t* char_ptr, unsigned int x, unsigned int y)
 {
-	if( x == 0 || y == 0 )
-		return 0;
-	x --;
-	y --;
+	//if( x == 0 || y == 0 )
+	//	return 0;
+	//x --; y --;
 	if(x >= FONT_WIDTH || y >= FONT_HEIGHT)
 		return 0;
-	return (char_ptr[y] & (1 << (8-x))) ? 255 : 0;
+	return (char_ptr[y] & (1 << (7-x))) ? 255 : 0;
 }
 
 unsigned int CFontFallback::unicodeToCharmap(uint32_t cp) const
