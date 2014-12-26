@@ -60,6 +60,19 @@ extern "C" void AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigne
 	::AxWin::SendMessage(message);
 }
 
+extern "C" void AxWin4_FillRect(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint32_t Colour)
+{	
+	CSerialiser	message;
+	message.WriteU8(IPCMSG_FILLRECT);
+	message.WriteU16(Window->m_id);
+	message.WriteU16(X);
+	message.WriteU16(Y);
+	message.WriteU16(W);
+	message.WriteU16(H);
+	message.WriteU32(Colour);
+	::AxWin::SendMessage(message);
+}
+
 extern "C" void AxWin4_DrawText(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t FontID, const char *String)
 {
 	CSerialiser	message;

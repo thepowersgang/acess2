@@ -66,6 +66,8 @@ extern void	AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned int
  */
 extern void	AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ControlID, unsigned int Frame);
 
+extern void	AxWin4_FillRect(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint32_t Colour);
+
 extern void	AxWin4_DrawText(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t FontID, const char *String);
 
 #include "definitions.h"

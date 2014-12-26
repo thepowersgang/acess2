@@ -19,6 +19,7 @@ extern "C" {
 };
 #include <CIPCChannel_AcessIPCPipe.hpp>
 #include <draw_control.hpp>
+#include <draw_text.hpp>
 
 namespace AxWin {
 namespace IPC {
@@ -382,9 +383,9 @@ void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 	uint16_t	y = message.ReadU16();
 	uint16_t	w = message.ReadU16();
 	uint16_t	h = message.ReadU16();
-	uint16_t	font = message.ReadU16();
+	uint16_t	font_id = message.ReadU16();
 	::std::string	str = message.ReadString();
-	_SysDebug("_DrawText: (%i (%i,%i) %ix%i Font%i \"%s\")", win_id, x, y, w, h, font, str.c_str());
+	_SysDebug("_DrawText: (%i (%i,%i) %ix%i Font%i \"%s\")", win_id, x, y, w, h, font_id, str.c_str());
 	
 	CWindow*	win = client.GetWindow(win_id);
 	if(!win) {
@@ -392,13 +393,66 @@ void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
 	}
 	
 	// 1. Get font from client structure
-	//CFont& font = client.GetFont(font_id);
+	IFontFace& fontface = client.GetFont(font_id);
 	
 	// 2. Render
-	//CRect	area(x, y, w, h);
-	//font->Render(win->m_surface, area, str, h);
+	CRect	area(x, y, w, h);
+	fontface.Render(win->m_surface, area, str, h);
+}
+
+void HandleMessage_FillRect(CClient& client, CDeserialiser& message)
+{
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	uint32_t	colour = message.ReadU32();
+	_SysDebug("_FillRect: (%i (%i,%i) %ix%i %06x)", win_id, x, y, w, h, colour);
 	
-	_SysDebug("TODO: HandleMessage_DrawText");
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_FillRect: Bad window");
+	}
+	
+	while(h -- ) {
+		win->FillScanline(y++, x, w, colour);
+	}
+}
+
+void HandleMessage_DrawRect(CClient& client, CDeserialiser& message)
+{
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	x = message.ReadU16();
+	uint16_t	y = message.ReadU16();
+	uint16_t	w = message.ReadU16();
+	uint16_t	h = message.ReadU16();
+	uint32_t	colour = message.ReadU32();
+	_SysDebug("_DrawRect: (%i (%i,%i) %ix%i %06x)", win_id, x, y, w, h, colour);
+	
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("_DrawRect: Bad window");
+	}
+	
+	if(h == 0) {
+	}
+	else if(h == 1) {
+		win->FillScanline(y, x, w, colour);
+	}
+	else if(h == 2) {
+		win->FillScanline(y++, x, w, colour);
+		win->FillScanline(y++, x, w, colour);
+	}
+	else {
+		win->FillScanline(y++, x, w, colour);
+		while( h -- > 2 ) {
+			win->FillScanline(y, x, 1, colour);
+			win->FillScanline(y, x+w-1, 1, colour);
+			y ++;
+		}
+		win->FillScanline(y++, x, w, colour);
+	}
 }
 
 typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);
@@ -421,13 +475,17 @@ MessageHandler_op_t	*message_handlers[] = {
 	[IPCMSG_BLIT]       = &HandleMessage_Blit,	// Copy data from one part of the window to another
 	[IPCMSG_DRAWCTL]    = &HandleMessage_DrawCtl,	// Draw a control
 	[IPCMSG_DRAWTEXT]   = &HandleMessage_DrawText,	// Draw text
+	[IPCMSG_FILLRECT]   = &HandleMessage_FillRect,	// Fill a rectangle
+	[IPCMSG_DRAWRECT]   = &HandleMessage_DrawRect,	// Draw (outline) a rectangle
 };
 
 void HandleMessage(CClient& client, CDeserialiser& message)
 {
+	const unsigned int num_commands = sizeof(message_handlers)/sizeof(IPC::MessageHandler_op_t*);
 	unsigned int command = message.ReadU8();
-	if( command >= sizeof(message_handlers)/sizeof(IPC::MessageHandler_op_t*) ) {
+	if( command >= num_commands ) {
 		// Drop, invalid command
+		_SysDebug("HandleMessage: Command %u is invalid (out of range for %u)", command, num_commands);
 		return ;
 	}
 	

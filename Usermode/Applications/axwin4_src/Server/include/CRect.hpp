@@ -14,6 +14,10 @@ public:
 	};
 	CRect(int X, int Y, unsigned int W, unsigned int H);
 	
+	void Translate(int DX, int DY) {
+		m_x += DX;	m_x2 += DX;
+		m_y += DY;	m_y2 += DY;
+	}
 	void Move(int NewX, int NewY);
 	void Resize(int NewW, int NewH);
 	

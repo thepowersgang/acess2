@@ -115,6 +115,9 @@ void RecvMessage(CDeserialiser& message)
 	// TODO: Handle messages from server (input events, IPC)
 	// TODO: If an event is currently being processed, save the message in a queue to be handled when processing is complete
 	// - This will prevent deep recursion (and make server errors aparent)
+	case IPCMSG_INPUTEVENT:
+		_SysDebug("TODO: Input events");
+		break;
 	default:
 		_SysDebug("TODO: RecvMessage(%i)", id);
 		break;

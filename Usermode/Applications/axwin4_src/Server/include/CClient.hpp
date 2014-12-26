@@ -12,6 +12,7 @@
 #include "serialisation.hpp"
 #include <map>
 #include <cassert>
+#include "IFontFace.hpp"
 
 namespace AxWin {
 
@@ -33,6 +34,8 @@ public:
 	
 	CWindow*	GetWindow(int ID);
 	void	SetWindow(int ID, CWindow* window);
+	
+	IFontFace&	GetFont(unsigned int id);
 	
 	virtual void	SendMessage(CSerialiser& reply) = 0;
 	void	HandleMessage(CDeserialiser& message);

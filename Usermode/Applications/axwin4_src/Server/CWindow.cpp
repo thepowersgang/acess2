@@ -96,5 +96,12 @@ void CWindow::DrawScanline(unsigned int row, unsigned int x, unsigned int w, con
 	m_compositor.DamageArea(damaged);
 }
 
+void CWindow::FillScanline(unsigned int row, unsigned int x, unsigned int w, const uint32_t colour)
+{
+	m_surface.FillScanline(row, x, w, colour);
+	CRect	damaged( m_surface.m_rect.m_x+x, m_surface.m_rect.m_y+row, w, 1 );
+	m_compositor.DamageArea(damaged);
+}
+
 };
 

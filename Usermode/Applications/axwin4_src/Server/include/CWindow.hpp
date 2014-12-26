@@ -43,6 +43,7 @@ public:
 	void KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down);
 
 	void DrawScanline(unsigned int row, unsigned int x, unsigned int w, const uint8_t *data);
+	void FillScanline(unsigned int row, unsigned int x, unsigned int w, const uint32_t colour);
 	
 	bool	m_is_shown;
 	CSurface	m_surface;
