@@ -45,12 +45,11 @@ void usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 		{
 			state_cb->subsystem = i;
 			state_cb->attribute = UDI_GFX_PROP_PIXELFORMAT;
-			[pixfmt]:[NAK,status] = udi_gfx_get_engine_req(state_cb);
-			if(NAK) {
+			[pixfmt] = @TRY_NAK[status] udi_gfx_get_engine_req(state_cb)
+			{
 				// Shit to do if NAK happens
 				return ;
-			}
-			else {
+				// break PIXFMT_NONE;
 			}
 			
 			// TODO: Annotate udi_gfx_state_cb_t to note values are kept?

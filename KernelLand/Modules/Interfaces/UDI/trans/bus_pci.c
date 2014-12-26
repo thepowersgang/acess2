@@ -6,6 +6,8 @@
  * - PCI Bus Driver
  */
 #define DEBUG	0
+#define UDI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
 #define UDI_PCI_VERSION	0x101
 #include <udi.h>
 #include <udi_physio.h>
