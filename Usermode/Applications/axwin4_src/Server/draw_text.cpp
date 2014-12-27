@@ -64,6 +64,19 @@ void CFontFallback::renderAtRes(CSurface& dest, const CRect& rect, uint32_t cp, 
 	}
 	else if( Size < FONT_HEIGHT ) {
 		// Down-scaled blit
+		// NOTE: uses the same code as the upscale blit (probably not correct, need to replace)
+		for( unsigned int row = 0; row < out_h; row ++ )
+		{
+			unsigned int yf16 = row * FONT_HEIGHT * 0x10000 / out_h;
+			for( unsigned int col = 0; col < out_w; col ++ )
+			{
+				unsigned int xf16 = col * FONT_WIDTH * 0x10000 / out_w;
+				uint8_t alpha = getValueAtPt(char_ptr, xf16, yf16);
+				//_SysDebug("row %i (%05x), col %i (%05x): alpha = %02x", row, yf16, col, xf16, alpha);
+				char_data[col] = ((uint32_t)alpha << 24) | (FGC & 0xFFFFFF);
+			}
+			dest.BlendScanline(rect.m_y + row, rect.m_x, out_w, char_data);
+		}
 	}
 	else {
 		// up-scaled blit
