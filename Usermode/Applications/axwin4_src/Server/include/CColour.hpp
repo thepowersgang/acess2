@@ -12,6 +12,7 @@ namespace AxWin {
 
 class CColour
 {
+	static const uint8_t	uint8_max = 0xFF;
 	static const unsigned int comp_max = 0x7FFF;
 	
 	unsigned int	m_alpha;
@@ -21,10 +22,10 @@ class CColour
 
 private:
 	static unsigned int u8_to_ui(uint8_t u8v) {
-		return (unsigned int)u8v * comp_max / UINT8_MAX;
+		return (unsigned int)u8v * comp_max / uint8_max;
 	}
 	static uint8_t ui_to_u8(unsigned int uiv) {
-		return uiv * UINT8_MAX / comp_max;
+		return uiv * uint8_max / comp_max;
 	}
 	// Perform an alpha-based blend on two components
 	static unsigned int alpha_blend(unsigned int alpha_comp, unsigned int left, unsigned int right) {
