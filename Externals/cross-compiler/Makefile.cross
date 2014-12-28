@@ -1,0 +1,39 @@
+#
+#
+#
+include Makefile.common.mk
+
+PREFIX := $(OUTDIR)-BUILD
+BDIR := build-$(ARCH)/
+BDIR_GCC := $(BDIR)gcc
+BDIR_BINUTILS := $(BDIR)binutils
+
+include Makefile.rules.mk
+
+include:
+	mkdir -p $(PREFIX)
+	mkdir -p $(SYSROOT)/usr
+	ln -sf $(ACESSDIR)/Usermode/include $(SYSROOT)/usr/include
+	ln -sf $(ACESSDIR)/Usermode/Output/$(ARCH)/Libs $(SYSROOT)/usr/lib
+
+$(GCC_DIR)/libstdc++-v3/configure: $(GCC_DIR)/libstdc++-v3/crossconfig.m4
+	cd $(GCC_DIR)/libstdc++-v3/ && autoconf
+
+$(BDIR_BINUTILS)/Makefile: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
+	@mkdir -p $(BDIR_BINUTILS)
+	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)" --enable-shared --without-docdir
+
+$(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
+	@make -C $(BDIR_BINUTILS) all -j $(PARLEVEL)
+	@make -C $(BDIR_BINUTILS) install
+
+$(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES)) $(GCC_DIR)/libstdc++-v3/configure
+	@mkdir -p $(BDIR_GCC)
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(SYSROOT)" --without-docdir --enable-threads=posix
+	@echo "MAKEINFO = :" >> $(BDIR_GCC)/Makefile
+
+$(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) $(GCC_TARGETS:%=all-%) -j $(PARLEVEL)
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) $(GCC_TARGETS:%=install-%)
+
+

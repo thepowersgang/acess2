@@ -136,5 +136,5 @@ $(CC):
 	@echo ---
 	@echo $(CC) does not exist, recompiling
 	@echo ---
-	make -C Externals/cross-compiler/
+	make -C Externals/cross-compiler/ -f Makefile.cross
 endif
