@@ -11,7 +11,7 @@ KERNEL_PID=$$
 function cleanup {
 	trap '' SIGINT
 	echo Cleaning up $KERNEL_PID
-	kill $KERNEL_PID
+	kill -INT $KERNEL_PID
 }
 
 trap cleanup SIGINT
@@ -23,7 +23,19 @@ ${DIR}/AcessKernel --distroot $DISTROOT > ${DIR}/log/native_AcessKernel.log 2>&1
 KERNEL_PID=$!
 echo Kernel is $KERNEL_PID
 sleep 1
-LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/4.0/AxWinServer
+
+APP=gui4
+
+case $APP in
+gui4)
+	LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/4.0/AxWinServer
+	;;
+gui3)
+	LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/3.0/AxWinWM
+	;;
+*)
+	echo "Unknown application '$APP'"
+esac
 
 trap '' SIGINT
 cleanup
