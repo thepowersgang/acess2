@@ -59,7 +59,7 @@ tAxWin4_Window *CreateBGWin(int w, int h)
 	}
 	else
 	{
-		AxWin4_FillRect(bgwin, 0, 0, w, h, 0x0000CC);
+		AxWin4_FillRect(bgwin, 0, 0, w, h, 0x8888CC);
 	}
 	//AxWin4_DamageRect(bgwin, 0, 0, w, h);
 	AxWin4_ShowWindow(bgwin, true);

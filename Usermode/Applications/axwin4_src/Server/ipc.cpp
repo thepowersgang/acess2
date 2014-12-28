@@ -120,7 +120,7 @@ void SendMessage_MouseButton(CClient& client, unsigned int WinID, unsigned int X
 }
 void SendMessage_MouseMove(CClient& client, unsigned int WinID, unsigned int X, unsigned int Y)
 {
-	_SysDebug("TODO: IPC::SendMessage_MouseButton");
+	_SysDebug("TODO: IPC::SendMessage_MouseMove");
 }
 void SendMessage_KeyEvent(CClient& client, unsigned int WinID, uint32_t KeySym, bool Pressed, const char *Translated)
 {

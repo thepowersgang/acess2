@@ -134,6 +134,7 @@ void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int 
 void CCompositor::KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint)
 {
 	_SysDebug("KeyState(%i, 0x%x, %b, 0x%x)", KeyboardID, KeySym, Press, Codepoint);
+	// TODO: Global hotkeys
 	if( m_focussed_window )
 	{
 		m_focussed_window->KeyEvent(KeySym, "", Press);
