@@ -6,25 +6,26 @@
 #include "stack.h"
 #include "arp.h"
 
+static const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
+static const int	NRX_TIMEOUT = 250;	// Not expect RX timeout (timeout=success)
+
 bool Test_ARP_Basic(void)
 {
-	TEST_SETNAME(__func__);
-	size_t	rxlen;
-	char rxbuf[MTU];
+	TEST_HEADER;
 	
 	// Request test machine's IP
 	ARP_SendRequest(0, BLOB(TEST_IP));
-	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, 1000) );
+	TEST_ASSERT_rx();
 	TEST_ASSERT( ARP_Pkt_IsResponse(rxlen, rxbuf, BLOB(TEST_IP), BLOB(TEST_MAC)) );
 
 	// Request host machine's IP
 	ARP_SendRequest(0, BLOB(HOST_IP));
-	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, 1000) == 0 );
+	TEST_ASSERT_no_rx();
 
 	#if 0	
 	// Ask test machine to request our IP
 	Stack_SendCommand("arprequest "HOST_IP_STR);
-	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, 1000) );
+	TEST_ASSERT_rx();
 	TEST_ASSERT( ARP_Pkt_IsRequest(rxlen, rxbuf, HOST_IP) );
 
 	// Respond
@@ -32,7 +33,7 @@ bool Test_ARP_Basic(void)
 	
 	// Ask test machine to request our IP again (expecting nothing)
 	Stack_SendCommand("arprequest "HOST_IP_STR);
-	TEST_ASSERT( !Net_Receive(0, sizeof(rxbuf), rxbuf, 1000) );
+	TEST_ASSERT_no_rx();
 	#endif
 	
 	return true;

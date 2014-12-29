@@ -17,5 +17,18 @@ extern void	test_assertion_fail(const char *filename, int line, const char *test
 extern void	test_trace(const char *msg, ...);
 extern void	test_trace_hexdump(const char *hdr, const void *data, size_t len);
 
+// Some helpful macros
+// - They require some names to be present
+#define RX_HEADER \
+	size_t	rxlen, ofs, len; \
+	do { ofs = 0; ofs = ofs; len = 0; len = len; } while(0);\
+	char rxbuf[MTU]
+#define TEST_HEADER \
+	TEST_SETNAME(__func__);\
+	RX_HEADER
+
+#define TEST_ASSERT_rx()	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, ERX_TIMEOUT) )
+#define TEST_ASSERT_no_rx()	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, NRX_TIMEOUT) == 0 )
+
 #endif
 
