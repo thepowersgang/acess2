@@ -43,7 +43,7 @@ else
 V := @
 endif
 
-.PHONY: all clean install postbuild
+.PHONY: all clean install postbuild utest-build utest-run generate_exp
 
 all: _libs $(_BIN) $(_XBIN)
 
@@ -60,16 +60,13 @@ _libs: $(HEADERS)
 
 .PHONY: utest utest-build utest-run $(UTESTS:%=runtest-%)
 
-utest: utest-build utest-run
+utest: utest-build generate_exp utest-run
 
 generate_exp: $(UTESTS:%=EXP_%.txt)
-	@echo > /dev/null
 
 utest-build: $(UTESTS:%=TEST_%)
-	@echo > /dev/null
 
 utest-run: $(UTESTS:%=runtest-%)
-	@echo > /dev/null
 
 $(UTESTS:%=runtest-%): runtest-%: TEST_% EXP_%.txt
 	@echo --- [TEST] $*
