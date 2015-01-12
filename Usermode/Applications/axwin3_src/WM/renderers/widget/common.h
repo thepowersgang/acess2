@@ -49,7 +49,7 @@ extern void	Widget_Fire(tElement *Element);
 #define DEFWIDGETTYPE(_type, _name, _flags, _attribs...) \
 tWidgetDef	_widget_typedef_##_type = {.Name=_name,.Flags=(_flags),_attribs};\
 void _widget_set_##_type(void) __attribute__((constructor));\
-void _widget_set_##_type(void) { _SysDebug("hai!\n"); Widget_int_SetTypeDef(_type, &_widget_typedef_##_type);}
+void _widget_set_##_type(void) { Widget_int_SetTypeDef(_type, &_widget_typedef_##_type); }
 
 #endif
 

@@ -10,10 +10,10 @@ OBJ += Common__serialisation.o
 OBJ += CClient.o
 OBJ += CIPCChannel_AcessIPCPipe.o
 OBJ += CRect.o CSurface.o
-OBJ += draw_control.o
+OBJ += draw_control.o draw_text.o
 BIN := AxWinServer
 
-LIBS += -lc++
+LIBS += -lc++ -lunicode
 #CXXFLAGS += -O3
 USE_CXX_LINK = 1 
 

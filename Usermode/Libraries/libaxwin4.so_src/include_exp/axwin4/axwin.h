@@ -28,6 +28,14 @@ extern void	AxWin4_GetScreenDimensions(unsigned int ScreenIndex, unsigned int *W
 
 extern tAxWin4_Window	*AxWin4_CreateWindow(const char *Name);
 extern void	AxWin4_DestroyWindow(tAxWin4_Window *Window);
+
+// Callbacks
+typedef int tAxWin4_KeyCallback(tAxWin4_Window* Winow, unsigned int Key, const char *Translated);
+extern void	AxWin4_SetCallback_Key(tAxWin4_Window* Window, tAxWin4_KeyCallback* cb);
+typedef int tAxWin4_MouseBtnCallback(tAxWin4_Window* Winow, unsigned int Mouse, unsigned int X, unsigned int Y, unsigned int Button, bool IsPress);
+extern void	AxWin4_SetCallback_MouseBtn(tAxWin4_Window* Window, tAxWin4_MouseBtnCallback* cb);
+typedef int tAxWin4_MouseMoveCallback(tAxWin4_Window* Winow, unsigned int Mouse, unsigned int X, unsigned int Y);
+
 extern void	AxWin4_ShowWindow(tAxWin4_Window *Window, bool Shown);
 extern void	AxWin4_SetWindowFlags(tAxWin4_Window *Window, unsigned int NewFlags);
 extern void	AxWin4_SetTitle(tAxWin4_Window *Window, const char *Title);
@@ -65,6 +73,8 @@ extern void	AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned int
  * Controls are server-side bitmaps that can be arbitarily scaled to fit a region.
  */
 extern void	AxWin4_DrawControl(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t ControlID, unsigned int Frame);
+
+extern void	AxWin4_FillRect(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint32_t Colour);
 
 extern void	AxWin4_DrawText(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, uint16_t FontID, const char *String);
 

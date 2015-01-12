@@ -8,6 +8,7 @@
 #include <CClient.hpp>
 #include <IIPCChannel.hpp>
 #include <ipc.hpp>
+#include <draw_text.hpp>	// for the fonts
 
 namespace AxWin {
 
@@ -43,6 +44,16 @@ void CClient::SetWindow(int ID, CWindow* window)
 	else {
 		m_windows[ID] = window;
 	}
+}
+
+IFontFace& CClient::GetFont(unsigned int id)
+{
+	static CFontFallback	fallback_font;
+	if( id == 0 ) {
+		_SysDebug("GetFont: %i = %p", id, &fallback_font);
+		return fallback_font;
+	}
+	assert(!"TODO: CClient::GetFont id != 0");
 }
 
 void CClient::HandleMessage(CDeserialiser& message)

@@ -83,6 +83,7 @@ void Taskbar_Redraw(void)
 		time(&rawtime);
 		strftime(timestr, 5, "%H%M", localtime(&rawtime));
 		//AxWin4_DrawControl(gpTaskbar_Window, clock_start_x, TASKBAR_BORDER, TASKBAR_CLOCKSIZE, active_height, AXWIN4_CTL_BOX);
+		
 		AxWin4_DrawText(gpTaskbar_Window, clock_start_x, TASKBAR_BORDER, TASKBAR_CLOCKSIZE, active_height, 0, timestr);
 	}
 	

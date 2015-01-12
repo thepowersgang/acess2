@@ -25,5 +25,6 @@ echo Kernel is $KERNEL_PID
 sleep 1
 LD_LIBRARY_PATH=${DIR}:${DISTROOT}Libs AN_PREOPEN=$VTERM:$VTERM:$VTERM ${DBG} ${DISTROOT}Apps/AxWin/4.0/AxWinServer
 
+trap '' SIGINT
 cleanup
 

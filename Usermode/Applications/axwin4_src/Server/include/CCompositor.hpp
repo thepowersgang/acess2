@@ -50,6 +50,7 @@ class CCompositor
 	CVideo&	m_video;
 	::std::list<CRect>	m_damageRects;
 	::std::list<CWindow*>	m_windows;
+	CWindow*	m_focussed_window;
 
 	CWindowIDBuffer	m_windowIDBuffer;	// One 32-bit value per pixel
 	

@@ -59,7 +59,7 @@ void CWindow::Move(int X, int Y)
 void CWindow::Resize(unsigned int W, unsigned int H)
 {
 	m_surface.Resize(W, H);
-	IPC::SendMessage_NotifyDims(m_client, W, H);
+	IPC::SendMessage_NotifyDims(m_client, m_id, W, H);
 }
 void CWindow::SetFlags(uint32_t Flags)
 {
@@ -74,20 +74,31 @@ uint64_t CWindow::ShareSurface()
 
 void CWindow::MouseButton(int ButtonID, int X, int Y, bool Down)
 {
+	IPC::SendMessage_MouseButton(m_client, m_id, X, Y, ButtonID, Down);
 }
 
 void CWindow::MouseMove(int NewX, int NewY)
 {
+	// TODO: Only enable move events if client requests them
+	//IPC::SendMessage_MouseMove(m_client, m_id, NewX, NewY);
 }
 
 void CWindow::KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down)
 {
+	IPC::SendMessage_KeyEvent(m_client, m_id, Scancode, Down, Translated.c_str());
 }
 
 
 void CWindow::DrawScanline(unsigned int row, unsigned int x, unsigned int w, const uint8_t *data)
 {
 	m_surface.DrawScanline(row, x, w, data);
+	CRect	damaged( m_surface.m_rect.m_x+x, m_surface.m_rect.m_y+row, w, 1 );
+	m_compositor.DamageArea(damaged);
+}
+
+void CWindow::FillScanline(unsigned int row, unsigned int x, unsigned int w, const uint32_t colour)
+{
+	m_surface.FillScanline(row, x, w, colour);
 	CRect	damaged( m_surface.m_rect.m_x+x, m_surface.m_rect.m_y+row, w, 1 );
 	m_compositor.DamageArea(damaged);
 }

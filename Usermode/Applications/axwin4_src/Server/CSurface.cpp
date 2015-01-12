@@ -11,6 +11,7 @@
 #include <cstring>
 #include <system_error>
 #include <cerrno>
+#include <CColour.hpp>
 
 namespace AxWin {
 
@@ -90,6 +91,40 @@ void CSurface::DrawScanline(unsigned int row, unsigned int x_ofs, unsigned int w
 	
 	size_t	ofs = row*m_rect.m_w + x_ofs;
 	::memcpy( &m_data[ofs], data, w*4 );
+}
+
+void CSurface::BlendScanline(unsigned int row, unsigned int x_ofs, unsigned int w, const void* data)
+{
+	if( row >= m_rect.m_h )
+		throw ::std::out_of_range("CSurface::DrawScanline row");
+	if( x_ofs >= m_rect.m_w )
+		throw ::std::out_of_range("CSurface::DrawScanline x_ofs");
+
+	if( w > m_rect.m_w )
+		throw ::std::out_of_range("CSurface::DrawScanline width");
+	
+	const uint32_t*	in_data = (const uint32_t*)data;
+	size_t	ofs = row*m_rect.m_w + x_ofs;
+	for( unsigned int x = 0; x < w; x ++ )
+	{
+		CColour	out = CColour::from_argb(m_data[ofs+x]).blend( CColour::from_argb(in_data[x]) );
+		m_data[ofs+x] = out.to_argb();
+	}
+}
+
+void CSurface::FillScanline(unsigned int row, unsigned int x_ofs, unsigned int w, uint32_t colour)
+{
+	if( row >= m_rect.m_h )
+		throw ::std::out_of_range("CSurface::FillScanline row");
+	if( x_ofs >= m_rect.m_w )
+		throw ::std::out_of_range("CSurface::FillScanline x_ofs");
+
+	if( w > m_rect.m_w )
+		throw ::std::out_of_range("CSurface::FillScanline width");
+	
+	size_t	ofs = row*m_rect.m_w + x_ofs;
+	while( w -- )
+		m_data[ofs++] = colour;
 }
 
 const uint32_t* CSurface::GetScanline(unsigned int row, unsigned int x_ofs) const

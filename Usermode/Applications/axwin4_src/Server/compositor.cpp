@@ -16,6 +16,7 @@ namespace AxWin {
 CCompositor::CCompositor(CVideo& video):
 	// TODO: Support multiple screens
 	m_video(video),
+	m_focussed_window(nullptr),
 	m_windowIDBuffer(video.width(), video.height())
 {
 	// 
@@ -54,7 +55,7 @@ void CCompositor::Redraw()
 {
 	// Redraw the screen and clear damage rects
 	if( m_damageRects.empty() ) {
-		_SysDebug("- No damaged regions");
+		//_SysDebug("- No damaged regions");
 		return ;
 	}
 	
@@ -112,7 +113,8 @@ void CCompositor::MouseMove(unsigned int Cursor, unsigned int X, unsigned int Y,
 	CWindow	*dstwin = getWindowForCoord(X, Y);
 	if( dstwin )
 	{
-		// TODO: Pass event on to window
+		// Pass event on to window
+		dstwin->MouseMove(X, Y);
 	}
 }
 
@@ -125,13 +127,18 @@ void CCompositor::MouseButton(unsigned int Cursor, unsigned int X, unsigned int 
 	{
 		// 1. Give focus and bring to front
 		// 2. Send event
-		// TODO: Pass event on to window
+		dstwin->MouseButton(Button, X, Y, Press);
 	}
 }
 
 void CCompositor::KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint)
 {
 	_SysDebug("KeyState(%i, 0x%x, %b, 0x%x)", KeyboardID, KeySym, Press, Codepoint);
+	// TODO: Global hotkeys
+	if( m_focussed_window )
+	{
+		m_focussed_window->KeyEvent(KeySym, "", Press);
+	}
 }
 
 CWindow* CCompositor::getWindowForCoord(unsigned int X, unsigned int Y)

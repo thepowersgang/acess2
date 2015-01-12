@@ -228,6 +228,13 @@ int SyscallServer(void)
 	server.sin_port = htons(SERVER_PORT);
 	server.sin_addr.s_addr = htonl(INADDR_ANY);
 	
+	#if USE_TCP
+	{
+		int val = 1;
+		setsockopt(gSocket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof val);
+	}
+	#endif
+	
 	// Bind
 	if( bind(gSocket, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) == -1 )
 	{

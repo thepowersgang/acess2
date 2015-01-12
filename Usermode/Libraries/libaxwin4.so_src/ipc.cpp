@@ -86,6 +86,15 @@ void RecvMessage(CDeserialiser& message)
 	_SysDebug("RecvMessage: id=%i", id);
 	switch(id)
 	{
+	case IPCMSG_PING:
+		// If we hear ping, we must pong
+		{
+		CSerialiser	pong;
+		pong.WriteU8(IPCMSG_REPLY);
+		pong.WriteU8(IPCMSG_PING);
+		SendMessage(pong);
+		}
+		break;
 	case IPCMSG_REPLY:
 		// Flag reply and take a copy of this message
 		if( !gSyncReplyActive )
@@ -102,6 +111,12 @@ void RecvMessage(CDeserialiser& message)
 			gSyncReplyValid = true;
 			gSyncReplyBuf = message;
 		}
+		break;
+	// TODO: Handle messages from server (input events, IPC)
+	// TODO: If an event is currently being processed, save the message in a queue to be handled when processing is complete
+	// - This will prevent deep recursion (and make server errors aparent)
+	case IPCMSG_INPUTEVENT:
+		_SysDebug("TODO: Input events");
 		break;
 	default:
 		_SysDebug("TODO: RecvMessage(%i)", id);
