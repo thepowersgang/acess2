@@ -80,6 +80,11 @@ while [ $# -ne 0 ]; do
 		QEMU_PARAMS=$QEMU_PARAMS" -device pci-serial,chardev=serial2"
 		QEMU_PARAMS=$QEMU_PARAMS" -chardev socket,id=serial2,host=localhost,port=10023,server,telnet"
 		;;
+	-sata)
+		QEMU_PARAMS=$QEMU_PARAMS" -device ich9-ahci,id=ahci"
+		QEMU_PARAMS=$QEMU_PARAMS" -drive if=none,id=sata_disk,file=HDD_sata.img"
+		QEMU_PARAMS=$QEMU_PARAMS" -device ide-drive,drive=sata_disk,bus=ahci.0"
+		;;
 	esac
 	shift
 done
