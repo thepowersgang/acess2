@@ -87,8 +87,13 @@ EXPORT char *strcpy(char *dst, const char *src)
 EXPORT char *strncpy(char *dst, const char *src, size_t num)
 {
 	char *to = dst;
-	while(*src && num--)	*to++ = *src++;
-	*to = '\0';
+	while(num --)
+	{
+		if(*src)
+			*to++ = *src++;
+		else
+			*to++ = '\0';
+	}
 	return dst;
 }
 
@@ -125,9 +130,10 @@ EXPORT char *strncat(char *dst, const char *src, size_t n)
  */
 EXPORT size_t strlen(const char *str)
 {
-	size_t	retval;
-	for(retval = 0; *str != '\0'; str++, retval++);
-	return retval;
+	size_t	len = 0;
+	while(str[len] != '\0')
+		len ++;
+	return len;
 }
 
 /**
@@ -137,9 +143,9 @@ EXPORT size_t strlen(const char *str)
  */
 EXPORT size_t strnlen(const char *str, size_t maxlen)
 {
-	size_t	len;
-	for( len = 0; maxlen -- && *str; str ++, len ++ )
-		;
+	size_t	len = 0;
+	while( len < maxlen && str[len] != '\0' )
+		len ++;
 	return len;
 }
 
@@ -197,7 +203,7 @@ EXPORT char *strchr(const char *_str, int character)
 EXPORT char *strrchr(const char *_str, int character)
 {
 	const unsigned char* str = (const unsigned char*)_str;
-	for( int i = strlen(_str); i--; )
+	for( size_t i = strlen(_str); i--; )
 	{
 		if(str[i] == character)
 			return (void*)&str[i];
