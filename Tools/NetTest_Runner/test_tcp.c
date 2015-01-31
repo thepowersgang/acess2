@@ -4,6 +4,7 @@
  *
  * test_tcp.c
  * - Tests for the behavior of the "Transmission Control Protocol"
+ * - These tests are written off RFC793
  */
 #include "test.h"
 #include "tests.h"
@@ -347,7 +348,45 @@ bool Test_TCP_WindowSizes(void)
 	TEST_ASSERT_REL(len, ==, 1);
 	testconn.RSeq += len;
 	// 2. Test remote handling our window being 0 (should only send ACKs)
+	// TODO: 
 	// 3. Test that remote drops data outside of its RX window
 	// 3.1. Ensure that data that wraps the end of the RX window is handled correctly
+	// TODO: 
 	return false;
+}
+
+// RFC793 pg41
+bool Test_TCP_Retransmit(void)
+{
+	TEST_HEADER;
+	tTCPConn	testconn = {
+		.IFNum = 0,
+		.AF = 4,
+		.LAddr = BLOB(HOST_IP),
+		.RAddr = BLOB(TEST_IP),
+		.LPort = 44359,
+		.RPort = 9,
+		.LSeq = 0x600,
+		.RSeq = 0x600,
+		.Window = 128
+	};
+	char	testdata[128];
+	memset(testdata, 0xAB, sizeof(testdata));
+
+	TEST_STEP("1. Open and connect to TCP server");
+	Stack_SendCommand("tcp_echo_server %i", testconn.RPort);
+	TEST_ASSERT( Test_TCP_int_OpenConnection(&testconn) );
+	
+	
+	TEST_STEP("2. Send data and expect it to be echoed");
+	TCP_SendC(&testconn, TCP_PSH, sizeof(testdata), testdata);
+	testconn.LSeq += sizeof(testdata);
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_ACK|TCP_PSH) );
+	
+	TEST_STEP("3. Expect nothing for TCP_RTX_TIMEOUT_1");
+	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, RETX_TIMEOUT-100) == 0 )
+	
+	TEST_STEP("4. Expect a retransmit");
+	TEST_ASSERT_rx();
 }
