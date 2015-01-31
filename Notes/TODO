@@ -1,6 +1,5 @@
 Fix TCP code
 Get IPv6 working
-Get UDI working (udiref)
 Finalise AxWin API structure
 Implement input in AxWin
 Write TFTP filesystem driver
