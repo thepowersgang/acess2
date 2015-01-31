@@ -26,7 +26,7 @@ void usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 	
 }
 
-@GFX_CLIENT channel_event_ind(udi_channel_event_cb_t *cb)
+@1=GFX_CLIENT channel_event_ind(udi_channel_event_cb_t *cb)
 {
 	udi_gfx_bind_cb_t	*bind_cb = cb->params.parent_bound.bind_cb;
 	switch(cb->event)
@@ -74,3 +74,5 @@ void usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 
 // === UDI Bindings ===
 
+
+// vim: ft=c
