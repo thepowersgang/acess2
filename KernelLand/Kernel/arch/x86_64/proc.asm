@@ -6,6 +6,8 @@
 [section .text]
 
 [extern Threads_Exit]
+[extern glThreadListLock]
+[extern SHORTREL]
 
 [global GetRIP]
 GetRIP:
@@ -18,6 +20,9 @@ NewTaskHeader:
 	; [rsp+0x08]: Function
 	; [rsp+0x10]: Argument
 
+	mov rdi, glThreadListLock
+	call SHORTREL
+	
 	mov rdi, [rsp+0x10]
 	mov rax, [rsp+0x8]
 	add rsp, 0x10	; Reclaim stack space (thread/fcn)

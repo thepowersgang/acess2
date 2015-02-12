@@ -508,7 +508,10 @@ tTID Proc_Clone(Uint Flags)
 	
 	// Save core machine state
 	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->Process->MemState.CR3, !!(Flags & CLONE_NOUSER));
-	if(rip == 0)	return 0;	// Child
+	if(rip == 0) {
+		SHORTREL(&glThreadListLock);
+		return 0;	// Child
+	}
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
 	newThread->SavedState.SSE = NULL;
@@ -735,62 +738,61 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 
 void Proc_Reschedule(void)
 {
-	tThread	*nextthread, *curthread;
 	 int	cpu = GetCPUNum();
 
-	// TODO: Wait for it?
-	if(IS_LOCKED(&glThreadListLock))        return;
+	if(CPU_HAS_LOCK(&glThreadListLock))
+		return;
+	SHORTLOCK(&glThreadListLock);
+
+	tThread	*curthread = gaCPUs[cpu].Current;
+	tThread	*nextthread = Threads_GetNextToRun(cpu, curthread);
 	
-	curthread = gaCPUs[cpu].Current;
-
-	nextthread = Threads_GetNextToRun(cpu, curthread);
-
-	if(nextthread == curthread)	return ;
 	if(!nextthread)
 		nextthread = gaCPUs[cpu].IdleThread;
-	if(!nextthread)
-		return ;
 
-	#if DEBUG_TRACE_SWITCH
-	LogF("\nSwitching to task CR3 = 0x%x, RIP = %p, RSP = %p - %i (%s)\n",
-		nextthread->Process->MemState.CR3,
-		nextthread->SavedState.RIP,
-		nextthread->SavedState.RSP,
-		nextthread->TID,
-		nextthread->ThreadName
-		);
-	#endif
-
-	// Update CPU state
-	gaCPUs[cpu].Current = nextthread;
-	gTSSs[cpu].RSP0 = nextthread->KernelStack-sizeof(void*);
-	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
-
-	if( curthread )
+	if(nextthread && nextthread != curthread)
 	{
-		// Save FPU/MMX/XMM/SSE state
-		if( curthread->SavedState.SSE )
+		#if DEBUG_TRACE_SWITCH
+		LogF("\nSwitching to task CR3 = 0x%x, RIP = %p, RSP = %p - %i (%s)\n",
+			nextthread->Process->MemState.CR3,
+			nextthread->SavedState.RIP,
+			nextthread->SavedState.RSP,
+			nextthread->TID,
+			nextthread->ThreadName
+			);
+		#endif
+
+		// Update CPU state
+		gaCPUs[cpu].Current = nextthread;
+		gTSSs[cpu].RSP0 = nextthread->KernelStack-sizeof(void*);
+		__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
+
+		if( curthread )
 		{
-			Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
-			curthread->SavedState.bSSEModified = 0;
-			Proc_DisableSSE();
+			// Save FPU/MMX/XMM/SSE state
+			if( curthread->SavedState.SSE )
+			{
+				Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
+				curthread->SavedState.bSSEModified = 0;
+				Proc_DisableSSE();
+			}
+			SwitchTasks(
+				nextthread->SavedState.RSP, &curthread->SavedState.RSP,
+				nextthread->SavedState.RIP, &curthread->SavedState.RIP,
+				nextthread->Process->MemState.CR3
+				);
 		}
-		SwitchTasks(
-			nextthread->SavedState.RSP, &curthread->SavedState.RSP,
-			nextthread->SavedState.RIP, &curthread->SavedState.RIP,
-			nextthread->Process->MemState.CR3
-			);
+		else
+		{
+			Uint	tmp;
+			SwitchTasks(
+				nextthread->SavedState.RSP, &tmp,
+				nextthread->SavedState.RIP, &tmp,
+				nextthread->Process->MemState.CR3
+				);
+		}
 	}
-	else
-	{
-		Uint	tmp;
-		SwitchTasks(
-			nextthread->SavedState.RSP, &tmp,
-			nextthread->SavedState.RIP, &tmp,
-			nextthread->Process->MemState.CR3
-			);
-	}
-	return ;
+	SHORTREL(&glThreadListLock);
 }
 
 /**

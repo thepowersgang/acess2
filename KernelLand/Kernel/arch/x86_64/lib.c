@@ -88,6 +88,8 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 		Lock->Depth ++;
 		return ;
 	}
+	#else
+	ASSERT( !CPU_HAS_LOCK(Lock) );
 	#endif
 	
 	// Wait for another CPU to release
