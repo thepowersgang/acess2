@@ -33,15 +33,16 @@ include ../Makefile.tpl
 # create libld-acess.so
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	$(LD) -shared -o $@ $<
+	$V$(LD) -shared -o $@ $<
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
 
 # Override .ao to look in the object prefix for the source
-$(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX)
+$(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX) Makefile
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
-	@$(AS) $(ASFLAGS) -o $@ $<
+	#$V$(AS) $(ASFLAGS) -o $@ $<
+	$V$(CC) -c $(ASFLAGS) -o $@ $<
 
 #.PRECIOUS: $(OBJ:%.ao=%.asm)
 
@@ -49,7 +50,7 @@ $(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX)
 $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): arch/$(ARCHDIR).$(ASSUFFIX).h arch/syscalls.s.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
-	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
+	$V$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
 
 $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): $(ACESSDIR)/KernelLand/Kernel/include/syscalls.h
 

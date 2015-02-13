@@ -1,5 +1,6 @@
-
-
+#
+#
+#
 -include ../config.mk
 
 GCC_ARCHIVE:=$(lastword $(sort $(wildcard gcc-*.tar.bz2)))
@@ -16,7 +17,7 @@ ifeq ($(BINUTILS_ARCHIVE),)
  $(error No archive found)
 endif
 
-BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/emulparams/acess2_amd64.sh ld/Makefile.in
+BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/emulparams/acess2_amd64.sh ld/emulparams/acess2_arm.sh ld/Makefile.in
 GCC_CHANGES := config.sub gcc/config.gcc gcc/config/acess2.h libgcc/config.host gcc/config/acess2.opt
 # libstdc++-v3/crossconfig.m4 config/override.m4
 
@@ -25,8 +26,8 @@ GCC_TARGETS := gcc target-libgcc
 # target-libstdc++-v3 
 
 PREFIX := $(OUTDIR)-BUILD
-BDIR_GCC := build-$(ARCH)/gcc
-BDIR_BINUTILS := build-$(ARCH)/binutils
+BDIR_GCC := build-$(ARCH)/gcc/
+BDIR_BINUTILS := build-$(ARCH)/binutils/
 
 .PHONY: all clean binutils gcc include
 
@@ -83,6 +84,7 @@ $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES)) $(GCC_DIR
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
 	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) $(GCC_TARGETS:%=all-%) -j $(PARLEVEL)
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC)libstdc++-v3/ all-target-libsupc++ -j $(PARLEVEL)
 	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) $(GCC_TARGETS:%=install-%)
 
 

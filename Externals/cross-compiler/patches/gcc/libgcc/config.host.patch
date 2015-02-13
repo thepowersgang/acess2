@@ -1,6 +1,6 @@
 --- libgcc/config.host
 +++ libgcc/config.host
-@@ -523,4 +523,12 @@
+@@ -523,4 +523,18 @@
  x86_64-*-elf*)
  	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
  	;;
@@ -11,6 +11,12 @@
 +x86_64-*-acess2*)
 +	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o crtendT.o"
 +	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++arm-*-acess2*)
++	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o crtendT.o"
++	tmake_file="${tmake_file} arm/t-arm arm/t-elf t-fixedpoint-gnu-prefix arm/t-bpabi t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
++	tm_file="$tm_file arm/bpabi-lib.h"
++	unwind_header=config/arm/unwind-arm.h
 +	;;
  i[34567]86-*-freebsd*)
 
