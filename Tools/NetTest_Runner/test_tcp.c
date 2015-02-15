@@ -385,8 +385,10 @@ bool Test_TCP_Retransmit(void)
 	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_ACK|TCP_PSH) );
 	
 	TEST_STEP("3. Expect nothing for TCP_RTX_TIMEOUT_1");
-	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, RETX_TIMEOUT-100) == 0 )
+	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, RETX_TIMEOUT-100) == 0 );
 	
 	TEST_STEP("4. Expect a retransmit");
 	TEST_ASSERT_rx();
+	
+	return false;
 }
