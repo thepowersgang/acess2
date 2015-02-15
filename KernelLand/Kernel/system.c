@@ -14,6 +14,7 @@ extern int	Modules_LoadBuiltins(void);
 extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
 extern void	Debug_SetKTerminal(const char *File);
 extern void	Timer_CallbackThread(void *);
+extern void	EmergencyConsole(void);
 
 // === PROTOTYPES ===
 void	System_Init(char *Commandline);
@@ -282,4 +283,5 @@ void System_ParseSetting(char *Arg)
 void System_EmergencyConsole(void)
 {
 	// TODO: Support an emergency kernel-land console (with FS viewing support)
+	EmergencyConsole();
 }
