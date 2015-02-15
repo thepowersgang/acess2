@@ -41,8 +41,7 @@ $(_XBIN): $(_OBJPREFIX)_stublib.o
 $(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX) Makefile
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
-	#$V$(AS) $(ASFLAGS) -o $@ $<
-	$V$(CC) -c $(ASFLAGS) -o $@ $<
+	$V$(AS) $(ASFLAGS) -o $@ $<
 
 #.PRECIOUS: $(OBJ:%.ao=%.asm)
 
