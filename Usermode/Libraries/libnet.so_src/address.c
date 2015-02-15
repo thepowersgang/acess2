@@ -7,7 +7,7 @@
  */
 #include <net.h>
 #include <stdint.h>
-//#include <stdio.h>
+#include <stdio.h>	// sprintf
 #include <stdlib.h>
 #define DEBUG	0
 

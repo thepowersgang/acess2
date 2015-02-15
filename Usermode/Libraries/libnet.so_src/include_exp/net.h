@@ -53,8 +53,31 @@ extern char	*Net_GetInterface(int AddrType, void *Addr);
  * Opens a file using /Devices/ip/routes/@<AddrType>:<Addr>/<SocketName>
  * 
  */
-extern int	Net_OpenSocket(int AddrType, void *Addr, const char *SocketName);
+extern int	Net_OpenSocket(int AddrType, const void *Addr, const char *SocketName);
 
-extern int	Net_OpenSocket_TCPC(int AddrType, void *Addr, int Port);
+extern int	Net_OpenSocket_TCPC(int AddrType, const void *Addr, int Port);
+
+extern int	Net_OpenSocket_UDP(int AddrType, const void *Addr, int RAddr, int LAddr);
+
+
+/**
+ * \name Hostnames
+ * \brief Handling of hostname resolution
+ * \{
+ */
+
+/**
+ * \brief Returns an address for the specified hostname
+ * \note Picks randomly if multiple addresses are present
+ */
+extern int	Net_Lookup_AnyAddr(const char *Name, int AddrType, void *Addr);
+
+/**
+ */
+extern int	Net_Lookup_Name(int AddrType, const void *Addr, char *Dest[256]);
+
+/**
+ * \}
+ */
 
 #endif
