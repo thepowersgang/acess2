@@ -60,7 +60,7 @@ struct pthread_mutex_s
 {
 	void*	futex;
 };
-#define PTHREAD_MUTEX_INITIALIZER	((struct pthread_mutex_s){NULL})
+#define PTHREAD_MUTEX_INITIALIZER	((struct pthread_mutex_s){0})
 typedef struct pthread_mutex_s	pthread_mutex_t;
 extern int pthread_mutex_init(pthread_mutex_t * mutex, const pthread_mutexattr_t *attrs);
 extern int pthread_mutex_lock(pthread_mutex_t *lock);

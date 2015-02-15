@@ -17,7 +17,7 @@ ifeq ($(BINUTILS_ARCHIVE),)
  $(error No archive found)
 endif
 
-BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/emulparams/acess2_amd64.sh ld/Makefile.in
+BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/emulparams/acess2_amd64.sh ld/emulparams/acess2_arm.sh ld/Makefile.in
 GCC_CHANGES := config.sub gcc/config.gcc gcc/config/acess2.h libgcc/config.host gcc/config/acess2.opt
 # libstdc++-v3/crossconfig.m4 config/override.m4
 

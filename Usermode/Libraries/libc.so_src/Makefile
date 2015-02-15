@@ -29,8 +29,8 @@ endif
 include ../Makefile.tpl
 
 EXP_%.txt: TEST_%.native
-	./$< > $@
-	rm $<
+	@./$< > $@
+	@rm $<
 EXP_strtoi.txt:
 	echo -n "" > $@
 

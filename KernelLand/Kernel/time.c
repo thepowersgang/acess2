@@ -76,8 +76,9 @@ void Timer_CallTimers()
 {
 	// Tick the random number generator every time timers are checked
 	rand();
-	
+
 	SHORTLOCK(&gTimers_ListLock);
+	LOG("gTimers = %p (%lli ms)", gTimers, (gTimers ? gTimers->FiresAfter : 0));
 	while( gTimers && gTimers->FiresAfter < now() )
 	{
 		ASSERT( gTimers != gTimers->Next );	

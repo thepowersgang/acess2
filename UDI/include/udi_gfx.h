@@ -9,10 +9,10 @@
  *     <Public Domain>
  *
  * Origin:
- *     http://www.d-rift.nl/combuster/mos3/?p=viewsource&file=/include/common/udi_gfx.h
+ *     http:/*www.d-rift.nl/combuster/mos3/?p=viewsource&file=/include/common/udi_gfx.h*/
  */
 
-/* note that the specification, and thus, the contents of this file is not fixed. */
+/* note that the specification, and thus, the contents of this file is not fixed.*/
 
 #ifndef __UDI_GFX_H__
 #define __UDI_GFX_H__
@@ -30,6 +30,7 @@
  * Lists the various UDI properties
  */
 
+/* General state properties*/
 /* Constant: UDI_GFX_PROP_ENABLE
  *
  * Valid values:
@@ -129,7 +130,7 @@
  */
 #define UDI_GFX_PROP_CUSTOM 1024
 
-/* engine properties */
+/* engine properties*/
 
 /* Constant: UDI_GFX_PROP_CLIP
  *
@@ -272,26 +273,26 @@
 #define UDI_GFX_PROP_OPERATOR_COUNT 28
 
 #if 0
-/* properties for removal: */
-#define UDI_GFX_PROP_STORE_COUNT 24       // not generic
-#define UDI_GFX_PROP_STORE_WIDTH 9        // not generic
-#define UDI_GFX_PROP_STORE_HEIGHT 10      // not generic
-#define UDI_GFX_PROP_STORE_BITS 11        // not generic
-#define UDI_GFX_PROP_PALETTE 1024         // optional, can be derived from the operator tree
-#define UDI_GFX_PROP_BUFFER 1025          // optional, can be derived from the operator tree
-#define UDI_GFX_PROP_TILESHEET 1026       // optional, can be derived from the operator tree
-#define UDI_GFX_PROP_OPERATOR_INDEX 17    // deprecated for dedicated methods
-#define UDI_GFX_PROP_OPERATOR_OPCODE 18   // deprecated for dedicated methods
-#define UDI_GFX_PROP_OPERATOR_ARG_1 19    // deprecated for dedicated methods
-#define UDI_GFX_PROP_OPERATOR_ARG_2 20    // deprecated for dedicated methods
-#define UDI_GFX_PROP_OPERATOR_ARG_3 21    // deprecated for dedicated methods
-#define UDI_GFX_PROP_SOURCE_WIDTH 12      // should have been documented when I still knew what it did.
-#define UDI_GFX_PROP_SOURCE_HEIGHT 13     // should have been documented when I still knew what it did.
-#define UDI_GFX_PROP_INPUTX 25            // should have been documented when I still knew what it did.
-#define UDI_GFX_PROP_INPUTY 26            // should have been documented when I still knew what it did.
+/* properties for removal:*/
+#define UDI_GFX_PROP_STORE_COUNT 24       /* not generic*/
+#define UDI_GFX_PROP_STORE_WIDTH 9        /* not generic*/
+#define UDI_GFX_PROP_STORE_HEIGHT 10      /* not generic*/
+#define UDI_GFX_PROP_STORE_BITS 11        /* not generic*/
+#define UDI_GFX_PROP_PALETTE 1024         /* optional, can be derived from the operator tree*/
+#define UDI_GFX_PROP_BUFFER 1025          /* optional, can be derived from the operator tree*/
+#define UDI_GFX_PROP_TILESHEET 1026       /* optional, can be derived from the operator tree*/
+#define UDI_GFX_PROP_OPERATOR_INDEX 17    /* deprecated for dedicated methods*/
+#define UDI_GFX_PROP_OPERATOR_OPCODE 18   /* deprecated for dedicated methods*/
+#define UDI_GFX_PROP_OPERATOR_ARG_1 19    /* deprecated for dedicated methods*/
+#define UDI_GFX_PROP_OPERATOR_ARG_2 20    /* deprecated for dedicated methods*/
+#define UDI_GFX_PROP_OPERATOR_ARG_3 21    /* deprecated for dedicated methods*/
+#define UDI_GFX_PROP_SOURCE_WIDTH 12      /* should have been documented when I still knew what it did.*/
+#define UDI_GFX_PROP_SOURCE_HEIGHT 13     /* should have been documented when I still knew what it did.*/
+#define UDI_GFX_PROP_INPUTX 25            /* should have been documented when I still knew what it did.*/
+#define UDI_GFX_PROP_INPUTY 26            /* should have been documented when I still knew what it did.*/
 #endif
 
-/* connector properties */
+/* connector properties*/
 #define UDI_GFX_PROP_SIGNAL 23
 #define UDI_GFX_PROP_CONNECTOR_TYPE 24
 #define UDI_GFX_PROP_VGA_H_FRONT_PORCH 25
@@ -341,9 +342,6 @@
 /**
  * Enumeration: UDI_GFX_OPERATOR
  * Lists the display output operator
- * 
- * a1/a2/a3 represents taking the output of a previous operation
- * v1/v2/v3 represents the literal value of that argument
  */
 #define UDI_GFX_OPERATOR_RGB     0 /* output = (color) red(a1) + green(a2) + blue(a3) (each component is UDI_GFX_PROP_COLOR_BITS*/
 #define UDI_GFX_OPERATOR_YUV     1 /* output = (color) Y(a1) + U(a2) + V(a3)*/
@@ -402,180 +400,179 @@
 #define UDI_GFX_STOCK_FORMAT_B5G5R5X1 8
 #define UDI_GFX_STOCK_FORMAT_N8 9
 
-/*
- * Enumeration: UDI_GFX_BUFFER_INFO_FLAG
- * Lists behavioural patterns for direct buffer accesses.
- */
+/* Enumeration: UDI_GFX_BUFFER_INFO_FLAG*/
+/* Lists behavioural patterns for direct buffer accesses.*/
+/**/
 #define UDI_GFX_BUFFER_INFO_FLAG_R              0x0001  /* buffer can be read*/
 #define UDI_GFX_BUFFER_INFO_FLAG_W              0x0002  /* buffer can be written*/
 #define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ENTRY 0x0004  /* for non-multiple-of-eight buffer slot sizes, align on byte boundary every unit*/
 #define UDI_GFX_BUFFER_INFO_FLAG_BITALIGN_ROW   0x0008  /* for non-multiple-of-eight buffer slot sizes, align only the start of the row*/
 
 
-// Constant: UDI_GFX_PROVIDER_OPS_NUM
-// the ops number used for the graphics driver
+/* Constant: UDI_GFX_PROVIDER_OPS_NUM*/
+/* the ops number used for the graphics driver*/
 #define UDI_GFX_PROVIDER_OPS_NUM 1
 
-// Constant: UDI_GFX_CLIENT_OPS_NUM
-// the ops number used for the graphics application
+/* Constant: UDI_GFX_CLIENT_OPS_NUM*/
+/* the ops number used for the graphics application*/
 #define UDI_GFX_CLIENT_OPS_NUM 2
 
-// Structure: udi_gfx_bind_cb_t
-// Contains the operations of a driver binding request
+/* Structure: udi_gfx_bind_cb_t*/
+/* Contains the operations of a driver binding request*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
 } udi_gfx_bind_cb_t;
 #define UDI_GFX_BIND_CB_NUM 1
 
-// Function: udi_block_bind_req
-// function pointer prototype for connecting to a block device
-// 
-// in:
-//     cb - A pointer to a <udi_block_bind_cb_t>
-//
+/* Function: udi_block_bind_req*/
+/* function pointer prototype for connecting to a block device*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_block_bind_cb_t>*/
+/**/
 typedef void udi_gfx_bind_req_op_t (udi_gfx_bind_cb_t *cb );
 udi_gfx_bind_req_op_t udi_gfx_bind_req;
 
-// Function: udi_gfx_bind_ack
-// function pointer prototype for acknowledging a connection request
-// 
-// in:
-//     cb      - A pointer to a <udi_gfx_bind_cb_t>
-//     sockets - The number of addressable socket components
-//     engines - The number of addressable engine components
-//     status  - The result of the bind operation
-//
+/* Function: udi_gfx_bind_ack*/
+/* function pointer prototype for acknowledging a connection request*/
+/* */
+/* in:*/
+/*     cb      - A pointer to a <udi_gfx_bind_cb_t>*/
+/*     sockets - The number of addressable socket components*/
+/*     engines - The number of addressable engine components*/
+/*     status  - The result of the bind operation*/
+/**/
 typedef void udi_gfx_bind_ack_op_t (udi_gfx_bind_cb_t *cb, udi_index_t sockets, udi_index_t engines, udi_status_t status );
 udi_gfx_bind_ack_op_t udi_gfx_bind_ack;
 
-// Function: udi_gfx_unbind_req
-// function pointer prototype for disconnecting a block device
-// 
-// in:
-//     cb - A pointer to a <udi_block_bind_cb_t>
-//
+/* Function: udi_gfx_unbind_req*/
+/* function pointer prototype for disconnecting a block device*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_block_bind_cb_t>*/
+/**/
 typedef void udi_gfx_unbind_req_op_t (udi_gfx_bind_cb_t *cb );
 udi_gfx_unbind_req_op_t udi_gfx_unbind_req;
 
-// Function: udi_gfx_unbind_ack
-// function pointer prototype for connecting to a block device
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_bind_cb_t>
-//
+/* Function: udi_gfx_unbind_ack*/
+/* function pointer prototype for connecting to a block device*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_bind_cb_t>*/
+/**/
 typedef void udi_gfx_unbind_ack_op_t (udi_gfx_bind_cb_t *cb );
 udi_gfx_unbind_ack_op_t udi_gfx_unbind_ack;
 
-// Structure: udi_gfx_state_cb_t
-// Contains the operations of a read/write transaction
+/* Structure: udi_gfx_state_cb_t*/
+/* Contains the operations of a read/write transaction*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
     udi_ubit32_t subsystem;
     udi_ubit32_t attribute;
 } udi_gfx_state_cb_t;
 #define UDI_GFX_STATE_CB_NUM 2
 
-// Function: udi_gfx_set_engine_req
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_set_engine_req*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_set_engine_req_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t value);
 udi_gfx_set_engine_req_op_t udi_gfx_set_engine_req;
 
-// Function: udi_gfx_set_connector_req
-// function pointer prototype for setting an connector state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_set_connector_req*/
+/* function pointer prototype for setting an connector state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_set_connector_req_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t value);
 udi_gfx_set_connector_req_op_t udi_gfx_set_connector_req;
 
-// Function: udi_gfx_set_engine_ack
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_set_engine_ack*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_set_engine_ack_op_t (udi_gfx_state_cb_t *cb );
 udi_gfx_set_engine_ack_op_t udi_gfx_set_engine_ack;
 
-// Function: udi_gfx_set_connector_ack
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_set_connector_ack*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_set_connector_ack_op_t (udi_gfx_state_cb_t *cb );
 udi_gfx_set_connector_ack_op_t udi_gfx_set_connector_ack;
 
-// Function: udi_gfx_get_engine_req
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_get_engine_req*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_get_engine_req_op_t (udi_gfx_state_cb_t *cb );
 udi_gfx_get_engine_req_op_t udi_gfx_get_engine_req;
 
-// Function: udi_gfx_get_connector_req
-// function pointer prototype for setting an connector state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_get_connector_req*/
+/* function pointer prototype for setting an connector state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_get_connector_req_op_t (udi_gfx_state_cb_t *cb );
 udi_gfx_get_connector_req_op_t udi_gfx_get_connector_req;
 
-// Function: udi_gfx_get_engine_ack
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_get_engine_ack*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_get_engine_ack_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t value);
 udi_gfx_get_engine_ack_op_t udi_gfx_get_engine_ack;
 
-// Function: udi_gfx_get_connector_ack
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_get_connector_ack*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_get_connector_ack_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t value);
 udi_gfx_get_connector_ack_op_t udi_gfx_get_connector_ack;
 
-// Function: udi_gfx_set_engine_nak
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb     - A pointer to a <udi_gfx_state_cb_t>
-//     status - An UDI status value indicative of the error
-//
-typedef void udi_gfx_set_engine_nak_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t status);
+/* Function: udi_gfx_set_engine_nak*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb     - A pointer to a <udi_gfx_state_cb_t>*/
+/*     status - An UDI status value indicative of the error*/
+/**/
+typedef void udi_gfx_set_engine_nak_op_t (udi_gfx_state_cb_t *cb, udi_status_t status);
 udi_gfx_set_engine_nak_op_t udi_gfx_set_engine_nak;
 
-// Function: udi_gfx_set_connector_nak
-// function pointer prototype for setting an engine state
-// 
-// in:
-//     cb     - A pointer to a <udi_gfx_state_cb_t>
-//     status - An UDI status value indicative of the error
-//
-typedef void udi_gfx_set_connector_nak_op_t (udi_gfx_state_cb_t *cb, udi_ubit32_t status);
+/* Function: udi_gfx_set_connector_nak*/
+/* function pointer prototype for setting an engine state*/
+/* */
+/* in:*/
+/*     cb     - A pointer to a <udi_gfx_state_cb_t>*/
+/*     status - An UDI status value indicative of the error*/
+/**/
+typedef void udi_gfx_set_connector_nak_op_t (udi_gfx_state_cb_t *cb, udi_status_t status);
 udi_gfx_set_connector_nak_op_t udi_gfx_get_connector_nak;
 
-// Structure: udi_gfx_range_cb_t
-// Contains the operations of a range request transaction
+/* Structure: udi_gfx_range_cb_t*/
+/* Contains the operations of a range request transaction*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
     udi_ubit32_t subsystem;
     udi_ubit32_t attribute;
@@ -583,151 +580,151 @@ typedef struct {
 } udi_gfx_range_cb_t;
 #define UDI_GFX_RANGE_CB_NUM 3
 
-// Function: udi_gfx_range_engine_req
-// function pointer prototype for getting an engine property range
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_range_cb_t>
-//
+/* Function: udi_gfx_range_engine_req*/
+/* function pointer prototype for getting an engine property range*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_range_cb_t>*/
+/**/
 typedef void udi_gfx_range_engine_req_op_t (udi_gfx_range_cb_t *cb );
 udi_gfx_range_engine_req_op_t udi_gfx_range_engine_req;
 
-// Function: udi_gfx_range_connector_req
-// function pointer prototype for getting a connector property range
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_range_cb_t>
-//
+/* Function: udi_gfx_range_connector_req*/
+/* function pointer prototype for getting a connector property range*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_range_cb_t>*/
+/**/
 typedef void udi_gfx_range_connector_req_op_t (udi_gfx_range_cb_t *cb );
 udi_gfx_range_connector_req_op_t udi_gfx_range_connector_req;
 
-// Function: udi_gfx_range_engine_ack
-// function pointer prototype for replying an engine property range
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_range_cb_t>
-//
+/* Function: udi_gfx_range_engine_ack*/
+/* function pointer prototype for replying an engine property range*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_range_cb_t>*/
+/**/
 typedef void udi_gfx_range_engine_ack_op_t (udi_gfx_range_cb_t *cb );
 udi_gfx_range_engine_ack_op_t udi_gfx_range_engine_ack;
 
-// Function: udi_gfx_range_connector_ack
-// function pointer prototype for replying a connector property range
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_range_cb_t>
-//
+/* Function: udi_gfx_range_connector_ack*/
+/* function pointer prototype for replying a connector property range*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_range_cb_t>*/
+/**/
 typedef void udi_gfx_range_connector_ack_op_t (udi_gfx_range_cb_t *cb );
 udi_gfx_range_connector_ack_op_t udi_gfx_range_connector_ack;
 
-// Function: udi_gfx_get_engine_operator_req
-// function pointer prototype for requesting the engine operator layout
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_state_cb_t>
-//
+/* Function: udi_gfx_get_engine_operator_req*/
+/* function pointer prototype for requesting the engine operator layout*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_state_cb_t>*/
+/**/
 typedef void udi_gfx_get_engine_operator_req_op_t (udi_gfx_range_cb_t *cb );
 udi_gfx_get_engine_operator_req_op_t udi_gfx_get_engine_operator_req;
 
-// Function: udi_gfx_get_engine_operator_ack
-// function pointer prototype for replying the engine operator layout
-// 
-// in:
-//     cb   - A pointer to a <udi_gfx_state_cb_t>
-//     op   - The operator performed at this index
-//     arg1 - the first argument to this operator
-//     arg2 - the second argument to this operator
-//     arg3 - the third argument to this operator
-//
+/* Function: udi_gfx_get_engine_operator_ack*/
+/* function pointer prototype for replying the engine operator layout*/
+/* */
+/* in:*/
+/*     cb   - A pointer to a <udi_gfx_state_cb_t>*/
+/*     op   - The operator performed at this index*/
+/*     arg1 - the first argument to this operator*/
+/*     arg2 - the second argument to this operator*/
+/*     arg3 - the third argument to this operator*/
+/**/
 typedef void udi_gfx_get_engine_operator_ack_op_t (udi_gfx_range_cb_t *cb, udi_ubit32_t op, udi_ubit32_t arg1, udi_ubit32_t arg2, udi_ubit32_t arg3 );
 udi_gfx_get_engine_operator_ack_op_t udi_gfx_get_engine_operator_ack;
 
 
 
-// Structure: udi_gfx_command_cb_t
-// Contains the operations of a command sequence
+/* Structure: udi_gfx_command_cb_t*/
+/* Contains the operations of a command sequence*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
     udi_buf_t * commanddata;
 } udi_gfx_command_cb_t;
 #define UDI_GFX_COMMAND_CB_NUM 4
 
-// Function: udi_gfx_connector_command_req
-// function pointer prototype for sending command data to the output connector
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_command_cb_t>
-//
+/* Function: udi_gfx_connector_command_req*/
+/* function pointer prototype for sending command data to the output connector*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_command_cb_t>*/
+/**/
 typedef void udi_gfx_connector_command_req_op_t (udi_gfx_command_cb_t *cb );
 udi_gfx_connector_command_req_op_t udi_gfx_connector_command_req;
 
-// Function: udi_gfx_engine_command_req
-// function pointer prototype for sending command data to the engine
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_command_cb_t>
-//
+/* Function: udi_gfx_engine_command_req*/
+/* function pointer prototype for sending command data to the engine*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_command_cb_t>*/
+/**/
 typedef void udi_gfx_engine_command_req_op_t (udi_gfx_command_cb_t *cb );
 udi_gfx_engine_command_req_op_t udi_gfx_engine_command_req;
 
-// Function: udi_gfx_connector_command_ack
-// function pointer prototype for sending command data replies
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_command_cb_t>
-//
+/* Function: udi_gfx_connector_command_ack*/
+/* function pointer prototype for sending command data replies*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_command_cb_t>*/
+/**/
 typedef void udi_gfx_connector_command_ack_op_t (udi_gfx_command_cb_t *cb);
 udi_gfx_connector_command_ack_op_t udi_gfx_connector_command_ack;
 
-// Function: udi_gfx_engine_command_ack
-// function pointer prototype for sending engine data replies
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_command_cb_t>
-//
+/* Function: udi_gfx_engine_command_ack*/
+/* function pointer prototype for sending engine data replies*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_command_cb_t>*/
+/**/
 typedef void udi_gfx_engine_command_ack_op_t (udi_gfx_command_cb_t *cb);
 udi_gfx_engine_command_ack_op_t udi_gfx_engine_command_ack;
 
-// Structure: udi_gfx_buffer_cb_t
-// Contains a description of a buffer, or area thereof
+/* Structure: udi_gfx_buffer_cb_t*/
+/* Contains a description of a buffer, or area thereof*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
     udi_ubit32_t buffer_index;
 } udi_gfx_buffer_info_cb_t;
 
-// Function: udi_gfx_buffer_info_req
-// function pointer prototype for getting buffer configuration information
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_command_cb_t>
-//
+/* Function: udi_gfx_buffer_info_req*/
+/* function pointer prototype for getting buffer configuration information*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_command_cb_t>*/
+/**/
 typedef void udi_gfx_buffer_info_req_op_t (udi_gfx_buffer_info_cb_t *cb);
 udi_gfx_buffer_info_req_op_t udi_gfx_buffer_info_req;
 
-// Function: udi_gfx_buffer_info_ack
-// function pointer prototype for getting buffer configuration information
-// 
-// in:
-//     cb       - A pointer to a <udi_gfx_command_cb_t>
-//     width    - The width of the buffer
-//     height   - The height of the buffer
-//     bitsper  - The number of bits read from the buffer per pixel unit
-//     flags    - A bitfield of <UDI_GFX_BUFFER_FLAGS> indicating the exposed 
-//                capabilities of this buffer
-//
-// Note that bitsper might not be a multiple of eight.
-//
+/* Function: udi_gfx_buffer_info_ack*/
+/* function pointer prototype for getting buffer configuration information*/
+/* */
+/* in:*/
+/*     cb       - A pointer to a <udi_gfx_command_cb_t>*/
+/*     width    - The width of the buffer*/
+/*     height   - The height of the buffer*/
+/*     bitsper  - The number of bits read from the buffer per pixel unit*/
+/*     flags    - A bitfield of <UDI_GFX_BUFFER_FLAGS> indicating the exposed */
+/*                capabilities of this buffer*/
+/**/
+/* Note that bitsper might not be a multiple of eight.*/
+/**/
 typedef void udi_gfx_buffer_info_ack_op_t (udi_gfx_buffer_info_cb_t *cb, udi_ubit32_t width, udi_ubit32_t height, udi_ubit32_t bitsper, udi_ubit32_t flags);
 udi_gfx_buffer_info_ack_op_t udi_gfx_buffer_info_ack;
 
-// Structure: udi_gfx_buffer_cb_t
-// Contains a description of a buffer, or area thereof
+/* Structure: udi_gfx_buffer_cb_t*/
+/* Contains a description of a buffer, or area thereof*/
 typedef struct {
-    // Variable: gcb
-    // The main control block
+    /* Variable: gcb*/
+    /* The main control block*/
     udi_cb_t gcb;    
     udi_ubit32_t buffer_index;
     udi_ubit32_t x;
@@ -737,58 +734,58 @@ typedef struct {
     udi_buf_t * buffer;
 } udi_gfx_buffer_cb_t;
 
-// Function: udi_gfx_buffer_write_req_op_t
-// function pointer prototype for writing raw hardware buffers
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
+/* Function: udi_gfx_buffer_write_req_op_t*/
+/* function pointer prototype for writing raw hardware buffers*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
 typedef void udi_gfx_buffer_write_req_op_t (udi_gfx_buffer_cb_t *cb);
 udi_gfx_buffer_write_req_op_t udi_gfx_buffer_write_req;
 
-// Function: udi_gfx_buffer_write_req_op_t
-// function pointer prototype for reading raw hardware buffers
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
+/* Function: udi_gfx_buffer_write_req_op_t*/
+/* function pointer prototype for reading raw hardware buffers*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
 typedef void udi_gfx_buffer_read_req_op_t (udi_gfx_buffer_cb_t *cb);
 udi_gfx_buffer_read_req_op_t udi_gfx_buffer_read_req;
 
-// Function: udi_gfx_buffer_write_ack_op_t
-// function pointer prototype for writing raw hardware buffers
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
+/* Function: udi_gfx_buffer_write_ack_op_t*/
+/* function pointer prototype for writing raw hardware buffers*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
 typedef void udi_gfx_buffer_write_ack_op_t (udi_gfx_buffer_cb_t *cb);
 udi_gfx_buffer_write_ack_op_t udi_gfx_buffer_write_ack;
 
-// Function: udi_gfx_buffer_write_ack_op_t
-// function pointer prototype for reading raw hardware buffers
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
+/* Function: udi_gfx_buffer_write_ack_op_t*/
+/* function pointer prototype for reading raw hardware buffers*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
 typedef void udi_gfx_buffer_read_ack_op_t (udi_gfx_buffer_cb_t *cb);
 udi_gfx_buffer_read_ack_op_t udi_gfx_buffer_read_ack;
 
-// Function: udi_gfx_buffer_write_nak_op_t
-// error handling for buffer writes
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
-typedef void udi_gfx_buffer_write_nak_op_t (udi_gfx_buffer_cb_t *cb, udi_ubit32_t status);
+/* Function: udi_gfx_buffer_write_nak_op_t*/
+/* error handling for buffer writes*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
+typedef void udi_gfx_buffer_write_nak_op_t (udi_gfx_buffer_cb_t *cb, udi_status_t status);
 udi_gfx_buffer_write_nak_op_t udi_gfx_buffer_write_nak;
 
-// Function: udi_gfx_buffer_write_nak_op_t
-// error handling for buffer reads
-// 
-// in:
-//     cb - A pointer to a <udi_gfx_buffer_cb_t>
-//
-typedef void udi_gfx_buffer_read_nak_op_t (udi_gfx_buffer_cb_t *cb, udi_ubit32_t status);
+/* Function: udi_gfx_buffer_write_nak_op_t*/
+/* error handling for buffer reads*/
+/* */
+/* in:*/
+/*     cb - A pointer to a <udi_gfx_buffer_cb_t>*/
+/**/
+typedef void udi_gfx_buffer_read_nak_op_t (udi_gfx_buffer_cb_t *cb, udi_status_t status);
 udi_gfx_buffer_read_nak_op_t udi_gfx_buffer_read_nak;
 
 /* Structure: udi_gfx_provider_ops_t
@@ -805,9 +802,9 @@ typedef const struct {
     udi_gfx_get_engine_req_op_t         *gfx_get_engine_req_op;
     udi_gfx_range_connector_req_op_t    *gfx_range_connector_req_op;
     udi_gfx_range_engine_req_op_t       *gfx_range_engine_req_op;
-    udi_gfx_get_engine_operator_req_op_t*gfx_get_engine_operator_req_op_t;
-    udi_gfx_connector_command_req_op_t  *gfx_connector_command_op;
-    udi_gfx_engine_command_req_op_t     *gfx_engine_command_op;
+    udi_gfx_get_engine_operator_req_op_t*gfx_get_engine_operator_req_op;
+    udi_gfx_connector_command_req_op_t  *gfx_connector_command_req_op;
+    udi_gfx_engine_command_req_op_t     *gfx_engine_command_req_op;
     udi_gfx_buffer_info_req_op_t        *gfx_buffer_info_req_op;
     udi_gfx_buffer_read_req_op_t        *gfx_buffer_read_req_op;
     udi_gfx_buffer_write_req_op_t       *gfx_buffer_write_req_op;
@@ -819,28 +816,28 @@ typedef const struct {
  */
 typedef const struct {
     udi_channel_event_ind_op_t          *channel_event_ind_op;
-    udi_gfx_bind_ack_op_t               *udi_gfx_bind_ack;
-    udi_gfx_unbind_ack_op_t             *udi_gfx_unbind_ack;
-    udi_gfx_set_connector_ack_op_t      *udi_gfx_set_connector_ack;
-    udi_gfx_set_engine_ack_op_t         *udi_gfx_set_engine_ack;
-    udi_gfx_set_connector_nak_op_t      *udi_gfx_set_connector_nak;
-    udi_gfx_set_engine_nak_op_t         *udi_gfx_set_engine_nak;
-    udi_gfx_get_connector_ack_op_t      *udi_gfx_get_connector_ack;
-    udi_gfx_get_engine_ack_op_t         *udi_gfx_get_engine_ack;
-    udi_gfx_range_connector_ack_op_t    *udi_gfx_range_connector_ack;
-    udi_gfx_range_engine_ack_op_t       *udi_gfx_range_engine_ack;
-    udi_gfx_get_engine_operator_req_op_t*udi_gfx_get_engine_operator_ack;
-    udi_gfx_connector_command_ack_op_t  *udi_gfx_connector_command_ack;
-    udi_gfx_engine_command_ack_op_t     *udi_gfx_engine_command_ack;
-    udi_gfx_buffer_info_ack_op_t        *gfx_buffer_info_ack;
-    udi_gfx_buffer_read_ack_op_t        *gfx_buffer_read_ack;
-    udi_gfx_buffer_write_ack_op_t       *gfx_buffer_write_ack;
-    udi_gfx_buffer_read_nak_op_t        *gfx_buffer_read_nak;
-    udi_gfx_buffer_write_nak_op_t       *gfx_buffer_write_nak;
+    udi_gfx_bind_ack_op_t               *gfx_bind_ack_op;
+    udi_gfx_unbind_ack_op_t             *gfx_unbind_ack_op;
+    udi_gfx_set_connector_ack_op_t      *gfx_set_connector_ack_op;
+    udi_gfx_set_engine_ack_op_t         *gfx_set_engine_ack_op;
+    udi_gfx_set_connector_nak_op_t      *gfx_set_connector_nak_op;
+    udi_gfx_set_engine_nak_op_t         *gfx_set_engine_nak_op;
+    udi_gfx_get_connector_ack_op_t      *gfx_get_connector_ack_op;
+    udi_gfx_get_engine_ack_op_t         *gfx_get_engine_ack_op;
+    udi_gfx_range_connector_ack_op_t    *gfx_range_connector_ack_op;
+    udi_gfx_range_engine_ack_op_t       *gfx_range_engine_ack_op;
+    udi_gfx_get_engine_operator_req_op_t*gfx_get_engine_operator_ack_op;
+    udi_gfx_connector_command_ack_op_t  *gfx_connector_command_ack_op;
+    udi_gfx_engine_command_ack_op_t     *gfx_engine_command_ack_op;
+    udi_gfx_buffer_info_ack_op_t        *gfx_buffer_info_ack_op;
+    udi_gfx_buffer_read_ack_op_t        *gfx_buffer_read_ack_op;
+    udi_gfx_buffer_write_ack_op_t       *gfx_buffer_write_ack_op;
+    udi_gfx_buffer_read_nak_op_t        *gfx_buffer_read_nak_op;
+    udi_gfx_buffer_write_nak_op_t       *gfx_buffer_write_nak_op;
 } udi_gfx_client_ops_t;
 
 
-// temporary
+/* temporary*/
 #ifndef UDI_ANNOY_ME
 void EngineReturnSimpleRange (int source, int index, int prop, int first, int last, int modulus);
 void ConnectorReturnSimpleRange (int source, int index, int prop, int first, int last, int modulus);

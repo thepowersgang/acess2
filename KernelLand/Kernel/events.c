@@ -87,7 +87,7 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 	{
 		Threads_int_Sleep(THREAD_STAT_EVENTSLEEP, NULL, EventMask,
 			&us, NULL, &us->IsLocked);
-		// Woken when lock is acquired
+		// Woken when an event fires
 		SHORTLOCK( &us->IsLocked );
 	}
 	

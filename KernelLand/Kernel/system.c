@@ -14,6 +14,7 @@ extern int	Modules_LoadBuiltins(void);
 extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
 extern void	Debug_SetKTerminal(const char *File);
 extern void	Timer_CallbackThread(void *);
+extern void	EmergencyConsole(void);
 
 // === PROTOTYPES ===
 void	System_Init(char *Commandline);
@@ -22,6 +23,7 @@ void	System_ExecuteCommandLine(void);
 void	System_ParseVFS(char *Arg);
 void	System_ParseModuleArgs(char *Arg);
 void	System_ParseSetting(char *Arg);
+void	System_EmergencyConsole(void);
 
 // === GLOBALS ===
 const char	*gsInitBinary = "/Acess/SBin/init";
@@ -41,6 +43,7 @@ void System_Init(char *CommandLine)
 	Modules_LoadBuiltins();
 	Arch_LoadBootModules();
 	
+	Log_Log("Config", "Running command line '%s", CommandLine);
 	System_ExecuteCommandLine();
 	
 	// - Execute the Config Script
@@ -52,6 +55,9 @@ void System_Init(char *CommandLine)
 		VFS_Open("/Devices/pts/vt0", VFS_OPENFLAG_WRITE|VFS_OPENFLAG_USER);	// 1: stdout
 		VFS_DuplicateFD(1, 2);	// 2: stderr
 		Proc_Execve(gsInitBinary, args, &args[1], 0);
+		
+		System_EmergencyConsole();
+		
 		Log_KernelPanic("System", "Unable to spawn init '%s'", gsInitBinary);
 	}
 	
@@ -274,3 +280,8 @@ void System_ParseSetting(char *Arg)
 	}
 }
 
+void System_EmergencyConsole(void)
+{
+	// TODO: Support an emergency kernel-land console (with FS viewing support)
+	EmergencyConsole();
+}

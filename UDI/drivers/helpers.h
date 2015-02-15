@@ -63,4 +63,25 @@ struct s_pio_ops {
 	udi_ubit32_t	length;
 };
 #define UDIH_PIO_OPS_ENTRY(list, attr, regset, base, len)	{list, ARRAY_COUNT(list), attr, regset, base, len}
+
+
+#define UDIH_INIT_PIO(fcnname, _array, index_field, final_code) \
+	void fcnname(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle) {\
+		rdata_t	*rdata = gcb->context; \
+		if( rdata->index_field != (udi_index_t)-1 ) { \
+			rdata->pio_handles[rdata->index_field] = new_pio_handle; \
+		}\
+		rdata->index_field ++; \
+		if( rdata->index_field < sizeof(_array)/sizeof(_array[0]) ) { \
+			const struct s_pio_ops	*ops = &pio_ops[rdata->index_field]; \
+			udi_pio_map(bus_dev_bind__pio_map, gcb, \
+				ops->regset_idx, ops->base_offset, ops->length, \
+				ops->trans_list, ops->list_length, \
+				UDI_PIO_LITTLE_ENDIAN, 0, 0 \
+				); \
+			return ; \
+		} \
+		final_code \
+	}
+
 #endif

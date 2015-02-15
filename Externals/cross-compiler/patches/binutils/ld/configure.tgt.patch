@@ -1,7 +1,8 @@
 --- ld/configure.tgt
 +++ ld/configure.tgt
-@@ -167,1 +167,3 @@
+@@ -167,1 +167,4 @@
  i[3-7]86-*-nto-qnx*)    targ_emul=i386nto ;;
 +i[3-7]86-*-acess2*)    targ_emul=acess2_i386 ;;
 +x86_64-*-acess2*)      targ_emul=acess2_amd64 ;;
++arm-*-acess2*)         targ_emul=acess2_arm ;;
 

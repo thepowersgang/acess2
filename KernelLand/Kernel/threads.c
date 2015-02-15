@@ -4,6 +4,7 @@
  * threads.c
  * - Common Thread Control
  */
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
@@ -329,11 +330,10 @@ void Threads_SetPriority(tThread *Thread, int Pri)
  */
 tThread *Threads_CloneTCB(Uint Flags)
 {
-	tThread	*cur, *new;
-	cur = Proc_GetCurThread();
+	tThread *cur = Proc_GetCurThread();
 	
 	// Allocate and duplicate
-	new = malloc(sizeof(tThread));
+	tThread *new = malloc(sizeof(tThread));
 	if(new == NULL) { errno = -ENOMEM; return NULL; }
 	memcpy(new, cur, sizeof(tThread));
 	
@@ -760,6 +760,7 @@ void Threads_Yield(void)
 void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 {
 	tThread	*us = Proc_GetCurThread();
+	LOG("us = %p(%i %s), status=%i", us, us->TID, us->ThreadName, Status);
 	ASSERT(Status != THREAD_STAT_ACTIVE);
 	ASSERT(Status != THREAD_STAT_DEAD);
 	while( us->Status == Status )
@@ -1472,6 +1473,7 @@ tThread *Threads_int_GetRunnable(void)
 	// Single-list round-robin
 	// -----------------------------------
 	tThread *thread = gActiveThreads.Head;
+	LOG("thread = %p", thread);
 	if( thread )
 	{
 		gActiveThreads.Head = thread->Next;
@@ -1493,23 +1495,20 @@ tThread *Threads_int_GetRunnable(void)
  */
 tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 {
-	// If this CPU has the lock, we must let it complete
-	if( CPU_HAS_LOCK( &glThreadListLock ) )
-		return Last;
+	ASSERT( CPU_HAS_LOCK(&glThreadListLock) );
 	
 	// Don't change threads if the current CPU has switches disabled
-	if( gaThreads_NoTaskSwitch[CPU] )
+	if( gaThreads_NoTaskSwitch[CPU] ) {
+		LOG("- Denied");
 		return Last;
-
-	// Lock thread list
-	SHORTLOCK( &glThreadListLock );
+	}
 	
 	// Make sure the current (well, old) thread is marked as de-scheduled	
 	if(Last)	Last->CurCPU = -1;
 
 	// No active threads, just take a nap
 	if(giNumActiveThreads == 0) {
-		SHORTREL( &glThreadListLock );
+		LOG("- No active");
 		#if DEBUG_TRACE_TICKETS
 		Log("No active threads");
 		#endif
@@ -1552,7 +1551,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 
 	// Call actual scheduler	
 	tThread	*thread = Threads_int_GetRunnable();
-		
+	
 	// Anything to do?
 	if( thread )
 	{
@@ -1577,8 +1576,6 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		// No thread possible, warning condition (idle thread should be runnable)
 		Warning("No runnable thread for CPU%i", CPU);
 	}
-	
-	SHORTREL( &glThreadListLock );
 	
 	return thread;
 }

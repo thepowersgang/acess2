@@ -6,7 +6,7 @@ CPPFLAGS +=
 CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libpthread.so
 
-OBJ = main.o
+OBJ = main.o thread.o
 BIN = libpthread.so
 
 include ../Makefile.tpl

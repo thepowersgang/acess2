@@ -71,7 +71,7 @@ bool type_info::is_subclass() const
 }
 
 // Acess-defined
-bool type_info::__is_child(const type_info &poss_child, unsigned long &offset) const
+bool type_info::__is_child(const type_info &poss_child, size_t &offset) const
 {
 	_SysDebug("typeids = this:%s , poss_child:%s", typeid(*this).name(), typeid(poss_child).name());
 

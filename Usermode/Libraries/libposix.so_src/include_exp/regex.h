@@ -30,6 +30,11 @@ enum {
 	REG_BADRPT,
 };
 
+#define REG_EXTENDED	0x1
+#define REG_ICASE	0x2
+#define REG_NOSUB	0x4
+#define REG_NEWLINE	0x8
+
 
 #endif
 

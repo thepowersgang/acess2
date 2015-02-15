@@ -1267,6 +1267,8 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 	
 	TCP_SendPacket( Connection, packet, Length, Data );
 	
+	// TODO: Start a retransmit time (if data is not ACKed in x seconds, send again)
+	
 	Connection->NextSequenceSend += Length;
 }
 

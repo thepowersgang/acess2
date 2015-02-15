@@ -112,6 +112,8 @@ extern int	rand_p(unsigned int *seedp);
 # define SEEK_END	(-1)
 #endif
 
+#define MB_CUR_MAX	5	// (C99) Max number of bytes in a single multibyte character (UTF8=5)
+
 #ifdef __cplusplus
 }
 #endif

@@ -8,6 +8,8 @@
 #ifndef _LIBCXX__TYPEINFO_
 #define _LIBCXX__TYPEINFO_
 
+#include <cstddef>
+
 namespace std {
 
 // Type information class
@@ -21,7 +23,7 @@ public:
 	const char* name() const;
 	
 	// acess
-	bool __is_child(const type_info &, unsigned long&) const;
+	bool __is_child(const type_info &, size_t&) const;
 private:
 	type_info (const type_info& rhs);
 	type_info& operator= (const type_info& rhs);

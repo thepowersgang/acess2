@@ -795,13 +795,12 @@ EXPORT char *fgets(char *s, int size, FILE *fp)
  */
 EXPORT int fputc(int c, FILE *fp)
 {
-	char	ch = c;
+	unsigned char	ch = c;
 	return fwrite(&ch, 1, 1, fp);
 }
 
 EXPORT int putchar(int c)
 {
-	c &= 0xFF;
 	return fputc(c, stdout);
 }
 
@@ -811,7 +810,7 @@ EXPORT int putchar(int c)
  */
 EXPORT int fgetc(FILE *fp)
 {
-	char	ret = 0;
+	unsigned char	ret = 0;
 	if( fread(&ret, 1, 1, fp) != 1 )
 		return -1;
 	return ret;
@@ -825,7 +824,6 @@ EXPORT int getchar(void)
 
 EXPORT int puts(const char *str)
 {
-	
 	if(!str)	return 0;
 	 int	len = strlen(str);
 	

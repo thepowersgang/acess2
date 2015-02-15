@@ -1,5 +1,6 @@
 ; AcessOS Microkernel Version
 ; Start.asm
+%include "arch/x86/common.inc.asm"
 
 [bits 32]
 
@@ -10,19 +11,6 @@ KERNEL_BASE	equ 0xC0000000
 KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
 
 [section .text]
-
-[global NewTaskHeader]
-NewTaskHeader:
-	mov eax, [esp]
-	mov dr0, eax
-
-	mov eax, [esp+4]
-	add esp, 12	; Thread, Function, Arg Count
-	call eax
-	
-	push eax	; Ret val
-	push 0  	; 0 = This Thread
-	call Threads_Exit
 
 [extern MM_Clone]
 [global Proc_CloneInt]
@@ -53,7 +41,7 @@ Proc_CloneInt:
 ; +16 = Old RIP save loc
 ; +20 = CR3
 SwitchTasks:
-	pusha
+	PUSH_CC
 	
 	; Old IP
 	mov eax, [esp+0x20+16]
@@ -78,7 +66,7 @@ SwitchTasks:
 	jmp ecx
 
 .restore:
-	popa
+	POP_CC
 	xor eax, eax
 	ret
 
@@ -122,17 +110,8 @@ Proc_RestoreSSE:
 [extern Isr240.jmp]
 [global SetAPICTimerCount]
 SetAPICTimerCount:
-	pusha
-	push ds
-	push es
-	push fs
-	push gs
-	
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+	PUSH_CC
+	PUSH_SEG
 	
 	mov eax, [gpMP_LocalAPIC]
 	mov ecx, [eax+0x320]
@@ -152,7 +131,7 @@ SetAPICTimerCount:
 	mov DWORD [eax+0x380], 0
 
 	; Update Timer IRQ to the IRQ code
-	mov eax, SchedulerBase
+	mov eax, Proc_EventTimer_PIT
 	sub eax, Isr240.jmp+5
 	mov DWORD [Isr240.jmp+1], eax
 
@@ -160,72 +139,55 @@ SetAPICTimerCount:
 .ret:
 	mov dx, 0x20
 	mov al, 0x20
-	out dx, al		; ACK IRQ
-	pop gs
-	pop fs
-	pop es
-	pop ds
-	popa
+	out 0x20, al		; ACK IRQ
+	POP_SEG
+	POP_CC
 	add esp, 8	; CPU ID / Error Code
 	iret
 %endif
-; --------------
-; Task Scheduler
-; --------------
-[extern Proc_Scheduler]
-[global SchedulerBase]
-SchedulerBase:
-	pusha
-	push ds
-	push es
-	push fs
-	push gs
+
+%if USE_MP
+[global Proc_EventTimer_LAPIC]
+Proc_EventTimer_LAPIC:
+	push eax
+	mov eax, SS:[gpMP_LocalAPIC]
+	mov DWORD SS:[eax + 0xB0], 0
+	pop eax
+	jmp Proc_EventTimer_Common
+%endif
+[global Proc_EventTimer_PIT]
+Proc_EventTimer_PIT:
+	push eax
+	mov al, 0x20
+	out 0x20, al		; ACK IRQ
+	pop eax
+	jmp Proc_EventTimer_Common
+[extern Proc_HandleEventTimer]
+[global Proc_EventTimer_Common]
+Proc_EventTimer_Common:
+	PUSH_CC
+	PUSH_SEG
 	
+	; Clear the Trace/Trap flag
 	pushf
 	and BYTE [esp+1], 0xFE	; Clear Trap Flag
 	popf
-	
-	mov eax, dr0
-	push eax	; Debug Register 0, Current Thread
-	
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+	; Re-enable interrupts
+	; - TODO: This is quite likely racy, if we get an interrupt flood
+	sti
 	
 	%if USE_MP
 	call GetCPUNum
-	mov ebx, eax
 	push eax	; Push as argument
 	%else
 	push 0
 	%endif
 	
-	call Proc_Scheduler
+	call Proc_HandleEventTimer
 [global scheduler_return]
 scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
-	
 	add esp, 4	; Remove CPU Number (thread is poped later)
 
-	%if USE_MP
-	test ebx, ebx
-	jnz .sendEOI
-	%endif
-	
-	mov al, 0x20
-	out 0x20, al		; ACK IRQ
-
-	%if USE_MP
-	jmp .ret
-.sendEOI:
-	mov eax, DWORD [gpMP_LocalAPIC]
-	mov DWORD [eax+0x0B0], 0
-	%endif
-.ret:
-	pop eax	; Debug Register 0, Current Thread
-	mov dr0, eax
-	
 	jmp ReturnFromInterrupt
 
 ;
