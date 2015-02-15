@@ -1,7 +1,14 @@
 /*
+ * Acess2 Networking Toolkit
+ * By John Hodge (thePowersGang)
+ * 
+ * dns.h
+ * - DNS Protocol Interface
  */
 #ifndef _DNS_H_
 #define _DNS_H_
+
+#include <stddef.h>
 
 enum eTypes
 {

@@ -7,7 +7,7 @@
  */
 #include <stddef.h>	// size_t / NULL
 #include <stdint.h>	// uint*_t
-#include <string.h>	// memcpy, strchrnul
+#include <string.h>	// memcpy, strchr
 #include <assert.h>
 #include <net.h>
 #include "include/dns.h"
