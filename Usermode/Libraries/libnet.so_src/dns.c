@@ -36,7 +36,7 @@ int DNS_Query(int ServerAType, const void *ServerAddr, const char *name, enum eT
 	assert( (6*2) + (namelen + 2*2) < 512 );
 	// - Header
 	pos += put16(packet + pos, 0xAC00);	// Identifier (arbitary)
-	pos += put16(packet + pos, (0 << 0) | (0 << 1) );	// Op : Query, Standard, no other flags
+	pos += put16(packet + pos, (0 << 0) | (0 << 1) | (1 << 8) );	// Op : Query, Standard, Recursion
 	pos += put16(packet + pos, 1);	// QDCount
 	pos += put16(packet + pos, 0);	// ANCount
 	pos += put16(packet + pos, 0);	// NSCount
