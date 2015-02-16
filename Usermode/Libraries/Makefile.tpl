@@ -55,6 +55,7 @@ HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -n
 _libs: $(HEADERS)
 
 ../../include/%: include_exp/%
+	@echo [LN] $@
 	@mkdir -p $(dir $@)
 	@ln -s $(shell pwd)/$< $@
 

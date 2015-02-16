@@ -35,7 +35,7 @@ $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES)) $(GCC_DIR
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
 	@$(ENVVARS) make -C $(BDIR_GCC) $(GCC_TARGETS:%=all-%) -j $(PARLEVEL)
-	@$(ENVVARS) make -C $(BDIR_GCC)libstdc++-v3/ all-target-libsupc++ -j $(PARLEVEL)
+	#@$(ENVVARS) make -C $(BDIR_GCC)/libstdc++-v3/ all-target-libsupc++ -j $(PARLEVEL)
 	@$(ENVVARS) make -C $(BDIR_GCC) $(GCC_TARGETS:%=install-%)
 
 

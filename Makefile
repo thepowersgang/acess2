@@ -10,7 +10,7 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-USRLIBS := crt0.o ld-acess.so libc.so libposix.so libc++.so
+USRLIBS := crt0.o ld-acess.so libc.so libposix.so libc++.so libpthread.so
 USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so libunicode.so libm.so
 USRLIBS += libaxwin4.so
@@ -136,5 +136,6 @@ $(CC):
 	@echo ---
 	@echo $(CC) does not exist, recompiling
 	@echo ---
+	for dir in $(USRLIBS:%=Usermode/Libraries/%_src); do $(SUBMAKE) -C $$dir _libs; done
 	make -C Externals/cross-compiler/ -f Makefile.cross
 endif
