@@ -60,17 +60,15 @@ _libs: $(HEADERS)
 
 .PHONY: utest utest-build utest-run $(UTESTS:%=runtest-%)
 
-utest: utest-build generate_exp utest-run
-
-generate_exp: $(UTESTS:%=EXP_%.txt)
+utest: utest-build utest-run
 
 utest-build: $(UTESTS:%=TEST_%)
 
 utest-run: $(UTESTS:%=runtest-%)
 
-$(UTESTS:%=runtest-%): runtest-%: TEST_% EXP_%.txt
+$(UTESTS:%=runtest-%): runtest-%: TEST_%
 	@echo --- [TEST] $*
-	@./TEST_$* | diff EXP_$*.txt -
+	@./TEST_$*
 
 clean:
 	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES) $(EXTRACLEAN)

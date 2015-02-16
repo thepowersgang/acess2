@@ -8,7 +8,9 @@
 #include <net.h>
 #include "include/dns.h"
 #include <string.h>
+#include <stdlib.h>	// malloc (for loading config)
 #include <stdbool.h>
+#include <acess/sys.h>	// _SysDebug
 
 // === TYPES ===
 struct sDNSServer
@@ -74,9 +76,16 @@ int int_lookupany_callback(void *info_v, int AddrType, const void *Addr)
 
 int Net_Lookup_Addrs(const char *Name, void *cb_info, tNet_LookupAddrs_Callback *callback)
 {
+	_SysDebug("Net_Lookup_Addrs(Name='%s')", Name);
 	// 1. Load (if not loaded) the DNS config from "/Acess/Conf/dns"
 	// - "* <ip> <ip>" for DNS server(s)
 	// - "127.0.0.1 localhost localhost.localdomain"
+	if( !gaDNSServers )
+	{
+		giNumDNSServers = 1;
+		gaDNSServers = malloc( 1 * sizeof(gaDNSServers[0]) );
+		gaDNSServers[0].AddrType = Net_ParseAddress("192.168.1.1", gaDNSServers[0].AddrData);
+	}
 	
 	// 2. Check the hosts list
 	for( int i = 0; i < giNumHostEntries; i ++ )
@@ -121,6 +130,7 @@ int Net_Lookup_Addrs(const char *Name, void *cb_info, tNet_LookupAddrs_Callback 
 void int_DNS_callback(void *info_v, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata)
 {
 	struct sDNSCallbackInfo	*info = info_v;
+	_SysDebug("int_DNS_callback(name='%s', type=%i, class=%i)", name, type, class);
 	
 	// Check type matches (if pattern was provided)
 	if( info->desired_type != QTYPE_STAR && type != info->desired_type )

@@ -10,4 +10,6 @@ OBJ = main.o address.o socket.o
 OBJ += hostnames.o dns.o
 BIN = libnet.so
 
+UTESTS = dns
+
 include ../Makefile.tpl

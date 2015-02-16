@@ -153,7 +153,7 @@ $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) $(MODS) arch/$(ARCHDIR)
 	@echo "const char gsGitHash[] = \"$(_GITHASH)\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
 	@echo "const char gsBuildInfo[] = \"Acess2 v$(KERNEL_VERSION) $(ARCH)-$(PLATFORM)\\\\r\\\\n\"" >> $@
-	@echo "                           \"Build $(shell hostname --fqdn):$(BUILD_NUM) Git $(_GITHASH) - $(_GITCHANGED) modified\";" >> $@
+	@echo "                           \"Build $(shell hostname --fqdn):$(BUILD_NUM) $(shell date +%FT%T%z) Git $(_GITHASH) - $(_GITCHANGED) modified\";" >> $@
 # Compile rule for buildinfo (needs a special one because it's not a general source file)
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 	@echo --- CC -o $@

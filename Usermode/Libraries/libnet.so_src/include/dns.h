@@ -26,8 +26,8 @@ enum eTypes
 
 enum eClass
 {
-	CLASS_IN,
-	CLASS_CH,	// "Chaos"
+	CLASS_IN = 1,
+	CLASS_CH = 3,	// "Chaos"
 	QCLASS_STAR = 255,
 };
 

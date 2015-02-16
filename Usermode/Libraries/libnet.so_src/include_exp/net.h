@@ -6,6 +6,8 @@
 #ifndef __LIBNET_H_
 #define __LIBNET_H_
 
+#include <stddef.h>
+
 enum {
 	NET_ADDRTYPE_NULL = 0,
 	NET_ADDRTYPE_IPV4 = 4,
@@ -58,6 +60,8 @@ extern int	Net_OpenSocket(int AddrType, const void *Addr, const char *SocketName
 extern int	Net_OpenSocket_TCPC(int AddrType, const void *Addr, int Port);
 
 extern int	Net_OpenSocket_UDP(int AddrType, const void *Addr, int RAddr, int LAddr);
+extern int Net_UDP_SendTo  (int FD, int Port, int AddrType, const void *Addr, size_t Length, const void *Data);
+extern int Net_UDP_RecvFrom(int FD, int* Port, int* AddrType, void *Addr, size_t Length, void *Data);
 
 
 /**
