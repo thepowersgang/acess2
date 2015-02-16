@@ -70,11 +70,13 @@ inline void _dumpreg(int i)
 	Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x (%s)", i, gpTegra2Vid_IOMem[i],
 		(csaTegra2Vid_RegisterNames[i] ? csaTegra2Vid_RegisterNames[i] : "-"));
 }
+#define DUMPREGS(s,e)	do{for(int ii=(s);ii<=(e);ii++) _dumpreg(ii);}while(0)
 
 void Tegra2Vid_int_DumpRegisters(void)
 {
 	Log_Debug("Tegra2Vid", "Display CMD Registers");
-	for( int i = 0x000; i <= 0x01A; i ++ )	_dumpreg(i);
+	DUMPREGS(0x000, 0x01A);	// 00 -- 1A :: CMD (block 1)
+	DUMPREGS(0x028, 0x043);	// 28 -- 43 :: CMD (block 2)
 	for( int i = 0x028; i <= 0x043; i ++ )	_dumpreg(i);
 	Log_Debug("Tegra2Vid", "Display COM Registers");
 	for( int i = 0x300; i <= 0x329; i ++ )	_dumpreg(i);
@@ -112,6 +114,7 @@ int Tegra2Vid_Install(char **Arguments)
 #endif
 
 #if 0
+	// Map the original framebuffer into memory and write to it (tests the original state)
 	giTegra2Vid_FramebufferSize =
 		(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]&0xFFFF)
 		*(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]>>16)*4;
@@ -359,6 +362,7 @@ int Tegra2Vid_int_SetMode(int Mode)
 		if( gpTegra2Vid_Framebuffer )
 		{
 			// TODO: Free framebuffer for reallocation
+			Log_Error("Tegra2Vid", "TODO: Free existing framebuffer");
 		}
 
 		giTegra2Vid_FramebufferSize = w*h*4;		
