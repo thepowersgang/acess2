@@ -15,7 +15,7 @@
 // === PROTOTYPES ===
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
-void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer);
+void	UDP_IPError(tInterface *Interface, tIPErrorMode Code, const void *Address, int Length, const void *Buffer);
 void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
@@ -56,8 +56,7 @@ tSocketFile	gUDP_SocketFile = {NULL, "udp", UDP_Channel_Init};
 void UDP_Initialise()
 {
 	IPStack_AddFile(&gUDP_SocketFile);
-	//IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket, UDP_Unreachable);
-	IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket);
+	IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket, UDP_IPError);
 }
 
 /**
@@ -146,7 +145,7 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 /**
  * \brief Handle an ICMP Unrechable Error
  */
-void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer)
+void UDP_IPError(tInterface *Interface, tIPErrorMode Code, const void *Address, int Length, const void *Buffer)
 {
 	
 }

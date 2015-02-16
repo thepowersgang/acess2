@@ -28,6 +28,7 @@ void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, tTCPHeader *Header, size_t DataLen, const void *Data);
 void	TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
+void	TCP_IPError(tInterface *Interface, tIPErrorMode Mode, const void *Address, int Length, const void *Buffer);
  int	TCP_INT_HandleServerPacket(tInterface *Interface, tTCPListener *Server, const void *Address, tTCPHeader *Header, size_t Length);
  int	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
@@ -94,7 +95,7 @@ void TCP_Initialise(void)
 	giTCP_NextOutPort += rand()%128;
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);
-	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
+	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket, TCP_IPError);
 	IPv6_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
 }
 
@@ -301,6 +302,29 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	if( !(hdr->Flags & TCP_FLAG_RST) )
 	{
 		TCP_int_SendRSTTo(Interface, Address, Length, hdr);
+	}
+}
+
+void TCP_IPError(tInterface *Interface, tIPErrorMode Mode, const void *Address, int Length, const void *Buffer)
+{
+	if( Length < sizeof(tTCPHeader) )	return ;
+	
+	const tTCPHeader	*hdr = Buffer;
+	
+	// TODO: Handle errors for server connections
+	
+	for( tTCPConnection *conn = gTCP_OutbountCons; conn; conn = conn->Next )
+	{
+		if(conn->Interface != Interface)
+			continue;
+		if(conn->RemotePort != ntohs(hdr->SourcePort))
+			continue;
+		if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) == 0 )
+			continue ;
+		
+		// Mark an error on the interface
+		VFS_MarkError(&conn->Node, 1);
+		return ;
 	}
 }
 

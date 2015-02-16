@@ -26,7 +26,7 @@ struct {
  */
 void ICMP_Initialise()
 {
-	IPv4_RegisterCallback(IP4PROT_ICMP, ICMP_GetPacket);
+	IPv4_RegisterCallback(IP4PROT_ICMP, ICMP_GetPacket, NULL);
 }
 
 /**
@@ -64,12 +64,15 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		{
 		case 3:	// Port Unreachable
 			Log_Debug("ICMPv4", "Destination Unreachable (Port Unreachable)");
+			IPv4_HandleError( Interface, IPERR_PORT_UNREACHABLE,
+				htons(Length)-sizeof(tICMPHeader), hdr->Data );
 			break;
 		default:
 			Log_Debug("ICMPv4", "Destination Unreachable (Code %i)", hdr->Code);
+			IPv4_HandleError( Interface, IPERR_MISC,
+				htons(Length)-sizeof(tICMPHeader), hdr->Data );
 			break;
 		}
-//		IPv4_Unreachable( Interface, hdr->Code, htons(hdr->Length)-sizeof(tICMPHeader), hdr->Data );
 		break;
 	
 	// -- 8: Echo Request

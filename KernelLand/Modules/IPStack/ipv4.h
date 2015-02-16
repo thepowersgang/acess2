@@ -47,9 +47,11 @@ struct sIPv4Header
 #define IPV4_ETHERNET_ID	0x0800
 
 // === FUNCTIONS ===
-extern int	IPv4_RegisterCallback(int ID, tIPCallback Callback);
+extern int	IPv4_RegisterCallback(int ID, tIPRxCallback *RxCallback, tIPErrorCallback *ErrCallback);
 extern Uint16	IPv4_Checksum(const void *Buf, size_t Length);
 extern Uint32	IPv4_Netmask(int FixedBits);
 extern int	IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPStackBuffer *Buffer);
+
+extern void	IPv4_HandleError(tInterface *Iface, tIPErrorMode Mode, size_t Length, const void *Buf);
 
 #endif
