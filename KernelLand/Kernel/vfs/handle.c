@@ -39,7 +39,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 		if(FD >= MAX_KERNEL_FILES)	return NULL;
 		h = &gaKernelHandles[ FD ];
 	} else {
-		if(FD >= *Threads_GetMaxFD())	return NULL;
+		if(FD >= *Threads_GetMaxFD(NULL))	return NULL;
 		h = &gaUserHandles[ FD ];
 	}
 	
@@ -59,7 +59,7 @@ int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
 		h = &gaKernelHandles[FD];
 	}
 	else {
-		if( FD >= *Threads_GetMaxFD())	return -1;
+		if( FD >= *Threads_GetMaxFD(NULL))	return -1;
 		h = &gaUserHandles[FD];
 	}
 	h->Node = Node;
@@ -72,7 +72,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	// Check for a user open
 	if(bIsUser)
 	{
-		 int	max_handles = *Threads_GetMaxFD();
+		 int	max_handles = *Threads_GetMaxFD(NULL);
 		// Allocate Buffer
 		if( MM_GetPhysAddr( gaUserHandles ) == 0 )
 		{
@@ -132,27 +132,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 
 void VFS_ReferenceUserHandles(void)
 {
-	 int	i;
-	 int	max_handles = *Threads_GetMaxFD();
-
-	// Check if this process has any handles
-	if( MM_GetPhysAddr( gaUserHandles ) == 0 )
-		return ;
-	
-	for( i = 0; i < max_handles; i ++ )
-	{
-		tVFS_Handle	*h;
-		h = &gaUserHandles[i];
-		if( !h->Node )
-			continue ;
-		_ReferenceNode(h->Node);
-		h->Mount->OpenHandleCount ++;
-	}
-}
-
-void VFS_CloseAllUserHandles(void)
-{
-	 int	max_handles = *Threads_GetMaxFD();
+	const int	max_handles = *Threads_GetMaxFD(NULL);
 
 	// Check if this process has any handles
 	if( MM_GetPhysAddr( gaUserHandles ) == 0 )
@@ -164,8 +144,39 @@ void VFS_CloseAllUserHandles(void)
 		h = &gaUserHandles[i];
 		if( !h->Node )
 			continue ;
-		_CloseNode(h->Node);
+		_ReferenceNode(h->Node);
+		h->Mount->OpenHandleCount ++;
 	}
+}
+
+void VFS_CloseAllUserHandles(struct sProcess *Process)
+{
+	const int	max_handles = *Threads_GetMaxFD(Process);
+	ENTER("pProcess", Process);
+
+	if( max_handles >= PAGE_SIZE / sizeof(tVFS_Handle) )
+		TODO("More than a page of handles");
+
+	tVFS_Handle	*handles = MM_MapTempFromProc(Process, gaUserHandles);
+	LOG("handles=%p", handles);
+	// Check if this process has any handles
+	if( !handles ) {
+		LEAVE('-');
+		return ;
+	}
+	
+	for( int i = 0; i < max_handles; i ++ )
+	{
+		tVFS_Handle	*h = &handles[i];
+		LOG("handles[%i].Node = %p", i, h->Node);
+		if( !h->Node )
+			continue ;
+		_CloseNode(h->Node);
+		h->Node = NULL;
+	}
+	
+	MM_FreeTemp(handles);
+	LEAVE('-');
 }
 
 /**
@@ -174,7 +185,7 @@ void VFS_CloseAllUserHandles(void)
 void *VFS_SaveHandles(int NumFDs, int *FDs)
 {
 	tVFS_Handle	*ret;
-	 int	max_handles = *Threads_GetMaxFD();
+	const int	max_handles = *Threads_GetMaxFD(NULL);
 	
 	// Check if this process has any handles
 	if( MM_GetPhysAddr( gaUserHandles ) == 0 )
@@ -235,11 +246,16 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 void VFS_RestoreHandles(int NumFDs, void *Handles)
 {
 	tVFS_Handle	*handles = Handles;
-	 int	max_handles = *Threads_GetMaxFD();
+	const int	max_handles = *Threads_GetMaxFD(NULL);
 
 	// NULL = nothing to do
 	if( !Handles )
-		return ;	
+		return ;
+	
+	if( NumFDs > max_handles ) {
+		Log_Notice("VFS", "RestoreHandles: Capping from %i FDs to %i", NumFDs, max_handles);
+		NumFDs = max_handles;
+	}
 
 	// Allocate user handle area (and dereference existing handles)
 	for( int i = 0; i < NumFDs; i ++ )

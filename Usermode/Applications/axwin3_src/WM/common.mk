@@ -18,7 +18,7 @@ OBJ += renderers/widget/textinput.o
 OBJ += renderers/widget/spacer.o
 OBJ += renderers/widget/subwin.o
 
-LDFLAGS += -limage_sif -luri -lunicode
+LIBS += -limage_sif -luri -lunicode
 
 PNGIMAGES := toolbar_new.png toolbar_save.png toolbar_open.png
 IMG2SIF = ../../../../Tools/img2sif

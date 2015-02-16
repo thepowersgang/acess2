@@ -4,9 +4,11 @@
 -include ../../Makefile.cfg
 
 ifeq ($(ARCH),x86)
- BFD := i586
+ BFD := i686
 else ifeq ($(ARCH),x86_64)
  BFD := x86_64
+else ifeq ($(ARCH),armv7)
+ BFD := arm
 else
  $(error No BFD translation for $(ARCH) in Externals/config.mk)
 endif

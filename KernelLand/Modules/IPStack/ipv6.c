@@ -14,12 +14,12 @@ extern Uint32	IPv4_Netmask(int FixedBits);
 
 // === PROTOTYPES ===
  int	IPv6_Initialise();
- int	IPv6_RegisterCallback(int ID, tIPCallback Callback);
+// int	IPv6_RegisterCallback(int ID, tIPCallback Callback);
 void	IPv6_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 tInterface	*IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast);
 
 // === GLOBALS ===
-tIPCallback	gaIPv6_Callbacks[256];
+tIPRxCallback*	gaIPv6_Callbacks[256];
 
 // === CODE ===
 /**
@@ -36,7 +36,7 @@ int IPv6_Initialise()
  * \param ID	8-bit packet type ID
  * \param Callback	Callback function
  */
-int IPv6_RegisterCallback(int ID, tIPCallback Callback)
+int IPv6_RegisterCallback(int ID, tIPRxCallback* Callback)
 {
 	if( ID < 0 || ID > 255 )	return 0;
 	if( gaIPv6_Callbacks[ID] )	return 0;

@@ -21,7 +21,8 @@ int RWLock_AcquireRead(tRWLock *Lock)
 	SHORTLOCK( &Lock->Protector );
 	
 	// Check if the lock is already held by a writer
-	if( Lock->Owner )
+	// - OR, there's a writer waiting to write
+	if( Lock->Owner || Lock->WriterWaiting )
 	{
 		LOG("Waiting");
 		Threads_int_Sleep(THREAD_STAT_RWLOCKSLEEP, Lock, 0,

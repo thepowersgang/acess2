@@ -14,6 +14,9 @@
 
 #define DEBUG_BUILD	0
 
+#define LOG_WARN(f,...)	_SysDebug("WARN: %s: "f, __func__ ,## __VA_ARGS__)
+#define LOG_NOTICE(f,...)	_SysDebug("NOTE: %s: "f, __func__ ,## __VA_ARGS__)
+
 // === CONSTANTS ===
 #define	_stdin	0
 #define	_stdout	1
@@ -27,9 +30,9 @@ struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
 struct sFILE	_iob[STDIO_MAX_STREAMS];	// IO Buffer
-struct sFILE	*stdin;	// Standard Input
-struct sFILE	*stdout;	// Standard Output
-struct sFILE	*stderr;	// Standard Error
+struct sFILE	*stdin = &_iob[0];	// Standard Input
+struct sFILE	*stdout = &_iob[1];	// Standard Output
+struct sFILE	*stderr = &_iob[2];	// Standard Error
 ///\note Initialised in SoMain
 static const int STDIN_BUFSIZ = 512;
 static const int STDOUT_BUFSIZ = 512;
@@ -38,19 +41,16 @@ static const int STDOUT_BUFSIZ = 512;
 void _stdio_init(void)
 {
 	// Init FileIO Pointers
-	stdin = &_iob[0];
 	stdin->FD = 0;
 	stdin->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_READ|FILE_FLAG_LINEBUFFERED|FILE_FLAG_OURBUFFER;
 	stdin->Buffer = malloc(STDIN_BUFSIZ);
 	stdin->BufferSpace = STDIN_BUFSIZ;
 
-	stdout = &_iob[1];
 	stdout->FD = 1;
 	stdout->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE|FILE_FLAG_LINEBUFFERED|FILE_FLAG_OURBUFFER;
 	stdout->Buffer = malloc(STDOUT_BUFSIZ);
 	stdout->BufferSpace = STDOUT_BUFSIZ;
 	
-	stderr = &_iob[2];
 	stderr->FD = 2;
 	stderr->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE;
 }
@@ -374,22 +374,23 @@ int _fflush_int(FILE *fp)
 	return ret;
 }
 
-EXPORT void fflush(FILE *fp)
+EXPORT int fflush(FILE *fp)
 {
 	if( !fp || fp->FD == FD_NOTOPEN )
-		return ;
+		return EBADF;
 	
 	// Nothing to do for memory files
 	if( fp->FD == FD_MEMFILE )
-		return ;
+		return 0;
 	// Memory streams, update pointers
 	if( fp->FD == FD_MEMSTREAM ) {
 		*fp->BufPtr = fp->Buffer;
 		*fp->LenPtr = fp->BufferPos;
-		return ;
+		return 0;
 	}
 	
 	_fflush_int(fp);
+	return 0;
 }
 
 EXPORT void clearerr(FILE *fp)
@@ -681,19 +682,28 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 {
 	size_t	ret;
 	
-	if(!fp || fp->FD == -1)
+	if(!fp || fp->FD == -1) {
+		LOG_WARN("bad fp %p", fp);
 		return -1;
+	}
 	if( size == 0 || num == 0 )
 		return 0;
 	
 	if( _GetFileMode(fp) != FILE_FLAG_MODE_READ ) {
 		errno = 0;
+		LOG_WARN("not open for read");
+		if( fp == stdin ) {
+			LOG_WARN("BUGCHECK FAIL: stdin was not open for read");
+			exit(129);
+		}
 		return -1;
 	}
 
 	// Don't read if EOF is set
-	if( fp->Flags & FILE_FLAG_EOF )
+	if( fp->Flags & FILE_FLAG_EOF ) {
+		LOG_NOTICE("EOF");
 		return 0;
+	}
 
 	
 	if( fp->FD == FD_MEMFILE ) {
@@ -701,6 +711,7 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	}
 	else if( fp->FD == FD_MEMSTREAM ) {
 		//return _fread_memstream(ptr, size, num, fp);
+		LOG_WARN("Reading from a mem stream");
 		errno = EBADF;
 		return 0;
 	}
@@ -744,6 +755,8 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 				extra, size, num
 				);
 		}
+		LOG_NOTICE("Incomplete read %i/%i bytes (object size %i)",
+			ret, bytes, size);
 	}
 	
 	return ret / size;
@@ -782,13 +795,12 @@ EXPORT char *fgets(char *s, int size, FILE *fp)
  */
 EXPORT int fputc(int c, FILE *fp)
 {
-	char	ch = c;
+	unsigned char	ch = c;
 	return fwrite(&ch, 1, 1, fp);
 }
 
 EXPORT int putchar(int c)
 {
-	c &= 0xFF;
 	return fputc(c, stdout);
 }
 
@@ -798,7 +810,7 @@ EXPORT int putchar(int c)
  */
 EXPORT int fgetc(FILE *fp)
 {
-	char	ret = 0;
+	unsigned char	ret = 0;
 	if( fread(&ret, 1, 1, fp) != 1 )
 		return -1;
 	return ret;
@@ -812,7 +824,6 @@ EXPORT int getchar(void)
 
 EXPORT int puts(const char *str)
 {
-	
 	if(!str)	return 0;
 	 int	len = strlen(str);
 	

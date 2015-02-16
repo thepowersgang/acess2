@@ -1,0 +1,43 @@
+properties_version 0x101
+supplier 1
+contact 2
+name 3
+shortname bochsga
+release 5 1.0
+
+requires udi 0x101
+requires udi_physio 0x101
+requires udi_bridge 0x101
+requires udi_gfx 0x101
+
+meta 1 udi_bridge
+meta 2 udi_gfx
+#meta 3 udi_gio
+
+parent_bind_ops 1 0 1 1	# bridge, rgn 0, ops 1, cb 1
+child_bind_ops 2 0 2	# Provider
+#parent_bind_ops 3 0 2 3	# GIO bound to 3D provider
+
+#enumerates 102 1 1 3  gio_type string software3d
+
+# - Classic non-PCI version
+device 100 1  bus string system  sysbus_io_addr_lo ubit32 0x01CE  sysbus_io_size ubit32 2  sysbys_mem_addr_lo ubit32 0xE0000000 sysbus_mem_size 0x400000
+# - PCI Version (Non-indexed registers at offset 0x500 in BAR2 MMIO)
+device 101 1  bus string pci  pci_vendor_id ubit32 0x1234  pci_device_id ubit32 0x1111  pci_base_class ubit32 0x03  pci_sub_clais ubit32 0x00  pci_prog_if ubit32 0x00
+
+# Messages
+message 1	John Hodge (thePowersGang)
+message 2	udi@mutabah.net
+message 3	Bochs Graphics Adapter
+message	5	BochsGA
+message 100	BochsGA ISA Device
+message 101	BochsGA PCI Device
+
+message 1001	"Unknown property passed to %s: %i"
+
+module bochsga
+region 0
+
+# Source-only udiprops
+compile_options -Wall
+source_files bochsga_core.c

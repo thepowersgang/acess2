@@ -8,8 +8,14 @@
 #ifndef _NE2000_COMMON_H_
 #define _NE2000_COMMON_H_
 
+#define UDI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
+#define UDI_PCI_VERSION 0x101
+#define UDI_NIC_VERSION	0x101
+
 #include <udi.h>
 #include <udi_physio.h>
+#include <udi_pci.h>
 #include <udi_nic.h>
 
 #include "ne2000_hw.h"
@@ -77,10 +83,15 @@ typedef struct
 		(attr)->attr_type = UDI_ATTR_STRING; \
 		(attr)->attr_length = (len); \
 		udi_strncpy_rtrim((char *)(attr)->attr_value, (val), (len))
-#define NE2K_SET_ATTR_STRFMT(attr, name, maxlen, fmt, v...) \
+#define NE2K_SET_ATTR_STRFMT(attr, name, maxlen, fmt, ...) \
 		udi_strcpy((attr)->attr_name, (name)); \
 		(attr)->attr_type = UDI_ATTR_STRING; \
-		(attr)->attr_length = udi_snprintf((char *)(attr)->attr_value, (maxlen), (fmt) ,## v )
+		(attr)->attr_length = udi_snprintf((char *)(attr)->attr_value, (maxlen), (fmt) ,## __VA_ARGS__ )
+
+extern udi_usage_ind_op_t	ne2k_usage_ind;
+extern udi_enumerate_req_op_t	ne2k_enumerate_req;
+extern udi_devmgmt_req_op_t	ne2k_devmgmt_req;
+extern udi_final_cleanup_req_op_t	ne2k_final_cleanup_req;
 
 extern udi_channel_event_ind_op_t	ne2k_bus_dev_channel_event_ind;
 extern udi_bus_bind_ack_op_t	ne2k_bus_dev_bus_bind_ack;

@@ -6,9 +6,9 @@
 
 #include <udi.h>
 
-//#ifndef UDI_PHYSIO_VERSION
-//# error "UDI_PHYSIO_VERSION must be defined"
-//#endif
+#ifndef UDI_PHYSIO_VERSION
+# error "UDI_PHYSIO_VERSION must be defined"
+#endif
 
 #define UDI_DL_PIO_HANDLE_T	200
 #define UDI_DL_DMA_CONSTRAINTS_T	201
@@ -127,7 +127,5 @@ struct udi_scgth_s
 #include <physio/meta_intr.h>
 #include <physio/meta_bus.h>
 #include "physio/pio.h"
-
-#include "physio/pci.h"
 
 #endif

@@ -15,7 +15,7 @@ KERNEL_SRC = ../../KernelLand/Kernel/
 LDACESS_SRC = ../../Usermode/Libraries/ld-acess.so_src/
 
 # - Kernel objects (from KernelLand/Kernel)
-KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o
+KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o memfs_helpers.o
 KERNEL_OBJ += mutex.o semaphore.o rwlock.o workqueue.o events.o
 #KERNEL_OBJ += libc.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
@@ -30,6 +30,7 @@ N_OBJ := main.o net_wrap.o
 # - Local objects (use the kernel includes)
 OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
+#OBJ += shm.o
 OBJ += net.o syscall_getpath.o
 
 BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
@@ -46,6 +47,7 @@ KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/ -I$(LDACESS_SRC)include_exp/ -D
 CFLAGS += -Wall -g -std=gnu99
 CPPFLAGS += $(shell sdl-config --cflags) -I /usr/include/
 LDFLAGS += $(shell sdl-config --libs) -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
+LDFLAGS += -Wl,-Map,obj-$(PLATFORM)/Map.txt
 
 ifeq ($(PLATFORM),win)
 	BIN := ../AcessKernel.exe

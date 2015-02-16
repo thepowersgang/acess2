@@ -12,7 +12,12 @@ NOBDIR = yes
 
 include ../core.mk
 
-_build:
-	cd $(BDIR) && CC=$(HOST)-gcc TARGET=sdl make
+.PHONY: _check_local_deps
+
+_build: _check_local_deps
+	cd $(BDIR) && CC=$(HOST)-gcc TARGET=framebuffer make
+
+_check_local_deps:
+	@gperf --help >/dev/null || (echo "ERROR: netsurf's build system requires gperf"; false)
 
 

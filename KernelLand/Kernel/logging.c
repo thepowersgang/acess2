@@ -158,18 +158,18 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 	if( CPU_HAS_LOCK(&glLogOutput) )
 		return ;	// TODO: Error?
 	SHORTLOCK( &glLogOutput );
-	LogF("%s%014lli",
+	bool completed = LogF(
+		"%s%014lli%s [%-8s] %i - %.*s\x1B[0m\r\n",
 		csaLevelColours[Entry->Level],
-		Entry->Time
-		);
-	LogF("%s [%-8s] %i - %.*s",
+		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,
 		Threads_GetTID(),
 		Entry->Length,
 		Entry->Data
 		);
-	LogF("\x1B[0m\r\n");	// Separate in case Entry->Data is too long
+	if( !completed )
+		LogF("\x1B[0m\r\n");	// Separate in case Entry->Data is too long
 	SHORTREL( &glLogOutput );
 }
 

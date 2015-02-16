@@ -1,0 +1,55 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * vector (header)
+ * - C++'s vector (dynamic array) type
+ */
+#ifndef _LIBCXX__INITIALIZER_LIST_
+#define _LIBCXX__INITIALIZER_LIST_
+
+namespace std {
+
+template <class T>
+class initializer_list
+{
+public:
+	typedef T	value_type;
+	typedef const T&	reference;
+	typedef const T&	const_reference;
+	typedef size_t	size_type;
+	typedef const T*	iterator;
+	typedef const T*	const_iterator;
+private:
+	// ORDER MATTERS : The first item must be a pointer to the array, the second must be the size
+	value_type*	m_values;
+	size_type	m_len;
+public:	
+	constexpr initializer_list() noexcept:
+		m_len(0)
+	{
+	}
+
+	size_type size() const noexcept
+	{
+		return m_len;
+	}
+	
+	const T* begin() const noexcept
+	{
+		return &m_values[0];
+	}
+	const T* end() const noexcept
+	{
+		return &m_values[m_len];
+	}
+};
+
+};
+
+template <class T> const T* begin(const ::std::initializer_list<T>& il) { return il.begin(); }
+template <class T> const T* end  (const ::std::initializer_list<T>& il) { return il.end(); }
+
+#endif
+// vim: ft=cpp
+

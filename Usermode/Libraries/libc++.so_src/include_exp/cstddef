@@ -1,0 +1,15 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * cstddef (header)
+ * - C++ wrapper around stddef.h
+ */
+#ifndef _LIBCXX_CSTDDEF_
+#define _LIBCXX_CSTDDEF_
+
+extern "C" {
+#include <stddef.h>
+};
+
+#endif

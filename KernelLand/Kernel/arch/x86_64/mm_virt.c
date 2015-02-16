@@ -53,6 +53,17 @@
 #define INVLPG_ALL()	__asm__ __volatile__ ("mov %cr3,%rax;\n\tmov %rax,%cr3;")
 #define INVLPG_GLOBAL()	__asm__ __volatile__ ("mov %cr4,%rax;\n\txorl $0x80, %eax;\n\tmov %rax,%cr4;\n\txorl $0x80, %eax;\n\tmov %rax,%cr4")
 
+// TODO: INVLPG_ALL is expensive
+#define GET_TEMP_MAPPING(cr3) do { \
+	__ASM__("cli"); \
+	__AtomicTestSetLoop( (Uint *)&TMPCR3(), (cr3) | 3 ); \
+	INVLPG_ALL(); \
+} while(0)
+#define REL_TEMP_MAPPING() do { \
+	TMPCR3() = 0; \
+	__ASM__("sti"); \
+} while(0)
+
 // === CONSTS ===
 //tPAddr	* const gaPageTable = MM_FRACTAL_BASE;
 
@@ -70,6 +81,7 @@ void	MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 void	MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
+tPAddr	MM_GetPageFromAS(tProcess *Process, volatile const void *Addr);
  int	MM_MapEx(volatile void *VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
@@ -78,7 +90,6 @@ void	MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts);
  int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
-tMutex	glMM_TempFractalLock;
 tShortSpinlock	glMM_ZeroPage;
 tPAddr	gMM_ZeroPage;
 
@@ -260,7 +271,7 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	// Print Stack Backtrace
 	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
-	MM_DumpTables(0, -1);
+	//MM_DumpTables(0, -1);
 
 	return 1;	
 }
@@ -301,8 +312,6 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
 	tPAddr	expected = CHANGEABLE_BITS;	// CHANGEABLE_BITS is used because it's not a vaild value
-	tVAddr	curPos;
-	Uint	page;
 	tPAddr	expected_pml4 = PF_WRITE|PF_USER;	
 	tPAddr	expected_pdp = PF_WRITE|PF_USER;	
 	tPAddr	expected_pd = PF_WRITE|PF_USER;	
@@ -311,11 +320,12 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	End &= (1L << 48) - 1;
 	
-	Start >>= 12;	End >>= 12;
+	Start >>= 12;
+	End >>= 12;
 	
-	for(page = Start, curPos = Start<<12;
-		page < End;
-		curPos += 0x1000, page++)
+	// `page` will not overflow, End is 48-12 bits
+	tVAddr	curPos = Start << 12;
+	for(Uint page = Start; page <= End; curPos += 0x1000, page++)
 	{
 		//Debug("&PAGEMAPLVL4(%i page>>27) = %p", page>>27, &PAGEMAPLVL4(page>>27));
 		//Debug("&PAGEDIRPTR(%i page>>18) = %p", page>>18, &PAGEDIRPTR(page>>18));
@@ -486,7 +496,7 @@ int MM_MapEx(volatile void *VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 	
 	*ent = PAddr | 3;
 
-	if( (tVAddr)VAddr < USER_MAX )
+	if( (tVAddr)VAddr <= USER_MAX )
 		*ent |= PF_USER;
 	INVLPG( VAddr );
 
@@ -624,6 +634,27 @@ tPAddr MM_GetPhysAddr(volatile const void *Ptr)
 	if( !(*ptr & 1) )	return 0;
 	
 	return (*ptr & PADDR_MASK) | (Addr & 0xFFF);
+}
+
+/**
+ * \brief Get the address of a page from another addres space
+ * \return Refenced physical address (or 0 on error)
+ */
+tPAddr MM_GetPageFromAS(tProcess *Process, volatile const void *Addr)
+{
+	GET_TEMP_MAPPING(Process->MemState.CR3);
+	tPAddr	ret = 0;
+	tPAddr *ptr;
+	if(MM_GetPageEntryPtr((tVAddr)Addr, 1,0,0, &ptr) == 0)	// Temp, NoAlloc, NotLarge
+	{
+		if( *ptr & 1 )
+		{
+			ret = (*ptr & ~0xFFF) | ((tVAddr)Addr & 0xFFF);
+			MM_RefPhys( ret );
+		}
+	}
+	REL_TEMP_MAPPING();
+	return ret;
 }
 
 /**
@@ -862,15 +893,16 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	void	*ret;
 	
 	// Sanity Check
-	if(MaxBits < 12 || !PhysAddr)	return 0;
+	ASSERTCR(MaxBits, >=, 12, NULL);
 	
 	// Fast Allocate
 	if(Pages == 1 && MaxBits >= PHYS_BITS)
 	{
 		phys = MM_AllocPhys();
-		*PhysAddr = phys;
 		ret = MM_MapHWPages(phys, 1);
 		MM_DerefPhys(phys);
+		if(PhysAddr)
+			*PhysAddr = phys;
 		return ret;
 	}
 	
@@ -881,7 +913,8 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
-	*PhysAddr = phys;
+	if(PhysAddr)
+		*PhysAddr = phys;
 	// MapHWPages references the pages, so deref them back down to 1
 	for(;Pages--;phys+=0x1000)
 		MM_DerefPhys(phys);
@@ -898,9 +931,8 @@ void *MM_MapTemp(tPAddr PAddr)
 {
 	const int max_slots = (MM_TMPMAP_END - MM_TMPMAP_BASE) / PAGE_SIZE;
 	tVAddr	ret = MM_TMPMAP_BASE;
-	 int	i;
 	
-	for( i = 0; i < max_slots; i ++, ret += PAGE_SIZE )
+	for( int i = 0; i < max_slots; i ++, ret += PAGE_SIZE )
 	{
 		tPAddr	*ent;
 		if( MM_GetPageEntryPtr( ret, 0, 1, 0, &ent) < 0 ) {
@@ -916,6 +948,15 @@ void *MM_MapTemp(tPAddr PAddr)
 		return (void*)ret;
 	}
 	return 0;
+}
+
+void *MM_MapTempFromProc(tProcess *Process, const void *VAddr)
+{
+	// Get paddr
+	tPAddr	paddr = MM_GetPageFromAS(Process, VAddr);
+	if( paddr == 0 )
+		return NULL;
+	return MM_MapTemp(paddr);
 }
 
 void MM_FreeTemp(void *Ptr)
@@ -935,9 +976,7 @@ tPAddr MM_Clone(int bNoUserCopy)
 	if(!ret)	return 0;
 	
 	// #2 Alter the fractal pointer
-	Mutex_Acquire(&glMM_TempFractalLock);
-	TMPCR3() = ret | 3;
-	INVLPG_ALL();
+	GET_TEMP_MAPPING(ret);
 	
 	// #3 Set Copy-On-Write to all user pages
 	if( Threads_GetPID() != 0 && !bNoUserCopy )
@@ -1015,9 +1054,7 @@ tPAddr MM_Clone(int bNoUserCopy)
 //	MAGIC_BREAK();
 
 	// #7 Return
-	TMPCR3() = 0;
-	INVLPG_ALL();
-	Mutex_Release(&glMM_TempFractalLock);
+	REL_TEMP_MAPPING();
 //	Log("MM_Clone: RETURN %P", ret);
 	return ret;
 }
@@ -1061,9 +1098,7 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 	 int	i;
 	
 	// #1 Set temp fractal to PID0
-	Mutex_Acquire(&glMM_TempFractalLock);
-	TMPCR3() = ((tPAddr)gInitialPML4 - KERNEL_BASE) | 3;
-	INVLPG_ALL();
+	GET_TEMP_MAPPING( ((tPAddr)gInitialPML4 - KERNEL_BASE) );
 	
 	// #2 Scan for a free stack addresss < 2^47
 	for(ret = 0x100000; ret < (1ULL << 47); ret += KERNEL_STACK_SIZE)
@@ -1073,7 +1108,7 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 		if( !(*ptr & 1) )	break;
 	}
 	if( ret >= (1ULL << 47) ) {
-		Mutex_Release(&glMM_TempFractalLock);
+		REL_TEMP_MAPPING();
 		return 0;
 	}
 	
@@ -1105,8 +1140,7 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 		MM_FreeTemp(tmp_addr);
 	}
 
-	TMPCR3() = 0;
-	Mutex_Release(&glMM_TempFractalLock);
+	REL_TEMP_MAPPING();
 	
 	return ret + i*0x1000;
 }

@@ -13,6 +13,16 @@
 #include <stdlib.h>	// strtol
 #include <acess/sys.h>
 
+// === TYPES ===
+struct sLookupInfo {
+	struct addrinfo	**ret_p;
+};
+
+// === PROTOTYPES ===
+struct addrinfo *int_new_addrinfo(int af, const void *addrdata);
+int int_getaddinfo_lookupcb(void *info, int addr_type, const void *addr);
+
+// === GLOBALS ===
 static const struct {
 	const char *Name;
 	 int	SockType;
@@ -52,28 +62,20 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 	{
 		// 1. Check if the node is an IP address
 		{
-			 int	type;
 			char	addrdata[16];
-			type = Net_ParseAddress(node, addrdata);
+			int type = Net_ParseAddress(node, addrdata);
 			switch(type)
 			{
-			case 0:
+			case NET_ADDRTYPE_NULL:
 				break;
-			case 4:	// IPv4
-				ret = malloc(sizeof(struct addrinfo) + sizeof(struct sockaddr_in));
-				ret->ai_family = AF_INET;
-				ret->ai_socktype = 0;
-				ret->ai_protocol = 0;
-				ret->ai_addrlen = sizeof(struct in_addr);
-				ret->ai_addr = (void*)( ret + 1 );
-				ret->ai_canonname = 0;
-				ret->ai_next = 0;
-				((struct sockaddr_in*)ret->ai_addr)->sin_family = AF_INET;
-				((struct sockaddr_in*)ret->ai_addr)->sin_port = 0;
-				memcpy( &((struct sockaddr_in*)ret->ai_addr)->sin_addr, addrdata, 4 );
+			case NET_ADDRTYPE_IPV4:
+				ret = int_new_addrinfo(AF_INET, addrdata);
+				break;
+			case NET_ADDRTYPE_IPV6:
+				ret = int_new_addrinfo(AF_INET6, addrdata);
 				break;
 			default:
-				_SysDebug("getaddrinfo: Unknown address family %i", type);
+				_SysDebug("getaddrinfo: Unknown address type %i", type);
 				return 1;
 			}
 		}
@@ -82,15 +84,19 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		// - No luck with above, and hints->ai_flags doesn't have AI_NUMERICHOST set
 		if( !ret && !(hints->ai_flags & AI_NUMERICHOST) )
 		{
-			_SysDebug("getaddrinfo: TODO DNS Lookups");
-			// TODO: DNS Lookups
-			// ? /Acess/Conf/Nameservers
-			// ? /Acess/Conf/Hosts
-			//count = Net_LookupDNS(node, service, NULL);
-			//
+			// Just does a basic A record lookup
+			// TODO: Support SRV records
+			// TODO: Ensure that CNAMEs are handled correctly
+			struct sLookupInfo info = {
+				.ret_p = &ret,
+				};
+			if( Net_Lookup_Addrs(node, &info, int_getaddinfo_lookupcb) ) {
+				// Lookup failed, quick return
+				return EAI_NONAME;
+			}
 		}
 		
-		// 3. No Match, chuck sad
+		// 3. No Match, return sad
 		if( !ret )
 		{
 			return EAI_NONAME;
@@ -182,9 +188,81 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 	return 0;
 }
 
+/**
+ * \brief Allocate a new zeroed addrinfo for the specified address
+ */
+struct addrinfo *int_new_addrinfo(int af, const void *addrdata)
+{
+	size_t	addrlen = 0;
+	switch(af)
+	{
+	case AF_INET:
+		addrlen = sizeof(struct sockaddr_in);
+		break;
+	case AF_INET6:
+		addrlen = sizeof(struct sockaddr_in6);
+		break;
+	default:
+		_SysDebug("int_new_addrinfo: ERROR - Unknown AF %i", af);
+		return NULL;
+	}
+	struct addrinfo* ret = malloc(sizeof(struct addrinfo) + addrlen);
+	ret->ai_family = af;
+	ret->ai_socktype = 0;
+	ret->ai_protocol = 0;
+	ret->ai_addrlen = addrlen;
+	ret->ai_addr = (void*)( ret + 1 );
+	ret->ai_canonname = 0;
+	ret->ai_next = 0;
+	switch(af)
+	{
+	case AF_INET:
+		((struct sockaddr_in*)ret->ai_addr)->sin_family = AF_INET;
+		((struct sockaddr_in*)ret->ai_addr)->sin_port = 0;
+		memcpy( &((struct sockaddr_in*)ret->ai_addr)->sin_addr, addrdata, 4 );
+		break;
+	case AF_INET6:
+		((struct sockaddr_in6*)ret->ai_addr)->sin6_family = AF_INET6;
+		((struct sockaddr_in6*)ret->ai_addr)->sin6_port = 0;
+		memcpy( &((struct sockaddr_in6*)ret->ai_addr)->sin6_addr, addrdata, 16 );
+		break;
+	default:
+		_SysDebug("int_new_addrinfo: BUGCHECK - Unhandled AF %i", af);
+		return NULL;
+	}
+	return ret;
+}
+
+// Callback for getaddrinfo's call to Net_Lookup_Addrs
+int int_getaddinfo_lookupcb(void *info_v, int addr_type, const void *addr)
+{
+	struct sLookupInfo *info = info_v;
+	struct addrinfo	*ent;
+	switch( addr_type )
+	{
+	case NET_ADDRTYPE_IPV4:
+		ent = int_new_addrinfo(AF_INET, addr);
+		break;
+	case NET_ADDRTYPE_IPV6:
+		ent = int_new_addrinfo(AF_INET6, addr);
+		break;
+	default:
+		// Huh... unknown address type, just ignore it
+		return 0;
+	}
+	ent->ai_next = *info->ret_p;
+	*info->ret_p = ent;
+	return 0;
+}
+
 void freeaddrinfo(struct addrinfo *res)
 {
-	
+	while( res )
+	{
+		struct addrinfo *next = res->ai_next;
+		free(res);
+		res = next;
+	}
 }
 
 int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags)

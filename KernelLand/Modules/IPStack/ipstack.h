@@ -15,7 +15,16 @@ typedef struct sAdapter	tAdapter;
 typedef struct sInterface	tInterface;
 typedef struct sSocketFile	tSocketFile;
 
-typedef void	(*tIPCallback)(tInterface *Interface, void *Address, int Length, void *Buffer);
+typedef enum eIPErrorMode
+{
+	IPERR_MISC,
+	IPERR_HOST_UNREACHABLE,
+	IPERR_PORT_UNREACHABLE,
+} tIPErrorMode;
+
+// NOTE: Non-const to allow reuse of Rx buffer for prepping Tx
+typedef void	tIPRxCallback(tInterface *Interface, void *Address, int Length, void *Buffer);
+typedef void	tIPErrorCallback(tInterface *Interface, tIPErrorMode mode, const void *Address, int Length, const void *Buffer);
 
 enum eInterfaceTypes {
 	AF_NULL,

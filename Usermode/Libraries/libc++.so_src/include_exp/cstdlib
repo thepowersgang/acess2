@@ -1,0 +1,17 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * cstdlib (header)
+ * - C++ wrapper around stdlib.h
+ */
+#ifndef _LIBCXX_CSTDLIB_
+#define _LIBCXX_CSTDLIB_
+
+extern "C" {
+#include <stdlib.h>
+};
+
+#endif
+
+

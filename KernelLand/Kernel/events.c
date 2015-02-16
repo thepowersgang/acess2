@@ -7,8 +7,8 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include <threads_int.h>
 #include <events.h>
+#include <threads_int.h>
 
 // === CODE ===
 void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
@@ -87,7 +87,7 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 	{
 		Threads_int_Sleep(THREAD_STAT_EVENTSLEEP, NULL, EventMask,
 			&us, NULL, &us->IsLocked);
-		// Woken when lock is acquired
+		// Woken when an event fires
 		SHORTLOCK( &us->IsLocked );
 	}
 	

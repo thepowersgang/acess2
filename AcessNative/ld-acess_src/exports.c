@@ -53,7 +53,13 @@ int acess__SysOpen(const char *Path, unsigned int Flags)
 {
 	if( strncmp(Path, "$$$$", 4) == 0 )
 	{
-		return native_open(Path, Flags) | NATIVE_FILE_MASK;
+		return native_open(Path+4, Flags) | NATIVE_FILE_MASK;
+	}
+	if( strncmp(Path, "/Devices/shm/", 13) == 0 )
+	{
+		const char* tag = Path + 13;
+		Warning("TODO: Handle open SHM \"%s\"", tag);
+		return native_shm(tag, Flags) | NATIVE_FILE_MASK;
 	}
 	SYSTRACE("open(\"%s\", 0x%x)", Path, Flags);
 	return _Syscall(SYS_OPEN, ">s >i", Path, Flags);
@@ -94,6 +100,10 @@ size_t acess__SysWrite(int FD, const void *Src, size_t Bytes) {
 		return native_write(FD & (NATIVE_FILE_MASK-1), Src, Bytes);
 	SYSTRACE("_SysWrite(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
+}
+uint64_t acess__SysTruncate(int fd, uint64_t size) {
+	TODO();
+	return 0;
 }
 
 int acess__SysSeek(int FD, int64_t Ofs, int Dir)
@@ -155,6 +165,26 @@ int acess__SysUnlink(const char *pathname)
 	// TODO:
 	TODO();
 	return 0;
+}
+void* acess__SysMMap(void *addr, size_t length, unsigned int _flags, int fd, uint64_t offset)
+{
+	TODO();
+	return NULL;
+}
+int acess__SysMUnMap(void *addr, size_t length)
+{
+	TODO();
+	return 0;
+}
+uint64_t acess__SysMarshalFD(int FD)
+{
+	TODO();
+	return 0;
+}
+int acess__SysUnMarshalFD(uint64_t Handle)
+{
+	TODO();
+	return -1;
 }
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
@@ -224,10 +254,7 @@ int acess__SysLoadModule(const char *Path)
 // --- Timekeeping ---
 int64_t acess__SysTimestamp(void)
 {
-	// TODO: Better impl
-	TODO();
-//	return now()*1000;
-	return 0;
+	return native_timestamp();
 }
 
 // --- Memory Management ---
@@ -418,17 +445,67 @@ int acess__SysWaitEvent(int Mask)
 }
 
 // --- Logging
+static void int_dbgheader(void )
+{
+	printf("[_SysDebug %i] ", giSyscall_ClientID);
+}
 void acess__SysDebug(const char *Format, ...)
 {
 	va_list	args;
 	
 	va_start(args, Format);
-	
-	printf("[_SysDebug %i] ", giSyscall_ClientID);
+	int_dbgheader();	
 	vprintf(Format, args);
 	printf("\n");
 	
 	va_end(args);
+}
+
+void acess__SysDebugHex(const char *tag, const void *data, size_t size)
+{
+	int_dbgheader();	
+	printf("%s (Hexdump of %p+%zi)\r\n", tag, data, size);
+
+	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
+
+	const uint8_t	*cdat = data;
+	unsigned int	pos = 0;
+
+	while(size >= 16)
+	{
+		int_dbgheader();
+		printf("%04x:"
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
+			pos,
+			cdat[ 0], cdat[ 1], cdat[ 2], cdat[ 3], cdat[ 4], cdat[ 5], cdat[ 6], cdat[ 7],
+			cdat[ 8], cdat[ 9], cdat[10], cdat[11], cdat[12], cdat[13], cdat[14], cdat[15],
+			CH(0),	CH(1),	CH(2),	CH(3),	CH(4),	CH(5),	CH(6),	CH(7),
+			CH(8),	CH(9),	CH(10),	CH(11),	CH(12),	CH(13),	CH(14),	CH(15)
+			);
+		size -= 16;
+		cdat += 16;
+		pos += 16;
+	}
+
+	{
+		int_dbgheader();
+		printf("%04x: ", pos);
+		for(int i = 0; i < size; i ++)
+			printf("%02x ", cdat[i]);
+		for(int i = size; i < 16; i ++)
+			printf("   ");
+		printf(" ");
+		for(int i = 0; i < size; i ++)
+		{
+			if( i == 8 )
+				printf(" ");
+			printf("%c", CH(i));
+		}
+	
+		printf("\n");
+	}
 }
 
 void acess__exit(int Status)
@@ -489,6 +566,9 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysAllocate),
 	DEFSYM(_SysSetMemFlags),
 	DEFSYM(_SysDebug),
+	{"_ZN4_sys5debugEPKcz", &acess__SysDebug},
+	DEFSYM(_SysDebugHex),
+	{"_ZN4_sys7hexdumpEPKcPKvj", &acess__SysDebugHex},
 	DEFSYM(_SysSetFaultHandler),
 	DEFSYM(_SysWaitEvent),
 	

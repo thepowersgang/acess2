@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include "../ld-acess_src/exports.h"
 
+extern int	gbSyscallDebugEnabled;
+
 #ifdef __WINDOWS__
 int DllMain(void)
 {
@@ -40,10 +42,13 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 {
 	Request_Preinit();
 	
+	//gbSyscallDebugEnabled = 1;
+	
 	const char *preopens = getenv_p(envp, ENV_VAR_PREOPENS);
 	printf("preopens = %s\n", preopens);
 	if( preopens )
 	{
+		 int	exp_fd = 0;
 		while( *preopens )
 		{
 			const char *splitter = strchr(preopens, ':');
@@ -59,8 +64,16 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 			path[len] = 0;
 			int fd = acess__SysOpen(path, 6);	// WRITE,READ,no EXEC
 			if( fd == -1 ) {
-				fprintf(stderr, "Unable to preopen '%s'\n", path);
+				fprintf(stderr, "Unable to preopen '%s' errno=%i\n", path, acess__errno);
+				exit(1);
 			}
+			if( fd != exp_fd ) {
+				//  Oh... this is bad
+				fprintf(stderr, "Pre-opening '%s' resulted in an incorrect FD (expected %i, got %i)",
+					path, exp_fd, fd);
+				exit(1);
+			}
+			exp_fd += 1;
 			
 			if( !splitter )
 				break;
@@ -77,7 +90,7 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 int acessnative_spawn(const char *Binary, int SyscallID, const char * const * argv, const char * const * envp)
 {
 	 int	envc = 0;
-	while( envp[envc++] )
+	while( envp && envp[envc++] )
 		envc ++;
 
 	// Set environment variables for libacess-native
@@ -89,7 +102,7 @@ int acessnative_spawn(const char *Binary, int SyscallID, const char * const * ar
 	
 	const char *newenv[envc+2+1];
 	 int	i = 0;
-	for( ; envp[i]; i ++ )
+	for( ; envp && envp[i]; i ++ )
 	{
 		const char	*ev = envp[i];
 		if( strncmp(ev, ENV_VAR_KEY"=", sizeof(ENV_VAR_KEY"=")) == 0 ) {
@@ -100,7 +113,7 @@ int acessnative_spawn(const char *Binary, int SyscallID, const char * const * ar
 	}
 	if( !bKeyHit )
 		newenv[i++] = keystr;
-	newenv[i++] = "LD_LIBRARY_PATH=Libs/";	// HACK
+	newenv[i++] = getenv("LD_LIBRARY_PATH") - (sizeof("LD_LIBRARY_PATH=")-1);	// VERY hacky
 	newenv[i] = NULL;
 	
 	// TODO: Detect native_spawn failing
@@ -125,19 +138,5 @@ void Warning(const char *format, ...)
 	vfprintf(stdout, format, args);
 	va_end(args);
 	printf("\n");
-}
-
-void __libc_csu_fini()
-{
-}
-
-void __libc_csu_init()
-{
-}
-
-void __stack_chk_fail(void)
-{
-	fprintf(stderr, "__stack_chk_fail");
-	exit(1);
 }
 

@@ -5,8 +5,12 @@
  * uart16c550.c
  * - UDI initialisation 
  */
+#define UDI_VERSION	0x101
+#define UDI_PCI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
 #include <udi.h>
 #include <udi_physio.h>
+#include <udi_pci.h>
 #include "uart16c550_common.h"
 
 #include "uart16c550_pio.h"
@@ -100,7 +104,7 @@ void uart_bus_dev_bus_bind_ack(udi_bus_bind_cb_t *cb,
 void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 {
 	rdata_t	*rdata = gcb->context;
-	if( rdata->init.pio_index != -1 )
+	if( rdata->init.pio_index != (udi_index_t)-1 )
 	{
 		rdata->pio_handles[rdata->init.pio_index] = new_pio_handle;
 	}

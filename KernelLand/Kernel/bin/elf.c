@@ -15,8 +15,8 @@
 #if BITS <= 32
 # define DISABLE_ELF64
 #endif
-static int	GetSymbol(const char *Name, void **Value, size_t *Size);
-static int	GetSymbol(const char *Name, void **Value, size_t *Size) {
+static int	GetSymbol(const char *Name, void **Value, size_t *Size, void *IgnoreBase);
+static int	GetSymbol(const char *Name, void **Value, size_t *Size, void *IgnoreBase) {
 	Uint val;
 	if(!Binary_GetSymbol(Name, &val)) {
 		Log_Notice("ELF", "Lookup of '%s' failed", Name);
@@ -205,15 +205,14 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 {
 	tBinary	*ret;
 	Elf32_Phdr	*phtab;
-	 int	i, j;
-	 int	iLoadCount;
+	 int	j;
 
 	ENTER("xFD", FD);
 
 	// Check architecture with current CPU
 	// - TODO: Support kernel level emulation
 	#if ARCH_IS_x86
-	if( Header->machine != EM_386 )
+	if( Header->e_machine != EM_386 )
 	{
 		Log_Warning("ELF", "Unknown architecure on ELF-32");
 		LEAVE_RET('n');
@@ -222,7 +221,7 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 	#endif
 
 	// Check for a program header
-	if(Header->phoff == 0) {
+	if(Header->e_phoff == 0) {
 		#if DEBUG_WARN
 		Log_Warning("ELF", "File does not contain a program header (phoff == 0)");
 		#endif
@@ -231,25 +230,25 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 	}
 	
 	// Read Program Header Table
-	phtab = malloc( sizeof(Elf32_Phdr) * Header->phentcount );
+	phtab = malloc( sizeof(Elf32_Phdr) * Header->e_phnum );
 	if( !phtab ) {
 		LEAVE('n');
 		return NULL;
 	}
-	LOG("hdr.phoff = 0x%08x", Header->phoff);
-	VFS_Seek(FD, Header->phoff, SEEK_SET);
-	VFS_Read(FD, sizeof(Elf32_Phdr)*Header->phentcount, phtab);
+	LOG("hdr.phoff = 0x%08x", Header->e_phoff);
+	VFS_Seek(FD, Header->e_phoff, SEEK_SET);
+	VFS_Read(FD, sizeof(Elf32_Phdr)*Header->e_phnum, phtab);
 	
 	// Count Pages
-	iLoadCount = 0;
-	LOG("Header->phentcount = %i", Header->phentcount);
-	for( i = 0; i < Header->phentcount; i++ )
+	unsigned iLoadCount = 0;
+	LOG("Header->phentcount = %i", Header->e_phnum);
+	for( int i = 0; i < Header->e_phnum; i++ )
 	{
 		// Ignore Non-LOAD types
-		if(phtab[i].Type != PT_LOAD)
+		if(phtab[i].p_type != PT_LOAD)
 			continue;
 		iLoadCount ++;
-		LOG("phtab[%i] = {VAddr:0x%x, MemSize:0x%x}", i, phtab[i].VAddr, phtab[i].MemSize);
+		LOG("phtab[%i] = {VAddr:0x%x, MemSize:0x%x}", i, phtab[i].p_vaddr, phtab[i].p_memsz);
 	}
 	
 	LOG("iLoadCount = %i", iLoadCount);
@@ -257,56 +256,55 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 	// Allocate Information Structure
 	ret = malloc( sizeof(tBinary) + sizeof(tBinarySection)*iLoadCount );
 	// Fill Info Struct
-	ret->Entry = Header->entrypoint;
+	ret->Entry = Header->e_entry;
 	ret->Base = -1;		// Set Base to maximum value
 	ret->NumSections = iLoadCount;
 	ret->Interpreter = NULL;
 	
 	// Load Pages
 	j = 0;
-	for( i = 0; i < Header->phentcount; i++ )
+	for( int i = 0; i < Header->e_phnum; i++ )
 	{
 		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
 		LOG("phtab[%i] = {", i);
-		LOG(" .Type = 0x%08x", phtab[i].Type);
-		LOG(" .Offset = 0x%08x", phtab[i].Offset);
-		LOG(" .VAddr = 0x%08x", phtab[i].VAddr);
-		LOG(" .PAddr = 0x%08x", phtab[i].PAddr);
-		LOG(" .FileSize = 0x%08x", phtab[i].FileSize);
-		LOG(" .MemSize = 0x%08x", phtab[i].MemSize);
-		LOG(" .Flags = 0x%08x", phtab[i].Flags);
-		LOG(" .Align = 0x%08x", phtab[i].Align);
+		LOG(" .Type = 0x%08x",   phtab[i].p_type);
+		LOG(" .Offset = 0x%08x", phtab[i].p_offset);
+		LOG(" .VAddr = 0x%08x",  phtab[i].p_vaddr);
+		LOG(" .PAddr = 0x%08x",  phtab[i].p_paddr);
+		LOG(" .FileSize = 0x%08x", phtab[i].p_filesz);
+		LOG(" .MemSize = 0x%08x", phtab[i].p_memsz);
+		LOG(" .Flags = 0x%08x",  phtab[i].p_flags);
+		LOG(" .Align = 0x%08x",  phtab[i].p_align);
 		LOG(" }");
 		// Get Interpreter Name
-		if( phtab[i].Type == PT_INTERP )
+		if( phtab[i].p_type == PT_INTERP )
 		{
-			char *tmp;
 			if(ret->Interpreter)	continue;
-			tmp = malloc(phtab[i].FileSize);
-			VFS_Seek(FD, phtab[i].Offset, 1);
-			VFS_Read(FD, phtab[i].FileSize, tmp);
+			char* tmp = malloc(phtab[i].p_filesz);
+			VFS_Seek(FD, phtab[i].p_offset, 1);
+			VFS_Read(FD, phtab[i].p_filesz, tmp);
 			ret->Interpreter = Binary_RegInterp(tmp);
 			LOG("Interpreter '%s'", tmp);
 			free(tmp);
 			continue;
 		}
 		// Ignore non-LOAD types
-		if(phtab[i].Type != PT_LOAD)	continue;
+		if(phtab[i].p_type != PT_LOAD)	continue;
 		
 		// Find Base
-		if(phtab[i].VAddr < ret->Base)	ret->Base = phtab[i].VAddr;
+		if(phtab[i].p_vaddr < ret->Base)	ret->Base = phtab[i].p_vaddr;
 		
 		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}",
-			i, phtab[i].VAddr, phtab[i].Offset, phtab[i].FileSize);
+			i, phtab[i].p_vaddr, phtab[i].p_offset, phtab[i].p_filesz);
 		
-		ret->LoadSections[j].Offset = phtab[i].Offset;
-		ret->LoadSections[j].FileSize = phtab[i].FileSize;
-		ret->LoadSections[j].Virtual = phtab[i].VAddr;
-		ret->LoadSections[j].MemSize = phtab[i].MemSize;
+		ret->LoadSections[j].Offset   = phtab[i].p_offset;
+		ret->LoadSections[j].FileSize = phtab[i].p_filesz;
+		ret->LoadSections[j].Virtual  = phtab[i].p_vaddr;
+		ret->LoadSections[j].MemSize  = phtab[i].p_memsz;
 		ret->LoadSections[j].Flags = 0;
-		if( !(phtab[i].Flags & PF_W) )
+		if( !(phtab[i].p_flags & PF_W) )
 			ret->LoadSections[j].Flags |= BIN_SECTFLAG_RO;
-		if( phtab[i].Flags & PF_X )
+		if( phtab[i].p_flags & PF_X )
 			ret->LoadSections[j].Flags |= BIN_SECTFLAG_EXEC;
 		j ++;
 	}

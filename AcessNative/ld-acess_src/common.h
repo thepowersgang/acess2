@@ -8,16 +8,16 @@
 #include <stdint.h>
 #include <string.h>
 
-extern int	Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size);
+extern int	Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size, void *IgnoreBase);
 extern void	*Binary_LoadLibrary(const char *Path);
 extern void	*Binary_Load(const char *Path, uintptr_t *EntryPoint);
 extern void	Binary_SetReadyToUse(void *Base);
 
 // HACKS - So this can share the usermode elf.c
-static inline int GetSymbol(const char *sym, void **val, size_t *sz)
+static inline int GetSymbol(const char *sym, void **val, size_t *sz, void *IgnoreBase)
 {
 	uintptr_t rv;
-	if( !Binary_GetSymbol(sym, &rv, sz) )
+	if( !Binary_GetSymbol(sym, &rv, sz, IgnoreBase) )
 		return 0;
 	*val = (void*)rv;
 	return 1;

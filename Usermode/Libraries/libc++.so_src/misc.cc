@@ -6,9 +6,13 @@
  * - Miscelanious functions
  */
 #include <string.h>
+#include <acess/sys.h>
+#include <exception>
 
 extern "C" int SoMain()
 {
+	//extern void _init();
+	//_init();
 	// nope
 	return 0;
 }
@@ -16,11 +20,8 @@ extern "C" int SoMain()
 extern "C" void __cxa_pure_virtual()
 {
 	// dunno
-}
-
-extern "C" void __gxx_personality_v0()
-{
-	// TODO: Handle __gxx_personality_v0 somehow
+	::_SysDebug("__cxa_pure_virtual by %p", __builtin_return_address(0));
+	::std::terminate();
 }
 
 

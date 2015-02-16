@@ -6,7 +6,7 @@ OBJ += link.o
 OBJ += test_arp.o test_tcp.o
 BIN := ../nettest_runner
 
-CFLAGS := -Wall -std=c99
+CFLAGS := -Wall -std=c99 -g
 CPPFLAGS := -Iinclude
 LIBS := 
 
@@ -23,7 +23,7 @@ $(BIN): $(OBJ)
 	@echo [CC] -o $@
 	@$(CC) $(LINKFLAGS) -o $@ $(OBJ) $(LIBS)
 
-obj/%.o: %.c
+obj/%.o: %.c Makefile
 	@mkdir -p $(dir $@)
 	@echo [CC] -c -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP

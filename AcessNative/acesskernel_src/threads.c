@@ -199,9 +199,10 @@ int Threads_SetGID(tGID NewGID)
 }
 
 int *Threads_GetErrno(void) { return &gpCurrentThread->_errno; }
-char **Threads_GetCWD(void) { return &gpCurrentThread->Process->CWD; }
-char **Threads_GetChroot(void) { return &gpCurrentThread->Process->Chroot; }
-int *Threads_GetMaxFD(void) { return &gpCurrentThread->Process->MaxFD; };
+static tProcess *proc(tProcess *Proc) { return Proc ? Proc : gpCurrentThread->Process; }
+char **Threads_GetCWD   (tProcess *Proc) { return &proc(Proc)->CWD; }
+char **Threads_GetChroot(tProcess *Proc) { return &proc(Proc)->Chroot; }
+int *Threads_GetMaxFD   (tProcess *Proc) { return &proc(Proc)->MaxFD; };
 
 tTID Threads_WaitTID(int TID, int *Status)
 {

@@ -37,7 +37,11 @@ SYSCALL1(_SysSetFaultHandler, SYS_SETFAULTHANDLER)
 
 SYSCALL1(_SysLoadModule, SYS_LOADMOD)
 
-SYSCALL6(_SysDebug, 0x100)
+SYSCALL6(_ZN4_sys5debugEPKcz, SYS_DEBUGF)
+SYSCALL6(_SysDebug, SYS_DEBUGF)
+//SYSCALL3(_SysDebugS, SYS_DEBUGS)
+SYSCALL3(_SysDebugHex, SYS_DEBUGHEX)
+
 SYSCALL1(_SysGetPhys, SYS_GETPHYS)	// uint64_t _SysGetPhys(uint addr)
 SYSCALL1(_SysAllocate, SYS_ALLOCATE)	// uint64_t _SysAllocate(uint addr)
 SYSCALL3(_SysSetMemFlags, SYS_SETFLAGS)	// uint32_t SysSetMemFlags(uint addr, uint flags, uint mask)
@@ -49,7 +53,10 @@ SYSCALL2(_SysCopyFD, SYS_COPYFD)	// int, int
 SYSCALL3(_SysFDFlags, SYS_FDCTL)	// int, int, int
 SYSCALL1(_SysClose, SYS_CLOSE)	// int
 SYSCALL3(_SysRead, SYS_READ)	// int, uint, void*
+SYSCALL5(_SysReadAt, SYS_READAT)	// int, uint, uint64, void*
 SYSCALL3(_SysWrite, SYS_WRITE)	// int, uint, void*
+SYSCALL5(_SysWriteAt, SYS_WRITEAT)	// int, uint, uint64, void*
+SYSCALL3(_SysTruncate, SYS_TRUNCATE)	// int, uint64
 SYSCALL4(_SysSeek, SYS_SEEK)	// int, uint64_t, int
 SYSCALL1(_SysTell, SYS_TELL)	// int
 SYSCALL3(_SysFInfo, SYS_FINFO)	// int, void*, int
@@ -62,4 +69,10 @@ SYSCALL6(_SysSelect, SYS_SELECT)	// int, fd_set*, fd_set*, fd_set*, tTime*, uint
 
 SYSCALL1(_SysMkDir, SYS_MKDIR)	// const char*
 SYSCALL1(_SysUnlink, SYS_UNLINK)	// const char*
+
+SYSCALL6(_SysMMap, SYS_MMAP)
+SYSCALL2(_SysMUnMap, SYS_MUNMAP)
+
+SYSCALL1(_SysMarshalFD, SYS_MARSHALFD)
+SYSCALL2(_SysUnMarshalFD, SYS_UNMARSHALFD)
 

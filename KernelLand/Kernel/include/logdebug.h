@@ -38,7 +38,7 @@ extern void	Log_Debug(const char *Ident, const char *Message, ...);
 extern void	Debug_KernelPanic(void);	//!< Initiate a kernel panic
 extern void	Panic(const char *Msg, ...) NORETURN;	//!< Print a panic message (initiates a kernel panic)
 extern void	Warning(const char *Msg, ...);	//!< Print a warning message
-extern void	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
+extern bool	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
 extern void	LogFV(const char *Fmt, va_list Args);	//!< va_list non-newline log message
 extern void	Log(const char *Fmt, ...);	//!< Print a log message
 extern void	Debug(const char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)
@@ -49,6 +49,7 @@ extern void	Debug_Leave(const char *FuncName, char RetType, ...);
 extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 
 #define UNIMPLEMENTED()	Warning("'%s' unimplemented", __func__)
+#define TODO(fmt, ...)	Panic("TODO: ", fmt ,## __VA_ARGS__)
 #if DEBUG
 # define ENTER(_types...)	Debug_Enter((char*)__func__, _types)
 # define LOG(_fmt...)	Debug_Log((char*)__func__, _fmt)
@@ -72,8 +73,8 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 #define assert(expr)	ASSERTV(expr, "")
 #define ASSERT(expr)	ASSERTV(expr, "")
 #define ASSERTR(expr,rv)	ASSERTRV(expr, rv, "")
-#define ASSERTC(l,rel,r)	ASSERTV(l rel r, ": 0x%x"#rel"0x%x", l, r)
-#define ASSERTCR(l,rel,r,rv)	ASSERTRV(l rel r, rv, ": 0x%x"#rel"0x%x", l, r)
+#define ASSERTC(l,rel,r)	ASSERTV ((l) rel (r), ": 0x%x"#rel"0x%x", (Uint)l, (Uint)r)
+#define ASSERTCR(l,rel,r,rv)	ASSERTRV((l) rel (r), rv, ": 0x%x"#rel"0x%x", (Uint)l, (Uint)r)
 /**
  * \}
  */

@@ -37,6 +37,12 @@
 	if(tmp[i]) break;\
 } while(0)
 
+#if BITS==64
+#define ARG64(idx1,idx2)	***ARG64 not used on 64-bit***
+#else
+#define ARG64(idx1, idx2)	(Regs->Arg##idx1|(((Uint64)Regs->Arg##idx2)<<32))
+#endif
+
 // === IMPORTS ===
 extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 
@@ -250,7 +256,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#if BITS == 64
 		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
 		#else
-		ret = VFS_Seek( Regs->Arg1, Regs->Arg2|(((Uint64)Regs->Arg3)<<32), Regs->Arg4 );
+		ret = VFS_Seek( Regs->Arg1, ARG64(2, 3), Regs->Arg4 );
 		#endif
 		break;
 		
@@ -262,10 +268,40 @@ void SyscallHandler(tSyscallRegs *Regs)
 		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
 		ret = VFS_Write( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
 		break;
+	case SYS_WRITEAT:
+		#if BITS == 64
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg3 );
+		ret = VFS_WriteAt( Regs->Arg1, Regs->Arg2, Regs->Arg3, (void*)Regs->Arg4 );
+		#else
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg4 );
+		Debug("VFS_WriteAt(%i, %lli, %i, %p)",
+			Regs->Arg1, ARG64(2, 3), Regs->Arg4, (void*)Regs->Arg5);
+		ret = VFS_WriteAt( Regs->Arg1, ARG64(2, 3), Regs->Arg4, (void*)Regs->Arg5 );
+		#endif
+		break;
 	
 	case SYS_READ:
 		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
 		ret = VFS_Read( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
+		break;
+	case SYS_READAT:
+		CHECK_NUM_NONULL( (void*)Regs->Arg5, Regs->Arg2 );
+		#if BITS == 64
+		ret = VFS_ReadAt( Regs->Arg1, Regs->Arg2, Regs->Arg3, (void*)Regs->Arg4 );
+		#else
+		ret = VFS_ReadAt( Regs->Arg1, Regs->Arg2, ARG64(3, 4), (void*)Regs->Arg5 );
+		#endif
+		break;
+	
+	case SYS_TRUNCATE:
+		ret = VFS_Truncate(
+			Regs->Arg1,
+			#if BITS == 32
+			ARG64(2,3)
+			#else
+			Regs->Arg2
+			#endif
+			);
 		break;
 	
 	case SYS_FINFO:
@@ -369,6 +405,21 @@ void SyscallHandler(tSyscallRegs *Regs)
 			);
 		break;
 
+	case SYS_MMAP:
+		ret = (tVAddr)VFS_MMap(
+			(void*)Regs->Arg1, Regs->Arg2,
+			Regs->Arg3&0xFFFF, Regs->Arg3>>16,
+			Regs->Arg4,
+			#if BITS == 32
+			ARG64(5,6)
+			#else
+			Regs->Arg5
+			#endif
+			);
+		break;
+	case SYS_MUNMAP:
+		ret = VFS_MUnmap( (void*)Regs->Arg1, Regs->Arg2 );
+		break;
 	
 	// Create a directory
 	case SYS_MKDIR:
@@ -378,15 +429,36 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	case SYS_UNLINK:
 		Log_Error("Syscalls", "TODO: Impliment SYS_UNLINK");
-		// Fall
+		break;
+	
+	case SYS_MARSHALFD:
+		ret = VFS_MarshalHandle(Regs->Arg1);
+		break;
+	case SYS_UNMARSHALFD:
+		#if BITS == 64
+		ret = VFS_UnmarshalHandle( Regs->Arg1 );
+		#else
+		ret = VFS_UnmarshalHandle( ARG64(1,2) );
+		#endif
+		break;
+
 	// -- Debug
 	//#if DEBUG_BUILD
-	case SYS_DEBUG:
+	case SYS_DEBUGS:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		Log("Log: %08lli [%i] %s", now(), Threads_GetTID(), (const char*)Regs->Arg1);
+		break;
+	case SYS_DEBUGF:
 		CHECK_STR_NONULL( (char*)Regs->Arg1 );
 		LogF("Log: %08lli [%i] ", now(), Threads_GetTID());
 		LogF((const char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
 		LogF("\r\n");
+		break;
+	case SYS_DEBUGHEX:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
+		Debug_HexDump( (const char*)Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;
 	//#endif
 	

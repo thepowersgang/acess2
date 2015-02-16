@@ -40,6 +40,9 @@ int Build_CompileFile(tIniFile *opts, const char *abi, tUdiprops *udiprops, tUdi
 		srcfile->CompileOpts ? srcfile->CompileOpts : "",
 		srcfile->Filename, objfile);
 	printf("--- Compiling: %s\n", srcfile->Filename);
+	if( gbTraceEnabled ) {
+		printf(">> %s\n", cmd);
+	}
 	 int rv = system(cmd);
 	free(cmd);
 	free(objfile);
@@ -110,7 +113,9 @@ int Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops)
 		abi, udiprops->ModuleName, objfiles_str, udiprops_c
 		);
 	printf("--- Linking: bin/%s/%s\n", abi, udiprops->ModuleName);
-	printf("%s\n", cmd);
+	if( gbTraceEnabled ) {
+		printf(">> %s\n", cmd);
+	}
 	int rv = system(cmd);
 	free(cmd);
 	free(udiprops_c);

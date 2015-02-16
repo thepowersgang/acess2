@@ -40,6 +40,14 @@ extern "C" {
 #define FILEFLAG_SYMLINK	0x20
 #define CLONE_VM	0x10
 
+#define MMAP_PROT_READ	0x001	//!< Readable memory
+#define MMAP_PROT_WRITE	0x002	//!< Writable memory
+#define MMAP_PROT_EXEC	0x004	//!< Executable memory
+#define MMAP_MAP_SHARED 	0x001	//!< Shared with all other users of the FD
+#define MMAP_MAP_PRIVATE	0x002	//!< Local (COW) copy
+#define MMAP_MAP_FIXED  	0x004	//!< Load to a fixed address
+#define MMAP_MAP_ANONYMOUS	0x008	//!< Not associated with a FD
+
 #ifdef ARCHDIR_is_native
 # include "_native_syscallmod.h"
 #endif
@@ -51,6 +59,7 @@ extern int	_errno;
 
 // === FUNCTIONS ===
 extern void	_SysDebug(const char *format, ...);
+extern void	_SysDebugHex(const char *Label, const void *Data, size_t Size);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
 extern int	_SysKill(int pid, int sig);
@@ -88,9 +97,12 @@ extern int	_SysReopen(int fd, const char *path, int flags);
 extern int	_SysCopyFD(int srcfd, int dstfd);
 extern int	_SysFDFlags(int fd, int mask, int newflags);
 extern size_t	_SysRead(int fd, void *buffer, size_t length);
+extern size_t	_SysReadAt(int fd, uint64_t offset, size_t length, void *buffer);
+extern uint64_t	_SysTruncate(int fd, uint64_t size);
 extern int	_SysClose(int fd);
 extern int	_SysFDCtl(int fd, int option, ...);
 extern size_t	_SysWrite(int fd, const void *buffer, size_t length);
+extern size_t	_SysWriteAt(int fd, uint64_t offset, size_t length, const void *buffer);
 extern int	_SysSeek(int fd, int64_t offset, int whence);
 extern uint64_t	_SysTell(int fd);
 extern int	_SysIOCtl(int fd, int id, void *data);
@@ -102,6 +114,16 @@ extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_
 //#define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
 extern int	_SysMkDir(const char *dirname);
 extern int	_SysUnlink(const char *pathname);
+extern void*	_SysMMap(void *addr, size_t length, unsigned int _flags, int fd, uint64_t offset);
+#ifdef _SysMMap
+# undef _SysMMap
+# define _SysMMap(addr,length,flags,prot,fd,offset)	acess__SysMMap(addr,length,(flags|(prot<<16)), fd, offset)
+#else
+# define _SysMMap(addr,length,flags,prot,fd,offset)	_SysMMap(addr,length,(flags|(prot<<16)), fd, offset)
+#endif
+extern int	_SysMUnMap(void *addr, size_t length);
+extern uint64_t	_SysMarshalFD(int FD);
+extern int	_SysUnMarshalFD(uint64_t Handle);
 
 // --- IPC ---
 extern int	_SysSendMessage(int dest, size_t length, const void *Data);

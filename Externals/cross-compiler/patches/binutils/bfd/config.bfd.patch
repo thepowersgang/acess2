@@ -12,7 +12,7 @@
 +    want64=true
 +    ;;
 +  arm-*-acess2)
-+    targ_defvec=bfd_elf32_arm_vec
-+    targ_selvecs="bfd_elf32_arm_vec"
++    targ_defvec=bfd_elf32_littlearm_vec
++    targ_selvecs="bfd_elf32_bigarm_vec"
 +    ;;
  # END OF targmatch.h

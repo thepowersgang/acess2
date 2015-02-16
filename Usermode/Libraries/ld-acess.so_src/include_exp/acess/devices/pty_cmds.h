@@ -25,6 +25,7 @@ enum
 struct ptycmd_header
 {
 	uint8_t 	cmd;
+	// NOTE: Length is encoded as a count of 32-bit words
 	uint8_t 	len_low;
 	uint16_t	len_hi;
 } PACKED;
@@ -42,6 +43,12 @@ struct ptycmd_setcursorbmp
 	uint16_t	w;
 	uint16_t	h;
 	char	data[];
+} PACKED;
+
+struct ptycmd_senddata
+{
+	struct ptycmd_header	hdr;
+	uint32_t	ofs;
 } PACKED;
 
 #endif

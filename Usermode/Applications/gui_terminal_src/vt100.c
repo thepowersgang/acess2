@@ -17,6 +17,8 @@
 # include <assert.h>
 # include <stdlib.h>	// malloc/free
 
+# define ASSERTC(a, r, b)	assert(a r b)
+
 static inline int MIN(int a, int b)
 {
 	return a < b ? a : b;
@@ -170,7 +172,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 			if( ret <= old_inc_len ) {
 				_SysDebug("Term_HandleVT100: ret(%i) <= old_inc_len(%i), inc_len=%i, '%*C'",
 					ret, old_inc_len, st->cache_len, st->cache_len, st->cache);
-				assert(ret > old_inc_len);
+				ASSERTC(ret, >, old_inc_len);
 			}
 			st->cache_len = 0;
 			//_SysDebug("%i bytes of escape code '%.*s' (return %i)",
@@ -186,6 +188,10 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 	switch( *Buf )
 	{
+	case '\a':
+		// Alarm, aka bell
+		//Display_SoundBell(Term);
+		break;
 	case '\b':
 		// backspace is aprarently just supposed to cursor left (if possible)
 		Display_MoveCursor(Term, 0, -1);
@@ -442,9 +448,13 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			Display_MoveCursor(Term, 0, -(args[0] != 0 ? args[0] : 1));
 			break;
 		case 'H':
-			if( argc != 2 ) {
+			if( argc == 0 ) {
+				Display_SetCursor(Term, 0, 0);
 			}
-			else {
+			else if( argc == 1 ) {
+				Display_SetCursor(Term, args[0]-1, 0);
+			}
+			else if( argc == 2 ) {
 				// Adjust 1-based cursor position to 0-based
 				Display_SetCursor(Term, args[0]-1, args[1]-1);
 			}
@@ -483,11 +493,11 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				break;
 			}
 			break;
-		case 'S':	// Scroll text up n=1
-			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
-			break;
-		case 'T':	// Scroll text down n=1
+		case 'S':	// Scroll text up n=1 (expose bottom)
 			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
+			break;
+		case 'T':	// Scroll text down n=1 (expose top)
+			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
 			break;
 		case 'c':	// Send Device Attributes
 			switch(args[0])
@@ -529,6 +539,40 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				// Reset
 				Display_ResetAttributes(Term);
 			}
+			else if( args[0] == 48 )
+			{
+				// ISO-8613-3 Background
+				if( args[1] == 2 ) {
+					uint32_t	col = 0;
+					col |= (uint32_t)args[2] << 16;
+					col |= (uint32_t)args[3] << 8;
+					col |= (uint32_t)args[4] << 0;
+					Display_SetBackground(Term, col);
+				}
+				else if( args[1] == 5 ) {
+					_SysDebug("TODO: Support xterm palette BG %i", args[2]);
+				}
+				else {
+					_SysDebug("VT100 Unknown mode set \e[48;%im", args[1]);
+				}
+			}
+			else if( args[0] == 38 )
+			{
+				// ISO-8613-3 Foreground
+				if( args[1] == 2 ) {
+					uint32_t	col = 0;
+					col |= (uint32_t)args[2] << 16;
+					col |= (uint32_t)args[3] << 8;
+					col |= (uint32_t)args[4] << 0;
+					Display_SetForeground(Term, col);
+				}
+				else if( args[1] == 5 ) {
+					_SysDebug("TODO: Support xterm palette FG %i", args[2]);
+				}
+				else {
+					_SysDebug("VT100 Unknown mode set \e[38;%im", args[1]);
+				}
+			}
 			else
 			{
 				for( int i = 0; i < argc; i ++ )
@@ -549,6 +593,9 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 					case 4:
 						_SysDebug("TODO: \\e[4m - Underscore");
 						break;
+					//case 5:
+					//	_SysDebug("TODO: \\e[5m - Blink/bold");
+					//	break;
 					case 7:
 						_SysDebug("TODO: \\e[7m - Reverse");
 						break;
@@ -570,6 +617,14 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 						st->CurBG = 0;
 						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
 						break;
+					case 90 ... 97:
+						st->CurFG = args[i]-90 + 8;
+						Display_SetForeground( Term, caVT100Colours[ st->CurBG ] );
+						break;;
+					case 100 ... 107:
+						st->CurBG = args[i]-100 + 8;
+						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
+						break;;
 					default:
 						_SysDebug("Unknown mode set \\e[%im", args[i]);
 						break;
@@ -582,7 +637,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			break;
 		// Set scrolling region
 		case 'r':
-			Display_SetScrollArea(Term, args[0], (args[1] - args[0]));
+			Display_SetScrollArea(Term, args[0]-1, (args[1] - args[0])+1);
 			break;
 		
 		case 's':

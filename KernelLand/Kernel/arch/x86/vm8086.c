@@ -68,16 +68,14 @@ Uint32	gaVM8086_MemBitmap[VM8086_BLOCKCOUNT/32];
 // === FUNCTIONS ===
 int VM8086_Install(char **Arguments)
 {
-	tPID	pid;	
-
 	Semaphore_Init(&gVM8086_TasksToDo, 0, 10, "VM8086", "TasksToDo");
 	
 	// Lock to avoid race conditions
 	Mutex_Acquire( &glVM8086_Process );
 	
 	// Create BIOS Call process
-	pid = Proc_Clone(CLONE_VM);
-	//Log_Debug("VM8086", "pid = %i", pid);
+	tPID pid = Proc_Clone(CLONE_VM);
+	LOG("pid = %i", pid);
 	if(pid == -1)
 	{
 		Log_Error("VM8086", "Unable to clone kernel into VM8086 worker");
@@ -87,15 +85,14 @@ int VM8086_Install(char **Arguments)
 	{
 		Uint	* volatile stacksetup;	// Initialising Stack
 		Uint16	* volatile rmstack;	// Real Mode Stack
-		 int	i;
 
-		//Log_Debug("VM8086", "Initialising worker");	
+		LOG("Initialising worker");
 	
 		// Set Image Name
 		Threads_SetName("VM8086");
 
 		// Map ROM Area
-		for(i=0xA0;i<0x100;i++) {
+		for(unsigned int i = 0xA0;i<0x100;i++) {
 			MM_RefPhys(i * 0x1000);
 			MM_Map( (void*)(i * 0x1000), i * 0x1000 );
 		}
@@ -150,6 +147,7 @@ int VM8086_Install(char **Arguments)
 		stacksetup--;	*stacksetup = 0x20|3;	// ES - Kernel
 		stacksetup--;	*stacksetup = 0x20|3;	// FS
 		stacksetup--;	*stacksetup = 0x20|3;	// GS
+		LOG("stacksetup = %p, entering vm8086");
 		__asm__ __volatile__ (
 		"mov %%eax,%%esp;\n\t"	// Set stack pointer
 		"pop %%gs;\n\t"
@@ -164,6 +162,7 @@ int VM8086_Install(char **Arguments)
 	gVM8086_WorkerPID = pid;
 
 	// It's released when the GPF fires
+	LOG("Waiting for worker %i to start", gVM8086_WorkerPID);
 	Mutex_Acquire( &glVM8086_Process );
 	Mutex_Release( &glVM8086_Process );
 	

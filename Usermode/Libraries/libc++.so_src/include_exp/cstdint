@@ -1,0 +1,16 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * cstdint (header)
+ * - C++ wrapper around stdint.h
+ */
+#ifndef _LIBCXX_CSTDINT_
+#define _LIBCXX_CSTDINT_
+
+extern "C" {
+#include <stdint.h>
+};
+
+#endif
+

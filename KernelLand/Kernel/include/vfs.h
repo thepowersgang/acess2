@@ -217,6 +217,21 @@ typedef struct sVFS_Node
  */
 
 /**
+ * \name tVFS_NodeType.Type flags
+ * \brief Flags for node types
+ * \{
+ */
+//\! Calls to VFS_Write should not generate calls to .Trunctate
+//\! 
+//\! If this flag is set, writing over the end of the file will not call .Truncate automatically
+#define VFS_NODETYPEFLAG_NOAUTOEXPAND	0x001
+//\! Node type describes a stream (offset ignored, seeking disallowed)
+#define VFS_NODETYPEFLAG_STREAM 	0x002
+/**
+ * \}
+ */
+
+/**
  * \brief Functions for a specific node type
  */
 struct sVFS_NodeType
@@ -225,6 +240,11 @@ struct sVFS_NodeType
 	 * \brief Debug name for the type
 	 */
 	const char	*TypeName;
+
+	/**
+	 * \brief Flags describing operational quirks
+	 */
+	unsigned int	Flags;
 
 	/**
 	 * \name Common Functions
@@ -293,7 +313,18 @@ struct sVFS_NodeType
 	 * \return Boolean Failure
 	 * \note If NULL, the VFS implements it using .Read
 	 */
-	 int	(*MMap)(struct sVFS_Node *Node, off_t Offset, int Length, void *Dest);
+	 int	(*MMap)(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Dest);
+	
+	/**
+	 * \brief Resize a file
+	 * \param Node	Pointer to this node
+	 * \param NewSize	New file size
+	 * \return Actual new file size
+	 * \note If NULL, \a Write may be called with Offset + Length > Size
+	 *
+	 * Called to increase/decrease the size of a file. If the 
+	 */
+	off_t	(*Truncate)(struct sVFS_Node *Node, off_t NewSize);
 	
 	/**
 	 * \}
@@ -469,7 +500,7 @@ extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
  * \param Type	Type of wait
  * \param Timeout	Time to wait (NULL for infinite wait)
  * \param Name	Name to show in debug output
- * \return Number of nodes that actioned (0 or 1)
+ * \return Bitset of Type flags that applied
  */
 extern int	VFS_SelectNode(tVFS_Node *Node, int Type, tTime *Timeout, const char *Name);
 

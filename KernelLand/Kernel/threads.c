@@ -4,6 +4,7 @@
  * threads.c
  * - Common Thread Control
  */
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
@@ -198,7 +199,7 @@ void Threads_Delete(tThread *Thread)
 			proc->Next->Prev = proc->Prev;
 
 		// VFS Cleanup
-		VFS_CloseAllUserHandles();
+		VFS_CloseAllUserHandles( proc );
 		// Architecture cleanup
 		Proc_ClearProcess( proc );
 		// VFS Configuration strings
@@ -329,11 +330,10 @@ void Threads_SetPriority(tThread *Thread, int Pri)
  */
 tThread *Threads_CloneTCB(Uint Flags)
 {
-	tThread	*cur, *new;
-	cur = Proc_GetCurThread();
+	tThread *cur = Proc_GetCurThread();
 	
 	// Allocate and duplicate
-	new = malloc(sizeof(tThread));
+	tThread *new = malloc(sizeof(tThread));
 	if(new == NULL) { errno = -ENOMEM; return NULL; }
 	memcpy(new, cur, sizeof(tThread));
 	
@@ -480,18 +480,26 @@ tTID Threads_WaitTID(int TID, int *Status)
 		tTID	ret = -1;
 		if( ev & THREAD_EVENT_DEADCHILD )
 		{
+			tThread	* const us = Proc_GetCurThread();
 			// A child died, get the TID
-			tThread	*us = Proc_GetCurThread();
 			ASSERT(us->LastDeadChild);
-			ret = us->LastDeadChild->TID;
+			tThread	*dead_thread = us->LastDeadChild;
+			us->LastDeadChild = dead_thread->Next;
+			if( us->LastDeadChild )
+				Threads_PostEvent( us, THREAD_EVENT_DEADCHILD );
+			else
+				Threads_ClearEvent( THREAD_EVENT_DEADCHILD );
+			Mutex_Release(&us->DeadChildLock);
+			
+			ret = dead_thread->TID;
 			// - Mark as dead (as opposed to undead)
-			ASSERT(us->LastDeadChild->Status == THREAD_STAT_ZOMBIE);
-			us->LastDeadChild->Status = THREAD_STAT_DEAD;
+			ASSERTC(dead_thread->Status, ==, THREAD_STAT_ZOMBIE);
+			dead_thread->Status = THREAD_STAT_DEAD;
 			// - Set return status
 			if(Status)
-				*Status = us->LastDeadChild->RetStatus;
-			us->LastDeadChild = NULL;
-			Mutex_Release(&us->DeadChildLock);
+				*Status = dead_thread->RetStatus;
+			
+			Threads_Delete( dead_thread );
 		}
 		else
 		{
@@ -722,9 +730,11 @@ void Threads_Kill(tThread *Thread, int Status)
 	SHORTREL( &glThreadListLock );
 	// TODO: It's possible that we could be timer-preempted here, should disable that... somehow
 	Mutex_Acquire( &Thread->Parent->DeadChildLock );	// released by parent
+	Thread->Next = Thread->Parent->LastDeadChild;
 	Thread->Parent->LastDeadChild = Thread;
 	Threads_PostEvent( Thread->Parent, THREAD_EVENT_DEADCHILD );
 	
+	// Process cleanup happens on reaping
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	
 	// And, reschedule
@@ -750,6 +760,7 @@ void Threads_Yield(void)
 void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 {
 	tThread	*us = Proc_GetCurThread();
+	LOG("us = %p(%i %s), status=%i", us, us->TID, us->ThreadName, Status);
 	ASSERT(Status != THREAD_STAT_ACTIVE);
 	ASSERT(Status != THREAD_STAT_DEAD);
 	while( us->Status == Status )
@@ -1246,17 +1257,20 @@ int *Threads_GetErrno(void)
 }
 
 // --- Configuration ---
-int *Threads_GetMaxFD(void)
+int *Threads_GetMaxFD(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->MaxFD;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->MaxFD;
 }
-char **Threads_GetChroot(void)
+char **Threads_GetChroot(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->RootDir;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->RootDir;
 }
-char **Threads_GetCWD(void)
+char **Threads_GetCWD(tProcess *Process)
 {
-	return &Proc_GetCurThread()->Process->CurrentWorkingDir;
+	if(!Process)	Process = Proc_GetCurThread()->Process;
+	return &Process->CurrentWorkingDir;
 }
 // ---
 
@@ -1314,22 +1328,16 @@ void Threads_int_DumpThread(tThread *thread)
  */
 void Threads_DumpActive(void)
 {
-	tThread	*thread;
-	tThreadList	*list;
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	 int	i;
-	#endif
-	
 	Log("Active Threads: (%i reported)", giNumActiveThreads);
 	
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	for( i = 0; i < MIN_PRIORITY+1; i++ )
+	for( int i = 0; i < MIN_PRIORITY+1; i++ )
 	{
-		list = &gaActiveThreads[i];
+		tThreadList *list = &gaActiveThreads[i];
 	#else
-		list = &gActiveThreads;
+		tThreadList *list = &gActiveThreads;
 	#endif
-		for(thread=list->Head;thread;thread=thread->Next)
+		for(tThread *thread = list->Head; thread; thread = thread->Next)
 		{
 			Threads_int_DumpThread(thread);
 			if(thread->Status != THREAD_STAT_ACTIVE)
@@ -1465,6 +1473,7 @@ tThread *Threads_int_GetRunnable(void)
 	// Single-list round-robin
 	// -----------------------------------
 	tThread *thread = gActiveThreads.Head;
+	LOG("thread = %p", thread);
 	if( thread )
 	{
 		gActiveThreads.Head = thread->Next;
@@ -1486,23 +1495,20 @@ tThread *Threads_int_GetRunnable(void)
  */
 tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 {
-	// If this CPU has the lock, we must let it complete
-	if( CPU_HAS_LOCK( &glThreadListLock ) )
-		return Last;
+	ASSERT( CPU_HAS_LOCK(&glThreadListLock) );
 	
 	// Don't change threads if the current CPU has switches disabled
-	if( gaThreads_NoTaskSwitch[CPU] )
+	if( gaThreads_NoTaskSwitch[CPU] ) {
+		LOG("- Denied");
 		return Last;
-
-	// Lock thread list
-	SHORTLOCK( &glThreadListLock );
+	}
 	
 	// Make sure the current (well, old) thread is marked as de-scheduled	
 	if(Last)	Last->CurCPU = -1;
 
 	// No active threads, just take a nap
 	if(giNumActiveThreads == 0) {
-		SHORTREL( &glThreadListLock );
+		LOG("- No active");
 		#if DEBUG_TRACE_TICKETS
 		Log("No active threads");
 		#endif
@@ -1545,7 +1551,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 
 	// Call actual scheduler	
 	tThread	*thread = Threads_int_GetRunnable();
-		
+	
 	// Anything to do?
 	if( thread )
 	{
@@ -1570,8 +1576,6 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		// No thread possible, warning condition (idle thread should be runnable)
 		Warning("No runnable thread for CPU%i", CPU);
 	}
-	
-	SHORTREL( &glThreadListLock );
 	
 	return thread;
 }

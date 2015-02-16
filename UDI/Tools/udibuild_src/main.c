@@ -29,6 +29,7 @@
 void	Usage(const char *progname);
 
 // === GLOBALS ===
+bool	gbTraceEnabled = false;
 const char *gsRuntimeDir = RUNTIME_DIR;
 const char *gsOpt_ConfigFile;
 const char *gsOpt_WorkingDir;

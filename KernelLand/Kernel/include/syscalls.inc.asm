@@ -45,19 +45,26 @@
 %define SYS_COPYFD	69	 ;Create a copy of a file handle
 %define SYS_FDCTL	70	 ;Modify flags of a file descriptor
 %define SYS_READ	71	 ;Read from an open file
-%define SYS_WRITE	72	 ;Write to an open file
-%define SYS_IOCTL	73	 ;Perform an IOCtl Call
-%define SYS_SEEK	74	 ;Seek to a new position in the file
-%define SYS_READDIR	75	 ;Read from an open directory
-%define SYS_GETACL	76	 ;Get an ACL Value
-%define SYS_SETACL	77	 ;Set an ACL Value
-%define SYS_FINFO	78	 ;Get file information
-%define SYS_MKDIR	79	 ;Create a new directory
-%define SYS_LINK	80	 ;Create a new link to a file
-%define SYS_SYMLINK	81	 ;Create a symbolic link
-%define SYS_UNLINK	82	 ;Delete a file
-%define SYS_TELL	83	 ;Return the current file position
-%define SYS_CHDIR	84	 ;Change current directory
-%define SYS_GETCWD	85	 ;Get current directory
-%define SYS_MOUNT	86	 ;Mount a filesystem
-%define SYS_SELECT	87	 ;Wait for file handles
+%define SYS_READAT	72	 ;Read from an open file (with offset)
+%define SYS_WRITE	73	 ;Write to an open file
+%define SYS_WRITEAT	74	 ;Write to an open file (with offset)
+%define SYS_TRUNCATE	75	 ;Change the size of an open file
+%define SYS_IOCTL	76	 ;Perform an IOCtl Call
+%define SYS_SEEK	77	 ;Seek to a new position in the file
+%define SYS_READDIR	78	 ;Read from an open directory
+%define SYS_GETACL	79	 ;Get an ACL Value
+%define SYS_SETACL	80	 ;Set an ACL Value
+%define SYS_FINFO	81	 ;Get file information
+%define SYS_MKDIR	82	 ;Create a new directory
+%define SYS_LINK	83	 ;Create a new link to a file
+%define SYS_SYMLINK	84	 ;Create a symbolic link
+%define SYS_UNLINK	85	 ;Delete a file
+%define SYS_TELL	86	 ;Return the current file position
+%define SYS_CHDIR	87	 ;Change current directory
+%define SYS_GETCWD	88	 ;Get current directory
+%define SYS_MOUNT	89	 ;Mount a filesystem
+%define SYS_SELECT	90	 ;Wait for file handles
+%define SYS_MMAP	91	 ;Map a file into this address space
+%define SYS_MUNMAP	92	 ;Unmap a file
+%define SYS_MARSHALFD	93	 ;Create a reference to a FD suitable for handing to another process
+%define SYS_UNMARSHALFD	94	 ;Accept a marshaled FD

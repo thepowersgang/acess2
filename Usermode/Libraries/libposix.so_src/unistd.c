@@ -292,3 +292,21 @@ int ttyname_r(int fd, char *buf, size_t buflen)
 
 	return ENOTIMPL;
 }
+
+int isatty(int fd)
+{
+	if( fd < 0 ) {
+		errno = EBADF;
+		return 0;
+	}
+	
+	 int	type = _SysIOCtl(fd, DRV_IOCTL_TYPE, NULL);
+	if( type == -1 )
+		return 0;
+	if( type != DRV_TYPE_TERMINAL ) {
+		errno = ENOTTY;
+		// NOTE: Pre POSIX 2001, EINVAL was returned
+		return 0;
+	}
+	return 1;
+}

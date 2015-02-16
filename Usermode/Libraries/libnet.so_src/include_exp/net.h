@@ -6,6 +6,8 @@
 #ifndef __LIBNET_H_
 #define __LIBNET_H_
 
+#include <stddef.h>
+
 enum {
 	NET_ADDRTYPE_NULL = 0,
 	NET_ADDRTYPE_IPV4 = 4,
@@ -53,8 +55,43 @@ extern char	*Net_GetInterface(int AddrType, void *Addr);
  * Opens a file using /Devices/ip/routes/@<AddrType>:<Addr>/<SocketName>
  * 
  */
-extern int	Net_OpenSocket(int AddrType, void *Addr, const char *SocketName);
+extern int	Net_OpenSocket(int AddrType, const void *Addr, const char *SocketName);
 
-extern int	Net_OpenSocket_TCPC(int AddrType, void *Addr, int Port);
+extern int	Net_OpenSocket_TCPC(int AddrType, const void *Addr, int Port);
+
+extern int	Net_OpenSocket_UDP(int AddrType, const void *Addr, int RAddr, int LAddr);
+extern int Net_UDP_SendTo  (int FD, int Port, int AddrType, const void *Addr, size_t Length, const void *Data);
+extern int Net_UDP_RecvFrom(int FD, int* Port, int* AddrType, void *Addr, size_t Length, void *Data);
+
+
+/**
+ * \name Hostnames
+ * \brief Handling of hostname resolution
+ * \{
+ */
+
+/**
+ * \brief Returns an address for the specified hostname
+ * \note Picks randomly if multiple addresses are present
+ */
+extern int	Net_Lookup_AnyAddr(const char *Name, int AddrType, void *Addr);
+
+/**
+ * \brief Callback for Net_Lookup_Addrs, returns non-zero when lookup should terminate
+ */
+typedef int tNet_LookupAddrs_Callback(void *info, int AddrType, const void *Addr);
+
+/**
+ * \brief Enumerate addresses for a host, calling the provided function for each
+ */
+extern int	Net_Lookup_Addrs(const char *Name, void *info, tNet_LookupAddrs_Callback* callback);
+
+/**
+ */
+extern int	Net_Lookup_Name(int AddrType, const void *Addr, char *Dest[256]);
+
+/**
+ * \}
+ */
 
 #endif

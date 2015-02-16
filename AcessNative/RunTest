@@ -1,4 +1,7 @@
 #!/bin/sh
+#
+# Runs the AcessNative kernel and spawns a native executable using ./ld-acess
+#
 trap '' 2
 #$1 ./AcessKernel --rootapp /Acess/SBin/login
 $1 ./AcessKernel --rootapp /Acess/Apps/AxWin/3.0/AxWinWM

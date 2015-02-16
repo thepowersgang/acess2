@@ -12,6 +12,8 @@ $gOutput = <<<EOF
 
 EOF;
 
+define("DEBUG_ENABLED", false);
+
 $ACESSDIR = getenv("ACESSDIR");
 $ARCH = getenv("ARCH");
 
@@ -143,7 +145,8 @@ EOF;
 		{
 			$path = $item[1];
 			
-			echo $path,"\n";
+			if( DEBUG_ENABLED )
+				echo $path,"\n";
 			$size = filesize($path);
 	
 			$_sym = "_binary_".str_replace(array("/","-",".","+"), "_", $path)."_start";

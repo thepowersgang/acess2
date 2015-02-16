@@ -16,7 +16,7 @@ _start:
 	
 	b _exit
 
-@ Stupid GCC
+// Stupid GCC
 .globl __ucmpdi2
 __ucmpdi2:
 	cmp r0, r2
@@ -32,8 +32,8 @@ __ucmpdi2:
 	mov r0, #1
 	mov pc, lr
 
-@ Well, can't blame it
-@ - Clear the instruction cache
+//@ Well, can't blame it
+// - Clear the instruction cache
 .globl __clear_cache
 __clear_cache:
 	svc #0x1001

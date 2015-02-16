@@ -8,6 +8,10 @@
 #ifndef _UDI_NIC_H_
 #define _UDI_NIC_H_
 
+#ifndef UDI_NIC_VERSION
+# error "UDI_NIC_VERSION must be defined"
+#endif
+
 // === CBs ===
 #define UDI_NIC_STD_CB_NUM	1
 #define UDI_NIC_BIND_CB_NUM	2

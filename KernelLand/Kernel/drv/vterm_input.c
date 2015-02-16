@@ -95,20 +95,30 @@ void VT_KBCallBack(Uint32 Codepoint)
 		
 //		Log_Debug("VTerm", "Magic Ctrl-Alt-0x%x", term->RawScancode);	
 
+		const unsigned int scroll_step = term->TextHeight / 2;
+		// Note the lack of giVT_Scrollback+1, view top can't go above size-onescreen
+		const unsigned int scroll_max = term->TextHeight * giVT_Scrollback;
 		switch(term->RawScancode)
 		{
-		// Scrolling
+		// VTerm scrolling
+		// - Scrolls half a screen at a time
+		// - View up (text goes down)
 		case KEYSYM_PGUP:
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
-			term->ViewTopRow = MAX(0, term->ViewTopRow - 1);
+			Log_Debug("VTerm", "ScrollUp - Old=%i, step=%i", term->ViewTopRow, scroll_step);
+			term->ViewTopRow = (term->ViewTopRow > scroll_step ? term->ViewTopRow - scroll_step : 0);
+			Log_Debug("VTerm", "ScrollUp - New=%i", term->ViewTopRow);
 			VT_int_UpdateScreen(term, 1);
 			return;
+		// - View down (text goes up)
 		case KEYSYM_PGDN:
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
-			// Note the lack of giVT_Scrollback+1, view top can't go above size-onescreen
-			term->ViewTopRow = MIN(term->ViewTopRow + 1, term->Height * giVT_Scrollback);
+			
+			Log_Debug("VTerm", "ScrollDown - Old=%i, max=%i", term->ViewTopRow, scroll_max);
+			term->ViewTopRow = MIN(term->ViewTopRow + scroll_step, scroll_max);
+			Log_Debug("VTerm", "ScrollDown - New=%i", term->ViewTopRow);
 			VT_int_UpdateScreen(term, 1);
 			return;
 		}

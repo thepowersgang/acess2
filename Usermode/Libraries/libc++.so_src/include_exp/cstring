@@ -1,0 +1,17 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * cstring (header)
+ * - C++ wrapper around string.h
+ */
+#ifndef _LIBCXX_CSTRING_
+#define _LIBCXX_CSTRING_
+
+extern "C" {
+#include <string.h>
+};
+
+#endif
+
+

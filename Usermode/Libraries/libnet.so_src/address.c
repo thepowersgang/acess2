@@ -7,7 +7,8 @@
  */
 #include <net.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <stdio.h>	// sprintf
+#include <stdlib.h>
 #define DEBUG	0
 
 static inline uint32_t htonl(uint32_t v)
@@ -37,43 +38,50 @@ static inline uint16_t htons(uint16_t v)
  */
 static int Net_ParseIPv4Addr(const char *String, uint8_t *Addr)
 {
-	 int	i = 0;
 	 int	j;
-	 int	val;
+	const char *pos = String;
 	
-	for( j = 0; String[i] && j < 4; j ++ )
+	for( j = 0; *pos && j < 4; j ++ )
 	{
-		val = 0;
-		for( ; String[i] && String[i] != '.'; i++ )
-		{
-			if('0' > String[i] || String[i] > '9') {
-				#if DEBUG
-				printf("0<c<9 expected, '%c' found\n", String[i]);
-				#endif
-				return 0;
-			}
-			val = val*10 + String[i] - '0';
-		}
-		if(val > 255) {
+		char	*end;
+		unsigned long val = strtoul(pos, &end, 10);
+		if( *end && *end != '.' ) {
 			#if DEBUG
-			printf("val > 255 (%i)\n", val);
+			_SysDebug("%s: Unexpected character, '%c' found", __func__, *end);
 			#endif
 			return 0;
 		}
+		if( *pos == '.' ) {
+			#if DEBUG
+			_SysDebug("%s: Two dots in a row", __func__);
+			#endif
+			return 0;
+		}
+		if(val > 255) {
+			#if DEBUG
+			_SysDebug("%s: val > 255 (%i)", __func__, val);
+			#endif
+			return 0;
+		}
+		#if DEBUG
+		_SysDebug("%s: Comp '%.*s' = %lu", __func__, end - pos, pos, val);
+		#endif
 		Addr[j] = val;
 		
-		if(String[i] == '.')
-			i ++;
+		pos = end;
+		
+		if(*pos == '.')
+			pos ++;
 	}
 	if( j != 4 ) {
 		#if DEBUG
-		printf("4 parts expected, %i found\n", j);
+		_SysDebug("%s: 4 parts expected, %i found", __func__, j);
 		#endif
 		return 0;
 	}
-	if(String[i] != '\0') {
+	if(*pos != '\0') {
 		#if DEBUG
-		printf("EOS != '\\0', '%c'\n", String[i]);
+		_SysDebug("%s: EOS != '\\0', '%c'", __func__, *pos);
 		#endif
 		return 0;
 	}

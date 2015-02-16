@@ -108,3 +108,15 @@ diff -ru .orig/netsurf-full-3.0//src/libparserutils-0.1.2/src/utils/vector.c net
  {
  	if (vector == NULL || vector->current_item < 0)
  		return NULL;
+diff -ru .orig/netsurf-full-3.0//src/libnsfb-0.1.2/Makefile netsurf-full-3.0//src/libnsfb-0.1.0/Makefile
+--- .orig/netsurf-full-3.0//src/libnsfb-0.1.0/Makefile	2013-04-20 02:06:57.000000000 +0800
++++ netsurf-full-3.0//src/libnsfb-0.1.0/Makefile	2013-07-01 22:22:45.246689992 +0800
+@@ -31,5 +31,5 @@
+ # surfaces not detectable via pkg-config 
+ NSFB_ABLE_AVAILABLE := no
+-NSFB_LINUX_AVAILABLE := yes
++NSFB_LINUX_AVAILABLE := no
+ 
+ # Flags and setup for each support library
+ NSFB_ABLE_AVAILABLE := no
+ 

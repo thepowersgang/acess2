@@ -26,6 +26,7 @@ serial.txt
 *.gz
 *.img
 *.vmdk
+*.iso
 SrcDoc/
 APIDoc/
 Usermode/*/*/UTEST/stage

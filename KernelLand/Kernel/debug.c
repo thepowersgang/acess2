@@ -7,7 +7,7 @@
 #include <debug_hooks.h>
 
 #define	DEBUG_MAX_LINE_LEN	256
-#define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
+#define	LOCK_DEBUG_OUTPUT	0	// Avoid interleaving of output lines?
 #define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
@@ -21,7 +21,7 @@ static void	Debug_Putchar(char ch);
 static void	Debug_Puts(int bUseKTerm, const char *Str);
 void	Debug_DbgOnlyFmt(const char *format, va_list args);
 void	Debug_FmtS(int bUseKTerm, const char *format, ...);
-void	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
+bool	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
 
 // === GLOBALS ===
@@ -77,9 +77,8 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 		IPStack_SendDebugText(Str);
 
 	// Output to the kernel terminal
-	if( UseKTerm && gbDebug_IsKPanic < 2 && giDebug_KTerm != -1)
+	if( UseKTerm && gbDebug_IsKPanic < 2 && giDebug_KTerm != -1 && gbInPutChar == 0)
 	{
-		if(gbInPutChar)	return ;
 		gbInPutChar = 1;
 		VFS_Write(giDebug_KTerm, len, Str);
 		gbInPutChar = 0;
@@ -91,17 +90,18 @@ void Debug_DbgOnlyFmt(const char *format, va_list args)
 	Debug_Fmt(0, format, args);
 }
 
-void Debug_Fmt(int bUseKTerm, const char *format, va_list args)
+bool Debug_Fmt(int bUseKTerm, const char *format, va_list args)
 {
 	char	buf[DEBUG_MAX_LINE_LEN];
 	buf[DEBUG_MAX_LINE_LEN-1] = 0;
-	int len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
+	size_t len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	Debug_Puts(bUseKTerm, buf);
 	if( len > DEBUG_MAX_LINE_LEN-1 ) {
 		// do something
 		Debug_Puts(bUseKTerm, "[...]");
+		return false;
 	}
-	return ;
+	return true;
 }
 
 void Debug_FmtS(int bUseKTerm, const char *format, ...)
@@ -131,25 +131,27 @@ void Debug_KernelPanic(void)
 /**
  * \fn void LogF(const char *Msg, ...)
  * \brief Raw debug log (no new line, no prefix)
+ * \return True if all of the provided text was printed
  */
-void LogF(const char *Fmt, ...)
+bool LogF(const char *Fmt, ...)
 {
-	va_list	args;
-
 	#if LOCK_DEBUG_OUTPUT
-	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
+	if(CPU_HAS_LOCK(&glDebug_Lock)) {
+		Debug_Puts("[#]");
+		return true;
+	}
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
+	va_list	args;
 	va_start(args, Fmt);
-
-	Debug_Fmt(1, Fmt, args);
-
+	bool rv = Debug_Fmt(1, Fmt, args);
 	va_end(args);
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
 	#endif
+	return rv;
 }
 /**
  * \fn void Debug(const char *Msg, ...)
@@ -249,12 +251,12 @@ void Panic(const char *Fmt, ...)
 	
 	Debug_KernelPanic();
 	
+	Debug_Puts(1, "\x1b[31m");
 	Debug_Puts(1, "Panic: ");
 	va_start(args, Fmt);
 	Debug_Fmt(1, Fmt, args);
 	va_end(args);
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+	Debug_Puts(1, "\x1b[0m\r\n");
 
 	Proc_PrintBacktrace();
 	//Threads_Dump();
@@ -265,16 +267,13 @@ void Panic(const char *Fmt, ...)
 
 void Debug_SetKTerminal(const char *File)
 {
-	 int	tmp;
 	if(giDebug_KTerm != -1) {
-		tmp = giDebug_KTerm;
+		// Clear FD to -1 before closing (prevents writes to closed FD)
+		int oldfd = giDebug_KTerm;
 		giDebug_KTerm = -1;
-		VFS_Close(tmp);
+		VFS_Close(oldfd);
 	}
-	tmp = VFS_Open(File, VFS_OPENFLAG_WRITE);
-//	Log_Log("Debug", "Opened '%s' as 0x%x", File, tmp);
-	giDebug_KTerm = tmp;
-//	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
+	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
 }
 
 void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
@@ -431,16 +430,16 @@ void Debug_HexDump(const char *Header, const void *Data, size_t Length)
 	Uint	pos = 0;
 	LogF("%014lli ", now());
 	Debug_Puts(1, Header);
-	LogF(" (Hexdump of %p)\r\n", Data);
+	LogF(" (Hexdump of %p+%i)\r\n", Data, Length);
 
 	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
 
 	while(Length >= 16)
 	{
 		LogF("%014lli Log: %04x:"
-			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %02x %02x %02x %02x %02x %02x %02x %02x "
+			" %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
 			now(),
 			pos,
 			cdat[ 0], cdat[ 1], cdat[ 2], cdat[ 3], cdat[ 4], cdat[ 5], cdat[ 6], cdat[ 7],

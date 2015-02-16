@@ -27,7 +27,7 @@
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
-//! 
+//! Apply alignment to a variable 
 #define ALIGN(x)	__attribute__((aligned(x)))
 
 /**
@@ -85,11 +85,11 @@ extern const char	gsBuildInfo[];
  * \{
  * \todo Move to mm_virt.h
  */
-#define	MM_PFLAG_RO		0x01	// Writes disallowed
-#define	MM_PFLAG_EXEC	0x02	// Allow execution
-#define	MM_PFLAG_NOPAGE	0x04	// Prevent from being paged out
-#define	MM_PFLAG_COW	0x08	// Copy-On-Write
-#define	MM_PFLAG_KERNEL	0x10	// Kernel-Only (Ring0)
+#define	MM_PFLAG_RO	0x01	//!< Writes disallowed
+#define	MM_PFLAG_EXEC	0x02	//!< Allow execution
+#define	MM_PFLAG_NOPAGE	0x04	//!< Prevent from being paged out
+#define	MM_PFLAG_COW	0x08	//!< Copy-On-Write
+#define	MM_PFLAG_KERNEL	0x10	//!< Kernel-Only (Ring0)
 /**
  * \}
  */
@@ -143,7 +143,9 @@ typedef struct sKernelSymbol {
  * \name IRQ hander registration
  * \{
  */
+//! Register a callback for when an IRQ is raised
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int, void*), void *Ptr);
+//! Remove a previously registered IRQ handler
 extern void	IRQ_RemHandler(int Handle);
 /**
  * \}
@@ -240,6 +242,15 @@ extern Uint	MM_GetFlags(volatile const void *VAddr);
  * \note There is only a limited ammount of slots avaliable
  */
 extern void	*MM_MapTemp(tPAddr PAddr);
+/**
+ * \brief Peform a temporary map of a page from another process
+ * \param Process	Source process
+ * \param Address	Source virtual address
+ * \return Virtual address of page in memory
+ * \note Limited slots
+ */
+struct sProcess;
+extern void	*MM_MapTempFromProc(struct sProcess *Process, const void *Address);
 /**
  * \brief Free a temporarily mapped page
  * \param Ptr	Pointer to page base

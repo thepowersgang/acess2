@@ -35,6 +35,7 @@ Dir "Libs" {
 	File "__BIN__/Libs/liburi.so"
 	File "__BIN__/Libs/libimage_sif.so"
 	File "__BIN__/Libs/libaxwin3.so"
+	File "__BIN__/Libs/libaxwin4.so"
 	File "__BIN__/Libs/libposix.so"
 	File "__BIN__/Libs/libpsocket.so"
 	File "__BIN__/Libs/libunicode.so"
@@ -60,6 +61,10 @@ Dir "Apps" {
 			File "toolbar_new.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_new.sif"
 			File "toolbar_open.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_open.sif"
 			File "toolbar_save.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_save.sif"
+		}
+		Dir "4.0" {
+			File "__BIN__/Apps/AxWin/4.0/AxWinServer"
+			File "__BIN__/Apps/AxWin/4.0/AxWinUI"
 		}
 	}
 }

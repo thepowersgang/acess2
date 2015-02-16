@@ -10,7 +10,7 @@
 
 // === FUNCTIONS ===
 extern void	VFS_ReferenceUserHandles(void);
-extern void	VFS_CloseAllUserHandles(void);
+extern void	VFS_CloseAllUserHandles(struct sProcess *Process);
 
 extern void	*VFS_SaveHandles(int NumFDs, int *FDs);
 extern void	VFS_RestoreHandles(int NumFDs, void *Handles);

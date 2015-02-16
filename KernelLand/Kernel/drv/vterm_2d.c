@@ -14,6 +14,7 @@ void	VT_int_SetCursorBitmap(tVTerm *Term, int W, int H);
 size_t	VT_int_FillCursorBitmap(tVTerm *Term, size_t DataOfs, size_t Length, const void *Data);
  int	VT_int_2DCmd_SetCursorPos(void *Handle, size_t Offset, size_t Length, const void *Data);
  int	VT_int_2DCmd_SetCursorBitmap(void *Handle, size_t Offset, size_t Length, const void *Data);
+ int	VT_int_2DCmd_SendData(void *Handle, size_t Offset, size_t Length, const void *Data);
 
 // === CODE ===
 void VT_int_SetCursorPos(tVTerm *Term, int X, int Y)
@@ -102,22 +103,59 @@ int VT_int_2DCmd_SetCursorBitmap(void *Handle, size_t Offset, size_t Length, con
 		Length -= ret;
 		Data = (const char*)Data + ret;
 		Offset += ret;
-		if( Length == 0 )
-			return -ret;
 	}
+	
+	ASSERTC(Offset, >=, sizeof(cmd));
 
-
-	if( Offset < sizeof(cmd) ) {
-		// oops?
-		return ret;
+	if( Length > 0 )
+	{
+		ret += VT_int_FillCursorBitmap(Handle, Offset - sizeof(cmd), Length, Data);
 	}
-
-	ret += VT_int_FillCursorBitmap(Handle, Offset - sizeof(cmd), Length, Data);
 
 	LOG("%i + %i ==? %i", ret, Offset, term->Cmd2D.CurrentSize);
 	if( ret + Offset >= term->Cmd2D.CurrentSize )
 		return ret;
 
+	return -ret;
+}
+
+int VT_int_2DCmd_SendData(void *Handle, size_t Offset, size_t Length, const void *Data)
+{
+	tVTerm	*term = Handle;
+	struct ptycmd_senddata	cmd;
+	size_t	ret = 0;
+	
+	if( Offset == 0 )
+	{
+		if( Length < sizeof(cmd) )
+			return 0;
+		memcpy(&cmd, Data, sizeof(cmd));
+		
+		ret = sizeof(cmd);
+		Offset += ret;
+		Length -= ret;
+		Data = (const char*)Data + ret;
+		
+		term->Cmd2D.CmdInfo.Push.Offset = cmd.ofs*4;
+	}
+	
+	ASSERTC(Offset, >=, sizeof(cmd));
+	
+	if( Length > 0 )
+	{
+		size_t	bytes = MIN(term->Width*term->Height*4 - term->Cmd2D.CmdInfo.Push.Offset, Length);
+		LOG("bytes = %i (0x%x), Length = %i", bytes, bytes, Length);
+		
+		VT_int_PutFBData(term, term->Cmd2D.CmdInfo.Push.Offset, bytes, Data );
+		term->Cmd2D.CmdInfo.Push.Offset += bytes;
+		ret += bytes;
+		
+		LOG("bytes(%i) ==? 0 || ret(%i) + Offset(%i) ==? %i",
+			bytes, ret, Offset, term->Cmd2D.CurrentSize);
+		if( bytes == 0 || ret + Offset >= term->Cmd2D.CurrentSize )
+			return ret;
+	}
+	
 	return -ret;
 }
 
@@ -128,6 +166,7 @@ typedef int	(*tVT_2DCmdHandler)(void *Handle, size_t Offset, size_t Length, cons
 tVT_2DCmdHandler	gVT_2DCmdHandlers[] = {
 	[PTY2D_CMD_SETCURSORPOS] = VT_int_2DCmd_SetCursorPos,
 	[PTY2D_CMD_SETCURSORBMP] = VT_int_2DCmd_SetCursorBitmap,
+	[PTY2D_CMD_SEND] = VT_int_2DCmd_SendData,
 };
 const int	ciVT_Num2DCmdHandlers = sizeof(gVT_2DCmdHandlers)/sizeof(gVT_2DCmdHandlers[0]);
 
@@ -137,7 +176,7 @@ void VT_int_Handle2DCmd(void *Handle, size_t Length, const void *Data)
 	tVTerm	*term = Handle;
 
 	LOG("Length = 0x%x", Length);
-	// If a command terminated early, we have to clean up its data
+	// If a command didn't consume all the data it said it would, we have to clean up
 _eat:
 	if( term->Cmd2D.PreEat )
 	{
@@ -164,7 +203,10 @@ _eat:
 		}
 		// else begin a new command
 		else
-		{		
+		{
+			// If the new data would fit in the cache, or the cache is already populated
+			// use the cache
+			// - The cache should fit the header for every command, so all good
 			if( Length < cachesize || term->Cmd2D.CachePos != 0 )
 			{
 				adjust = term->Cmd2D.CachePos;
@@ -174,25 +216,33 @@ _eat:
 				dataptr = (void*)term->Cmd2D.Cache;
 				len = term->Cmd2D.CachePos;
 			}
-			else {
+			else
+			{
 				dataptr = (void*)bdata;
 				len = Length;
 				adjust = 0;
 			}
 			const struct ptycmd_header	*hdr = dataptr;
 
-			if( len < sizeof(*hdr) ) {
+			// If there's not enough for the common header, wait for more
+			if( len < sizeof(*hdr) )
+			{
 				return ;
 			}			
 
+			// Parse header
 			term->Cmd2D.Offset = 0;
 			term->Cmd2D.Current = hdr->cmd;
 			term->Cmd2D.CurrentSize = (hdr->len_low | (hdr->len_hi << 8)) * 4;
-			if( term->Cmd2D.CurrentSize == 0 )
+			if( term->Cmd2D.CurrentSize == 0 ) {
+				Log_Warning("VTerm", "Command size too small (==0)");
 				term->Cmd2D.CurrentSize = 2;
+			}
 			LOG("Started %i with %s data",
 				term->Cmd2D.Current, (dataptr == bdata ? "direct" : "cache"));
 		}
+
+		// Sanity check
 		if( term->Cmd2D.Current >= ciVT_Num2DCmdHandlers || !gVT_2DCmdHandlers[term->Cmd2D.Current] )
 		{
 			Log_Notice("VTerm", "2D Comand %i not handled", term->Cmd2D.Current);
@@ -203,42 +253,60 @@ _eat:
 			term->Cmd2D.PreEat = term->Cmd2D.CurrentSize;
 			goto _eat;
 		}
-		else
+		
+		const tVT_2DCmdHandler*	handler = &gVT_2DCmdHandlers[term->Cmd2D.Current];
+		#if 0
+		if( term->Cmd2D.Offset == 0 )
 		{
-			int rv = gVT_2DCmdHandlers[term->Cmd2D.Current](Handle, term->Cmd2D.Offset, len, dataptr);
-			LOG("2DCmd %i: rv=%i", term->Cmd2D.Current, rv);
-			if( rv == 0 && term->Cmd2D.Offset == 0 ) {
-				// 0: Not enough data for header
-				ASSERT( term->Cmd2D.CachePos != cachesize );
-				// Clear current command because this command hasn't started yet
-				term->Cmd2D.Current = 0;
-				// Return, restart happens once all data is ready
+			if( len < handler->HeaderLength ) {
 				return ;
 			}
-			size_t used_bytes = (rv < 0 ? -rv : rv) - adjust;
-			Length -= used_bytes;
-			bdata += used_bytes;
-			term->Cmd2D.CachePos = 0;
-			if( rv < 0 ) {
-				ASSERT( -rv <= len );
-				LOG(" Incomplete");
-				term->Cmd2D.Offset += -rv;
-				continue ;
-			}
-			ASSERT(rv <= len);
-			term->Cmd2D.Current = 0;
-
-			// Eat up any uneaten data
-			// - TODO: Need to eat across writes
-			ASSERT( term->Cmd2D.Offset + rv <= term->Cmd2D.CurrentSize );
-			if( term->Cmd2D.Offset + rv < term->Cmd2D.CurrentSize )
-			{
-				size_t	diff = term->Cmd2D.CurrentSize - (term->Cmd2D.Offset + rv);
-				LOG("Left %i bytes", diff);
-				term->Cmd2D.PreEat = diff;
-				goto _eat;
-			}
-			LOG("Done (%i bytes left)", Length);
+			rv = handler->Header(Handle, len, dataptr);
 		}
+		else
+		{
+			rv = hander->Body(Handle, term->Cmd2D.Offset, len, dataptr);
+		}
+		#endif
+		
+		// Call Handler	
+		int rv = (*handler)(Handle, term->Cmd2D.Offset, len, dataptr);
+		LOG("2DCmd %i: rv=%i", term->Cmd2D.Current, rv);
+		
+		// If it returned 0 on the first call, it lacks space for the header
+		if( rv == 0 && term->Cmd2D.Offset == 0 )
+		{
+			ASSERT( term->Cmd2D.CachePos != cachesize );
+			// Clear current command because this command hasn't started yet
+			term->Cmd2D.Current = 0;
+			// Return, restart happens once all data is ready
+			return ;
+		}
+
+		// Consume the byte count returned (adjust is the number of bytes that were already cached)
+		size_t used_bytes = (rv < 0 ? -rv : rv) - adjust;
+		Length -= used_bytes;
+		bdata += used_bytes;
+		term->Cmd2D.CachePos = 0;
+		// If a negative count was returned, more data is expected
+		if( rv < 0 ) {
+			ASSERT( -rv <= len );
+			LOG(" Incomplete");
+			term->Cmd2D.Offset += -rv;
+			continue ;
+		}
+		ASSERT(rv <= len);
+		term->Cmd2D.Current = 0;
+
+		// Eat up any uneaten data
+		ASSERT( term->Cmd2D.Offset + rv <= term->Cmd2D.CurrentSize );
+		if( term->Cmd2D.Offset + rv < term->Cmd2D.CurrentSize )
+		{
+			size_t	diff = term->Cmd2D.CurrentSize - (term->Cmd2D.Offset + rv);
+			LOG("Left %i bytes", diff);
+			term->Cmd2D.PreEat = diff;
+			goto _eat;
+		}
+		LOG("Done (%i bytes left)", Length);
 	}
 }

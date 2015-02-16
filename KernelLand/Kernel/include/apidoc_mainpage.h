@@ -23,6 +23,8 @@
  *    user.
  *  - Drivers for specific types of hardware must behave in the specific
  *    way described here.
+ * - \ref library	"Library Functions"
+ *  - Kernel's version of libc and other helper functions
  * 
  * \page drivers Device Drivers
  * 

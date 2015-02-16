@@ -59,9 +59,10 @@ int VFS_Init(void)
 	VFS_MkDir("/Devices");
 	VFS_MkDir("/Mount");
 	VFS_Mount("dev", "/Devices", "devfs", "");
-		
-	Log_Debug("VFS", "Setting max files");
-	*Threads_GetMaxFD() = 32;
+	
+	// Set default max user file count
+	// - Applies to PID0, but propagated to all children
+	*Threads_GetMaxFD(NULL) = 32;
 	return 0;
 }
 

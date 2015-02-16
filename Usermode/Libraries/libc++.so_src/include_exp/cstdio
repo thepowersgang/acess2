@@ -1,0 +1,6 @@
+/*
+ */
+extern "C" {
+#include <stdio.h>
+}
+// vim: ft=cpp

@@ -20,6 +20,7 @@ typedef void	**tShortSpinlock;
 #include <pthread.h>
 
 #define NORETURN	__attribute__((noreturn))
+#include <stdbool.h>
 #include <logdebug.h>	// Kernel land, but uses standards
 #include <errno.h>
 

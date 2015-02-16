@@ -1,0 +1,31 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * functional (header)
+ * - Funcional programming features
+ */
+#ifndef _LIBCXX_FUNCTIONAL_
+#define _LIBCXX_FUNCTIONAL_
+
+#include "_libcxx_helpers.h"
+
+namespace std {
+
+template <class T>
+struct less
+{
+	bool operator() (const T& x, const T& y) const {
+		return x < y;
+	}
+	typedef T	first_argument_type;
+	typedef T	second_argument_type;
+	typedef bool	result_type;
+};
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

@@ -69,7 +69,7 @@ typedef struct
 	union {
 		Elf64_Xword	d_val;
 		Elf64_Addr	d_ptr;
-	} d_un;
+	};// d_un;
 } Elf64_Dyn;
 
 typedef struct
@@ -97,6 +97,8 @@ typedef struct
 
 #define ELF64_R_SYM(info)	((info) >> 32)
 #define ELF64_R_TYPE(info)	((info) & 0xFFFFFFFF)
+#define ELF64_ST_BIND(i)	((i)>>4)
+#define ELF64_ST_TYPE(i)	((i)&0xF)
 
 enum eElf64_RelocTypes_x86_64
 {

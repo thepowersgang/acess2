@@ -7,6 +7,7 @@
 #include <string.h>
 #include "common.h"
 #include <ctype.h>
+#include <inttypes.h>
 
 // === CONSTANTS ===
 #define DEFAULT_SHELL	"/Acess/SBin/login"
@@ -452,6 +453,8 @@ int SpawnKTerm(tInitProgram *Program)
 	 int	in = _SysOpen(path, OPENFLAG_READ);
 	 int	out = _SysOpen(path, OPENFLAG_WRITE);
 	
+	_SysDebug("Spawning virtual terminal '%s' with term '%s'",
+		path, Program->Command[0]);
 	return SpawnCommand(in, out, out, Program->Command, env);
 }
 
@@ -475,6 +478,8 @@ int SpawnSTerm(tInitProgram *Program)
 	_SysIOCtl(in, SERIAL_IOCTL_GETSETFORMAT, &Program->TypeInfo.STerm.FormatBits);
 	#endif
 
+	_SysDebug("Spawning serial terminal '%s' with term '%s'",
+		Program->TypeInfo.STerm.Path, Program->Command[0]);
 	return SpawnCommand(in, out, out, Program->Command, NULL);
 }
 
@@ -495,17 +500,15 @@ int SpawnDaemon(tInitProgram *Program)
 	// Log spawn header
 	{
 		char	buffer[101];
-		size_t len = snprintf(buffer, 100, "[%lli] init spawning ", _SysTimestamp());
+		size_t len = snprintf(buffer, 100, "[%"PRIi64"] init spawning ", _SysTimestamp());
 		_SysWrite(out, buffer, len);
-		char ch = '\'';
 		for( int i = 0; Program->Command[i]; i ++ )
 		{
-			_SysWrite(out, &ch, 1);
+			_SysWrite(out, "'", 1);
 			_SysWrite(out, Program->Command[i], strlen(Program->Command[i]));
-			_SysWrite(out, &ch, 1);
+			_SysWrite(out, "'", 1);
 		}
-		ch = '\n';
-		_SysWrite(out, &ch, 1);
+		_SysWrite(out, "\n", 1);
 	}
 	
 	return SpawnCommand(in, out, err, Program->Command, NULL);

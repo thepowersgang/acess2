@@ -88,6 +88,8 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 		Lock->Depth ++;
 		return ;
 	}
+	#else
+	ASSERT( !CPU_HAS_LOCK(Lock) );
 	#endif
 	
 	// Wait for another CPU to release
@@ -144,6 +146,18 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	#else
 	Lock->Lock = 0;
 	#endif
+}
+
+void __AtomicTestSetLoop(Uint *Ptr, Uint Value)
+{
+	__ASM__(
+		"1:\n\t"
+		"xor %%eax, %%eax;\n\t"
+		"lock cmpxchg %0, (%1);\n\t"	// if( Ptr==0 ) { ZF=1; Ptr=Value } else { ZF=0; _=Ptr }
+		"jnz 1b;\n\t"
+		:: "r"(Value), "r"(Ptr)
+		: "eax" // EAX clobbered
+		);
 }
 
 // === DEBUG IO ===
@@ -358,11 +372,11 @@ void *memset(void *__dest, int __val, size_t __count)
 		__asm__ __volatile__ ("rep stosb" : : "D"(__dest),"a"(__val),"c"(__count));
 	else {
 		Uint8   *dst = __dest;
+		size_t	qwords = __count / 8;
+		size_t	trail_bytes = __count % 8;
 
-		__asm__ __volatile__ ("rep stosq" : : "D"(dst),"a"(0),"c"(__count/8));
-		dst += __count & ~7;
-		__count = __count & 7;
-		while( __count-- )
+		__asm__ __volatile__ ("rep stosq" : "=D"(dst) : "D"(dst),"a"(0),"c"(qwords));
+		while( trail_bytes-- )
 		        *dst++ = 0;
 	}
 	return __dest;

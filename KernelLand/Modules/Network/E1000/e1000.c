@@ -64,6 +64,7 @@ int E1000_Install(char **Arguments)
 	// Allocate card array
 	gaE1000_Cards = calloc(sizeof(tCard), card_count);
 	if( !gaE1000_Cards ) {
+		Log_Warning("E1000", "Allocation of %i card structures failed", card_count);
 		return MODULE_ERR_MALLOC;
 	}	
 
@@ -88,6 +89,7 @@ int E1000_Install(char **Arguments)
 			Log_Debug("E1000", "Card %i: %P IRQ %i", card_idx, card->MMIOBasePhys, card->IRQ);
 
 			if( E1000_int_InitialiseCard(card) ) {
+				Log_Warning("E1000", "Initialisation of card #%i failed", card_idx);
 				return MODULE_ERR_MALLOC;
 			}
 			

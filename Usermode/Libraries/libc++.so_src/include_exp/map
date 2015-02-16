@@ -1,0 +1,418 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * map (header)
+ * - C++'s map type
+ */
+#ifndef _LIBCXX_MAP_
+#define _LIBCXX_MAP_
+
+#include "_libcxx_helpers.h"
+#include <allocator>
+#include <stdexcept>
+#include <iterator>
+#include <utility>
+#include <functional>	// less
+
+namespace std {
+
+namespace _bits {
+
+template <class Val, class Map>
+class map_iterator:
+	public ::std::iterator< ::std::bidirectional_iterator_tag, Val >
+{
+	friend Map;
+	typedef Val	value_type;
+	Map	*m_map;
+	size_t	m_index;
+public:
+	map_iterator():
+		m_map(0), m_index(0)
+	{
+	}
+	map_iterator(Map *map, typename Map::size_type ofs):
+		m_map(map), m_index(ofs)
+	{
+	}
+	map_iterator(const map_iterator& x) {
+		*this = x;
+	}
+	map_iterator& operator=(const map_iterator& x) {
+		m_map = x.m_map;
+		m_index = x.m_index;
+		return *this;
+	}
+	
+	map_iterator& operator++() {
+		m_index ++;
+	}
+	map_iterator& operator--() {
+		m_index --;
+	}
+	
+	bool operator==(const map_iterator& x) const {
+		return m_index == x.m_index;
+	}
+	bool operator!=(const map_iterator& x) const {
+		return !(*this == x);
+	}
+	value_type& operator*() {
+		_libcxx_assert(m_index < m_map->m_size);
+		return m_map->m_items[m_index];
+	}
+	value_type* operator->() {
+		_libcxx_assert(m_index < m_map->m_size);
+		return &m_map->m_items[m_index];
+	}
+};
+
+}	// namespace _bits
+
+template <class Key, class T, class Compare=less<Key>, class Alloc=allocator<pair<const Key,T> > >
+class map
+{
+	typedef map	this_type;
+public:
+	typedef Key	key_type;
+	typedef T	mapped_type;
+	typedef pair<const Key, T>	value_type;
+	typedef Compare	key_compare;
+	typedef Alloc	allocator_type;
+	typedef typename allocator_type::reference	reference;
+	typedef typename allocator_type::const_reference	const_reference;
+	typedef typename allocator_type::pointer	pointer;
+	typedef typename allocator_type::const_pointer	const_pointer;
+	typedef _bits::map_iterator<value_type,this_type>	iterator;
+	typedef _bits::map_iterator<const value_type,this_type>	const_iterator;
+	typedef size_t	size_type;
+
+private:
+	friend class ::std::_bits::map_iterator<value_type, this_type>;
+	friend class ::std::_bits::map_iterator<const value_type, this_type>;
+
+	key_compare	m_comp;
+	allocator_type	m_alloc;
+	value_type*	m_items;	// sorted array
+	size_type	m_size;
+	size_type	m_capacity;
+
+public:
+	map(const key_compare& comp = key_compare(), const allocator_type& alloc = allocator_type()):
+		m_comp(comp),
+		m_alloc(alloc),
+		m_items(0), m_size(0), m_capacity(0)
+	{
+	}
+	template <class InputInterator>
+	map(InputInterator first, InputInterator last):
+		map()
+	{
+		insert(first, last);
+	}
+	map(const map& x):
+		map(x.m_comp, x.m_alloc)
+	{
+		*this = x;
+	}
+	~map() {
+		clear();
+		reserve(0);
+	}
+	map& operator=(const map& x) {
+		clear();
+		reserve(x.m_size);
+		for( size_type i = 0; i < x.m_size; i ++ ) {
+			emplace_hint( end(), x.m_items[i] );
+		}
+		return *this;
+	}
+	
+	// Iterators
+	iterator begin() {
+		return iterator(this, 0);
+	}
+	const_iterator begin() const {
+		return const_iterator(this, 0);
+	}
+	iterator end() {
+		return iterator(this, m_size);
+	}
+	const_iterator end() const {
+		return const_iterator(this, m_size);
+	}
+	#if _CXX11_AVAIL
+	const_iterator cbegin() const {
+		return const_iterator(this, 0);
+	}
+	const_iterator cend() const {
+		return const_iterator(this, m_size);
+	}
+	#endif
+	//reverse_iterator rbegin();
+	//const_reverse_iterator rbegin() const;
+	//const_reverse_iterator crbegin() const;
+	//reverse_iterator rend();
+	//const reverse_iterator rend() const;
+	//const reverse_iterator crend() const;
+	
+	// Capacity
+	bool empty() const {
+		return m_size == 0;
+	}
+	size_type size() const {
+		return m_size;
+	}
+	size_type max_size() const {
+		return (size_type)-1 / sizeof(value_type);
+	}
+	
+	// Element access
+	mapped_type& operator[](const key_type& k) {
+		iterator it = upper_bound(k);
+		if( it == end() || m_comp(k, it->first) ) {	// if k < it->first, no match
+			insert_at(it.m_index, value_type(k,mapped_type()) );
+		}
+		return it->second;
+	}
+	#if _CXX11_AVAIL
+	mapped_type& at(const key_type& k) {
+		iterator it = lower_bound(k);
+		if( it == end() || m_comp(it->first, k) )
+			throw ::std::out_of_range("::std:map::at");
+		return it->second;
+	}
+	const mapped_type& at(const key_type& k) const {
+		iterator it = lower_bound(k);
+		if( it == end() || m_comp(it->first, k) )
+			throw ::std::out_of_range("::std:map::at");
+		return it->second;
+	}
+	#endif
+	
+	// Modifiers
+	// - insert
+	pair<iterator,bool> insert(const value_type& val)
+	{
+		const key_type&	k = val.first;
+		iterator it = upper_bound(k);
+		if( it == end() || m_comp(k, it->first) ) {	// if k < it->first, no match
+			insert_at(it.m_index, val);
+			return pair<iterator,bool>(it, true);
+		}
+		else {
+			return pair<iterator,bool>(it, false);
+		}
+	}
+	iterator insert(iterator position, const value_type& val);
+	template <class InputInterator>
+	void insert(InputInterator first, InputInterator last);
+	// - erase
+	void erase(iterator position)
+	{
+		auto pos = position;
+		erase(pos, ++position);
+	}
+	size_type erase(const key_type& k)
+	{
+		auto it = find(k);
+		if( it != end() ) {
+			erase(it);
+			return 1;
+		}
+		else {
+			return 0;
+		}
+	}
+	void erase(iterator first, iterator last)
+	{
+		_libcxx_assert(first.m_index <= last.m_index);
+		unsigned int ofs = first.m_index;
+		unsigned int count = last.m_index - first.m_index;
+		for( unsigned int i = 0; i < count; i ++ )
+		{
+			// Construct new item
+			m_alloc.destroy(&m_items[ofs]);
+			m_size --;
+			// Move following items down
+			shift_items(&m_items[ofs+1], &m_items[ofs], m_size-ofs);
+		}
+	}
+	// - swap
+	void swap(map& x);
+	// - clear
+	void clear() {
+		for( size_type i = 0; i < m_size; i ++ ) {
+			m_alloc.destroy( &m_items[i] );
+		}
+		m_size = 0;
+	}
+	// - emplace
+	#if _CXX11_AVAIL
+	template <class... Args>
+	pair<iterator,bool> emplace(Args&&... args) {
+		return emplace_hint(begin(), args...);
+	}
+	template <class... Args>
+	pair<iterator,bool> emplace_hint(iterator position, Args&&... args);
+	#endif
+	
+	// TODO: Observers
+	
+	// Operators
+	iterator find(const key_type& k) {
+		iterator it = lower_bound(k);
+		if( it == end() || m_comp(it->first, k) )	// if it->first < k
+			return end();
+		return it;
+	}
+	const_iterator find(const key_type& k) const {
+		const_iterator it = lower_bound(k);
+		if( it == end() || m_comp(it->first, k) )	// if it->first < k
+			return end();
+		return it;
+	}
+	size_type count(const key_type& k) {
+		if( find(k) == end() )
+			return 0;
+		return 1;
+	}
+	iterator lower_bound(const key_type& k) {
+		size_type idx;
+		if( _search(k, idx) ) {
+			// found, return direct iterator
+			return iterator(this, idx);
+		}
+		else {
+			// not found, return iterator to before
+			if( idx == 0 )	return begin();
+			return iterator(this, idx-1);
+		}
+	}
+	const_iterator lower_bound(const key_type& k) const {
+		size_type idx;
+		if( _search(k, idx) ) {
+			// found, return direct iterator
+			return iterator(this, idx);
+		}
+		else {
+			// not found, return iterator to before
+			if( idx == 0 )	return begin();
+			return iterator(this, idx-1);
+		}
+	}
+	iterator upper_bound(const key_type& k) {
+		size_type idx;
+		_search(k, idx);
+		// idx == item or just after it
+		return iterator(this, idx);
+	}
+	const_iterator upper_bound(const key_type& k) const {
+		size_type idx;
+		_search(k, idx);
+		return const_iterator(this, idx);
+	}
+	pair<iterator,iterator> equal_range(const key_type& k);
+	pair<const_iterator,const_iterator> equal_range(const key_type& k) const;
+
+private:
+	// Change reservation to fit 'n' items
+	// - NOTE: Will also resize down
+	void reserve(size_type n) {
+		n = (n + 31) & ~31;
+		if( n > max_size() )
+			throw ::std::length_error("::std::map::reserve");
+		if( n != m_capacity )
+		{
+			auto new_area = m_alloc.allocate(n);
+			for( size_type i = 0; i < m_size && i < n; i ++ )
+				m_alloc.construct(&new_area[i], m_items[i]);
+			for( size_type i = n; i < m_size; i ++ )
+				m_alloc.destroy( &m_items[i] );
+			m_alloc.deallocate(m_items, m_capacity);
+			m_items = new_area;
+			m_capacity = n;
+			if(m_size > n)
+				m_size = n;
+		}
+	}
+	// Returns the index above or equal to 'k'
+	// - TODO: Reimplement as a binary search
+	bool _search(const key_type& k, size_type &pos_out) const {
+		#if 0
+		size_type pos = m_size / 2;
+		size_type step = m_size / 4;
+		while( step > 0 ) {
+			const key_type& item_key = m_items[pos].first;
+			if( m_comp(item_key, k) )
+				pos += step;
+			else if( m_comp(k, item_key) )
+				pos -= step;
+			else {
+				pos_out = pos;
+				return true;
+			}
+			step /= 2;
+		}
+		pos_out = pos;
+		return false;
+		#else
+		//::_sys::debug("map::_search (m_size=%i)", m_size);
+		for( size_type pos = 0; pos < m_size; pos ++ )
+		{
+			const key_type& item_key = m_items[pos].first;
+			if( m_comp(item_key, k) ) {
+				continue;
+			}
+			else if( m_comp(k, item_key) ) {
+				//::_sys::debug("map::_search - Passed %i", pos);
+				pos_out = pos;
+				return false;
+			}
+			else {
+				//::_sys::debug("map::_search - Found %i", pos);
+				pos_out = pos;
+				return true;
+			}
+		}
+		//::_sys::debug("map::_search - Off end %i", m_size);
+		pos_out = m_size;
+		return false;
+		#endif
+	}
+	void insert_at(size_type ofs, const value_type& val) {
+		//_libcxx_assert( ofs == 0 || m_comp(m_items[ofs-1].first, val.first) );
+		//_libcxx_assert( ofs == m_size || m_comp(m_items[ofs].first, val.first) );
+		// Resize up
+		reserve( m_size + 1 );
+		// Move following items up
+		shift_items(&m_items[ofs], &m_items[ofs+1], m_size-ofs);
+		// Construct new item
+		m_alloc.construct(&m_items[ofs], val);
+		m_size ++;
+	}
+	void shift_items(value_type *start, value_type *end, size_type count) {
+		if( start < end ) {
+			for( size_type i = count; i --; ) {
+				#if _CXX11_AVAIL && 0
+				m_alloc.construct(&end[i], ::std::move(start[i]));
+				#else
+				m_alloc.construct(&end[i], start[i]);
+				m_alloc.destroy(&start[i]);
+				#endif
+			}
+		}
+		else {
+			for( size_type i = 0; i < count; i ++ ) {
+			}
+		}
+	}
+};
+
+}	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

@@ -74,6 +74,7 @@ void	MM_InstallVirtual(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables_Print(tVAddr Start, Uint32 Orig, size_t Size, void *Node);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
+tPAddr	MM_GetPageFromAS(tProcess *Process, volatile const void *Addr);
 //void	MM_ClearUser(void);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
 
@@ -539,6 +540,23 @@ tPAddr MM_GetPhysAddr(volatile const void *Addr)
 }
 
 /**
+ * \brief Get the address of a page from another addres space
+ * \return Refenced physical address (or 0 on error)
+ */
+tPAddr MM_GetPageFromAS(tProcess *Process, volatile const void *Addr)
+{
+	tPAddr	ret = 0;
+	GET_TEMP_MAPPING(Process->MemState.CR3);
+	tVAddr	addr = (tVAddr)Addr;
+	if( (gaTmpDir[addr >> 22] & 1) && (gaTmpTable[addr >> 12] & 1) ) {
+		ret = (gaTmpTable[addr >> 12] & ~0xFFF) | (addr & 0xFFF);
+		MM_RefPhys( ret );
+	}
+	REL_TEMP_MAPPING();
+	return ret;
+}
+
+/**
  * \fn void MM_SetCR3(Uint CR3)
  * \brief Sets the current process space
  */
@@ -552,18 +570,17 @@ void MM_SetCR3(Uint CR3)
  */
 void MM_ClearUser(void)
 {
-	Uint	i, j;
-	
-	for( i = 0; i < (MM_USER_MAX>>22); i ++ )
+	ASSERTC(MM_PPD_MIN, ==, MM_USER_MAX);
+	for( unsigned int i = 0; i < (MM_USER_MAX>>22); i ++ )
 	{
 		// Check if directory is not allocated
 		if( !(gaPageDir[i] & PF_PRESENT) ) {
 			gaPageDir[i] = 0;
 			continue;
 		}
-		
+	
 		// Deallocate tables
-		for( j = 0; j < 1024; j ++ )
+		for( unsigned int j = 0; j < 1024; j ++ )
 		{
 			if( gaPageTable[i*1024+j] & 1 )
 				MM_DerefPhys( gaPageTable[i*1024+j] & ~0xFFF );
@@ -583,8 +600,6 @@ void MM_ClearUser(void)
  */
 void MM_ClearSpace(Uint32 CR3)
 {
-	 int	i, j;
-	
 	if(CR3 == (*gpPageCR3 & ~0xFFF)) {
 		Log_Error("MMVirt", "Can't clear current address space");
 		return ;
@@ -601,7 +616,7 @@ void MM_ClearSpace(Uint32 CR3)
 	GET_TEMP_MAPPING(CR3);
 	INVLPG( gaTmpDir );
 
-	for( i = 0; i < 1024; i ++ )
+	for( int i = 0; i < 1024; i ++ )
 	{
 		Uint32	*table = &gaTmpTable[i*1024];
 		if( !(gaTmpDir[i] & PF_PRESENT) )
@@ -611,7 +626,7 @@ void MM_ClearSpace(Uint32 CR3)
 
 		if( i < 768 || (i > MM_KERNEL_STACKS >> 22 && i < MM_KERNEL_STACKS_END >> 22) )
 		{
-			for( j = 0; j < 1024; j ++ )
+			for( int j = 0; j < 1024; j ++ )
 			{
 				if( !(table[j] & 1) )
 					continue;
@@ -1052,6 +1067,8 @@ void *MM_MapTemp(tPAddr PAddr)
 		LOG("%i: %x", i, *pte);
 		// Check if page used
 		if(*pte & 1)	continue;
+		MM_RefPhys( PAddr );
+		
 		// Mark as used
 		*pte = PAddr | 3;
 		INVLPG( TEMP_MAP_ADDR + (i << 12) );
@@ -1064,6 +1081,15 @@ void *MM_MapTemp(tPAddr PAddr)
 	return NULL;
 }
 
+void *MM_MapTempFromProc(tProcess *Process, const void *VAddr)
+{
+	// Get paddr
+	tPAddr	paddr = MM_GetPageFromAS(Process, VAddr);
+	if( paddr == 0 )
+		return NULL;
+	return MM_MapTemp(paddr);
+}
+
 /**
  * \fn void MM_FreeTemp(tVAddr PAddr)
  * \brief Free's a temp mapping
@@ -1073,7 +1099,9 @@ void MM_FreeTemp(void *VAddr)
 	 int	i = (tVAddr)VAddr >> 12;
 	//ENTER("xVAddr", VAddr);
 	
-	if(i >= (TEMP_MAP_ADDR >> 12)) {
+	if(i >= (TEMP_MAP_ADDR >> 12))
+	{
+		MM_DerefPhys( gaPageTable[i] & ~0xFFF );
 		gaPageTable[ i ] = 0;
 		Semaphore_Signal(&gTempMappingsSem, 1);
 	}

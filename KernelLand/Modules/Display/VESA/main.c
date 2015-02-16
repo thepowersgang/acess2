@@ -16,7 +16,11 @@
 #include <limits.h>
 
 // === CONSTANTS ===
-#define USE_BIOS	1
+#ifdef ARCHDIR_is_x86
+# define USE_BIOS	1
+#else
+# define USE_BIOS	0
+#endif
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
 #define BLINKING_CURSOR	0
 #if BLINKING_CURSOR
@@ -33,6 +37,7 @@ size_t	Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
 void	Vesa_int_HideCursor(void);
 void	Vesa_int_ShowCursor(void);
+ int	Vesa_int_SetCursor(tVideo_IOCtl_Bitmap *Cursor);
 void	Vesa_FlipCursor(void *Arg);
 Uint16	VBE_int_GetWord(const tVT_Char *Char);
 void	VBE_int_Text_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
@@ -124,6 +129,10 @@ int VBE_int_GetModeList(void)
 	
 	// Allocate Info Block
 	info = VM8086_Allocate(gpVesa_BiosState, 512, &infoPtr.seg, &infoPtr.ofs);
+	if( info == NULL ) {
+		Log_Warning("VBE", "VM8086 allocation error");
+		return MODULE_ERR_NOTNEEDED;
+	}
 	// Set Requested Version
 	memcpy(info->signature, "VBE2", 4);
 	// Set Registers
@@ -361,13 +370,16 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case VIDEO_IOCTL_SETBUFFORMAT:
 		Vesa_int_HideCursor();
 		ret = gVesa_BufInfo.BufferFormat;
-		if(Data)	gVesa_BufInfo.BufferFormat = *(int*)Data;
+		if(Data)
+			gVesa_BufInfo.BufferFormat = *(int*)Data;
 		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
-			DrvUtil_Video_SetCursor( &gVesa_BufInfo, &gDrvUtil_TextModeCursor );
+			Vesa_int_SetCursor(&gDrvUtil_TextModeCursor);
 		Vesa_int_ShowCursor();
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
+		if( !CheckMem(Data, sizeof(tVideo_IOCtl_Pos)) )
+			return -EINVAL;
 		Vesa_int_HideCursor();
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
@@ -375,9 +387,7 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return 0;
 	
 	case VIDEO_IOCTL_SETCURSORBITMAP:
-		if( gpVesaCurMode->flags & FLAG_LFB )
-			DrvUtil_Video_SetCursor( &gVesa_BufInfo, Data );
-		return 0;
+		return Vesa_int_SetCursor(Data);
 	}
 	return 0;
 }
@@ -451,9 +461,9 @@ int Vesa_Int_SetMode(int mode)
 	
 	Mutex_Release( &glVesa_Lock );
 
-	// TODO: Disableable backbuffer
-	gVesa_BufInfo.BackBuffer  = realloc(gVesa_BufInfo.BackBuffer,
-		modeptr->height * modeptr->pitch);
+	// TODO: Allow disabling of back-buffer
+	gVesa_DriverStruct.RootNode.Size = modeptr->height * modeptr->pitch;
+	gVesa_BufInfo.BackBuffer  = realloc(gVesa_BufInfo.BackBuffer, modeptr->height * modeptr->pitch);
 	gVesa_BufInfo.Framebuffer = gpVesa_Framebuffer;
 	gVesa_BufInfo.Pitch = modeptr->pitch;
 	gVesa_BufInfo.Width = modeptr->width;
@@ -605,6 +615,21 @@ void Vesa_int_ShowCursor(void)
 	{
 		DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
 	}
+}
+
+int Vesa_int_SetCursor(tVideo_IOCtl_Bitmap *Cursor)
+{
+	if( !CheckMem(Cursor, sizeof(tVideo_IOCtl_Bitmap)) )
+		return -EINVAL;
+	
+	if( gpVesaCurMode && gpVesaCurMode->flags & FLAG_LFB )
+	{
+		DrvUtil_Video_SetCursor( &gVesa_BufInfo, Cursor );
+	}
+	else
+	{
+	}
+	return 0;
 }
 
 /**

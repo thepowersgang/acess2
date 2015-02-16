@@ -12,7 +12,7 @@
 // === CODE ===
 int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 {
-	const int maxfd = *Threads_GetMaxFD();
+	const int maxfd = *Threads_GetMaxFD(NULL);
 	tVFS_Handle	*handles = *Threads_GetHandlesPtr();
 	if( !handles ) {
 		handles = calloc( maxfd, sizeof(tVFS_Handle) );
@@ -34,7 +34,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 
 tVFS_Handle *VFS_GetHandle(int FD)
 {
-	const int maxfd = *Threads_GetMaxFD();
+	const int maxfd = *Threads_GetMaxFD(NULL);
 	tVFS_Handle	*handles = *Threads_GetHandlesPtr();
 	if( !handles )
 		return NULL;
@@ -47,7 +47,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 
 int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
 {
-	const int maxfd = *Threads_GetMaxFD();
+	const int maxfd = *Threads_GetMaxFD(NULL);
 	tVFS_Handle	*handles = *Threads_GetHandlesPtr();
 	if( !handles )
 		return -1;

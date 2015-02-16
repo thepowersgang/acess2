@@ -1,5 +1,6 @@
 /*
  */
+#define _GNU_SOURCE	// needed for MAP_ANONYMOUS to be avaliable
 #include "common.h"
 #include <stdio.h>
 #include <stdlib.h>

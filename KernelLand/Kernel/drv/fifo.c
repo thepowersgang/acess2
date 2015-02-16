@@ -10,15 +10,16 @@
 #include <modules.h>
 #include <fs_devfs.h>
 #include <semaphore.h>
+#include <memfs_helpers.h>
 
 // === CONSTANTS ===
 #define DEFAULT_RING_SIZE	2048
 #define PF_BLOCKING		1
 
 // === TYPES ===
-typedef struct sPipe {
-	struct sPipe	*Next;
-	char	*Name;
+typedef struct sPipe
+{
+	tMemFS_FileHdr	FileHdr;
 	tVFS_Node	Node;
 	Uint	Flags;
 	 int	ReadPos;
@@ -42,6 +43,9 @@ tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0032, FIFO, FIFO_Install, NULL, NULL);
+tMemFS_DirHdr	gFIFO_RootDir = {
+	.FileHdr = { .Name = "FIFO" },
+};
 tVFS_NodeType	gFIFO_DirNodeType = {
 	.TypeName = "FIFO Dir Node",
 	.ReadDir = FIFO_ReadDir,
@@ -71,7 +75,6 @@ tVFS_Node	gFIFO_AnonNode = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
 	};
-tPipe	*gFIFO_NamedPipes = NULL;
 
 // === CODE ===
 /**
@@ -80,6 +83,7 @@ tPipe	*gFIFO_NamedPipes = NULL;
  */
 int FIFO_Install(char **Options)
 {
+	MemFS_InitDir( &gFIFO_RootDir );
 	DevFS_AddDevice( &gFIFO_DriverInfo );
 	return MODULE_ERR_OK;
 }
@@ -98,22 +102,14 @@ int FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data)
  */
 int FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX])
 {
-	tPipe	*tmp = gFIFO_NamedPipes;
-	
 	// Entry 0 is Anon Pipes
-	if(Id == 0) {
+	if(Id == 0)
+	{
 		strcpy(Dest, "anon");
 		return 0;
 	}
 	
-	// Find the id'th node
-	while(--Id && tmp)	tmp = tmp->Next;
-	// If the list ended, error return
-	if(!tmp)
-		return -EINVAL;
-	// Return good
-	strncpy(Dest, tmp->Name, FILENAME_MAX);
-	return 0;
+	return MemFS_ReadDir(&gFIFO_RootDir, Id-1, Dest);
 }
 
 /**
@@ -123,11 +119,8 @@ int FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX])
  */
 tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 {
-	tPipe	*tmp;
-	if(!Filename)	return NULL;
-	
-	// NULL String Check
-	if(Filename[0] == '\0')	return NULL;
+	ASSERTR(Filename, NULL);
+	ASSERTR(Filename[0], NULL);
 	
 	// Anon Pipe
 	if( strcmp(Filename, "anon") == 0 )
@@ -135,19 +128,15 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 		if( Flags & VFS_FDIRFLAG_STAT ) {
 			//return &gFIFI_TemplateAnonNode;
 		}
-		tmp = FIFO_Int_NewPipe(DEFAULT_RING_SIZE, "anon");
-		return &tmp->Node;
+		tPipe *ret = FIFO_Int_NewPipe(DEFAULT_RING_SIZE, "anon");
+		return &ret->Node;
 	}
 	
 	// Check Named List
-	tmp = gFIFO_NamedPipes;
-	while(tmp)
-	{
-		if(strcmp(tmp->Name, Filename) == 0)
-			return &tmp->Node;
-		tmp = tmp->Next;
-	}
-	return NULL;
+	tPipe *ret = (tPipe*)MemFS_FindDir(&gFIFO_RootDir, Filename);
+	if(!ret)
+		return NULL;
+	return &ret->Node;
 }
 
 /**
@@ -155,6 +144,25 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
  */
 tVFS_Node *FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
+	UNIMPLEMENTED();
+	return NULL;
+}
+
+/**
+ * \brief Delete a pipe
+ */
+int FIFO_Unlink(tVFS_Node *Node, const char *OldName)
+{
+	if(Node != &gFIFO_DriverInfo.RootNode)	return 0;
+	
+	// Can't relink anon
+	if(strcmp(OldName, "anon"))	return 0;
+	
+	// Find node
+	tPipe* pipe = (tPipe*)MemFS_Remove(&gFIFO_RootDir, OldName);
+	if(!pipe)	return 0;
+	
+	free(pipe);
 	return 0;
 }
 
@@ -171,52 +179,21 @@ void FIFO_Reference(tVFS_Node *Node)
  */
 void FIFO_Close(tVFS_Node *Node)
 {
-	tPipe	*pipe;
 	if(!Node->ImplPtr)	return ;
 	
 	Node->ReferenceCount --;
 	if(Node->ReferenceCount)	return ;
 	
-	pipe = Node->ImplPtr;
+	tPipe	*pipe = Node->ImplPtr;
 	
-	if(strcmp(pipe->Name, "anon") == 0) {
-		Log_Debug("FIFO", "Pipe %p closed", Node->ImplPtr);
-		free(Node->ImplPtr);
+	if(strcmp(pipe->FileHdr.Name, "anon") == 0)
+	{
+		Log_Debug("FIFO", "Pipe %p closed", pipe);
+		free(pipe);
 		return ;
 	}
 	
 	return ;
-}
-
-/**
- * \brief Delete a pipe
- */
-int FIFO_Unlink(tVFS_Node *Node, const char *OldName)
-{
-	tPipe	*pipe;
-	
-	if(Node != &gFIFO_DriverInfo.RootNode)	return 0;
-	
-	// Can't relink anon
-	if(strcmp(OldName, "anon"))	return 0;
-	
-	// Find node
-	for(pipe = gFIFO_NamedPipes;
-		pipe;
-		pipe = pipe->Next)
-	{
-		if(strcmp(pipe->Name, OldName) == 0)
-			break;
-	}
-	if(!pipe)	return 0;
-	
-	// Unlink the pipe
-	if(Node->ImplPtr) {
-		free(Node->ImplPtr);
-		return 1;
-	}
-	
-	return 0;
 }
 
 /**
@@ -412,10 +389,8 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	ret->Buffer = (void*)( (Uint)ret + sizeof(tPipe) + sizeof(tVFS_ACL) );
 	
 	// Set name (and FIFO name)
-	ret->Name = ret->Buffer + Size;
-	strcpy(ret->Name, Name);
-	// - Start empty, max of `Size`
-	//Semaphore_Init( &ret->Semaphore, 0, Size, "FIFO", ret->Name );
+	ret->FileHdr.Name = ret->Buffer + Size;
+	strcpy((char*)ret->FileHdr.Name, Name);
 	
 	// Set Node
 	ret->Node.ReferenceCount = 1;

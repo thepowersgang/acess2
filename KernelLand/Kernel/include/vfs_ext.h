@@ -227,6 +227,20 @@ extern int	VFS_DuplicateFD(int SrcFD, int DstFD);
 extern int	VFS_SetFDFlags(int FD, int Mask, int Value);
 
 /**
+ * \brief Save specified file handle such that it can be passed between processes
+ * \param FD	File descriptor to save
+ * \return Marshalled handle, or (uint64_t)-1 on error
+ */
+extern Uint64	VFS_MarshalHandle(int FD);
+
+/**
+ * \brief Restore a marshalled handle into the current process
+ * \param Handle returned by VFS_MarshalHandle
+ * \return File descriptor, or -1 on error
+ */
+extern int	VFS_UnmarshalHandle(Uint64 Handle);
+
+/**
  * \brief Get file information from an open file
  * \param FD	File handle returned by ::VFS_Open
  * \param Dest	Destination for the read information
@@ -313,6 +327,16 @@ extern size_t	VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer);
  * \return Number of bytes written
  */
 extern size_t	VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer);
+
+/**
+ * \brief Set the valid size of a file
+ * \param FD	File descriptor
+ * \param Size	New file size
+ * \return Actual new file size (-1 if error occurred)
+ *
+ * \note Not all files support this call (will return ENOTIMPL)
+ */
+extern off_t	VFS_Truncate(int FD, off_t Size);
 
 /**
  * \brief Sends an IOCtl request to the driver

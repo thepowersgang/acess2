@@ -44,7 +44,7 @@ void Display_ScrollDown(tTerminal *Term, int CountDown)
 	LOG("(%i)", CountDown);
 	VT_int_UpdateScreen(Term, 0);
 	if( Term->Flags & VT_FLAG_ALTBUF )
-		VT_int_ScrollText(Term, CountDown);
+		VT_int_ScrollText(Term, -CountDown);
 	else
 	{
 		if(Term->ViewTopRow + CountDown < 0)

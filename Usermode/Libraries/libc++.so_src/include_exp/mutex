@@ -1,0 +1,76 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * mutex (header)
+ * - C++11's tutex handling
+ */
+#ifndef _LIBCXX_MUTEX_
+#define _LIBCXX_MUTEX_
+
+#include "_libcxx_helpers.h"
+
+#if !_CXX11_AVAIL
+# error	"<mutex> requires C++11 support"
+#endif
+
+namespace std {
+
+#if _CXX11_AVAIL
+
+class mutex
+{
+public:
+	constexpr mutex() noexcept:
+		m_flag(false)
+	{
+	}
+	mutex(const mutex&) = delete;
+	mutex& operator=(const mutex&) = delete;
+	~mutex();
+	
+	void lock();
+	bool try_lock();
+	void unlock();
+
+	typedef void*	native_handle;
+private:
+	// TODO: Proper userland mutex support
+	bool	m_flag;
+};
+
+struct defer_lock_t {};
+struct try_to_lock_t {};
+struct adopt_lock_t {};
+
+template< class Mutex >
+class lock_guard
+{
+public:
+	typedef Mutex	mutex_type;
+private:
+	mutex_type&	m_lock;
+public:
+	lock_guard(mutex_type& m):
+		m_lock(m)
+	{
+		m_lock.lock();
+	}
+	lock_guard(mutex_type& m, std::adopt_lock_t t):
+		m_lock(m)
+	{
+		// Adopted
+	}
+	~lock_guard() {
+		m_lock.unlock();
+	}
+};
+
+#endif
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

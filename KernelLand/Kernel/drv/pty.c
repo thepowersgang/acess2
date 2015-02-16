@@ -85,6 +85,7 @@ tVFS_NodeType	gPTY_NodeType_Root = {
 };
 tVFS_NodeType	gPTY_NodeType_Client = {
 	.TypeName = "PTY-Client",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = PTY_ReadClient,
 	.Write = PTY_WriteClient,
 	.IOCtl = PTY_IOCtl,
@@ -93,6 +94,7 @@ tVFS_NodeType	gPTY_NodeType_Client = {
 };
 tVFS_NodeType	gPTY_NodeType_Server = {
 	.TypeName = "PTY-Server",
+	.Flags = VFS_NODETYPEFLAG_STREAM,
 	.Read = PTY_ReadServer,
 	.Write = PTY_WriteServer,
 	.IOCtl = PTY_IOCtl,
@@ -235,6 +237,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	if( InitialMode )
 		ret->Mode = *InitialMode;
 	// - Client node
+	ret->ClientNode.Size = -1;
 	ret->ClientNode.ImplPtr = ret;
 	ret->ClientNode.Type = &gPTY_NodeType_Client;
 	ret->ClientNode.UID = Threads_GetUID();
@@ -624,12 +627,14 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	// If the server has terminated, send SIGPIPE
 	if( pty->ServerNode && pty->ServerNode->ReferenceCount == 0 )
 	{
+		LOG("SIGPIPE, server has terminated");
 		Threads_PostSignal(SIGPIPE);
 		errno = EIO;
 		return -1;
 	}	
 
 	// Write to either FIFO or directly to output function
+	LOG("pty->OutputFcn = %p", pty->OutputFcn);
 	if( pty->OutputFcn ) {
 		pty->OutputFcn(pty->OutputHandle, Length, Buffer);
 		return Length;
@@ -809,6 +814,8 @@ int PTY_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	struct ptydims	*dims = Data;
 	
 	int	is_server = !pty || Node == pty->ServerNode;
+
+	LOG("(%i,%p) %s", ID, Data, (is_server?"Server":"Client"));
 
 	switch(ID)
 	{

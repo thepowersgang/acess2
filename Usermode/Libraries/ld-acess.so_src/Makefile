@@ -11,10 +11,12 @@ EXTRABIN := libld-acess.so
 EXTRACLEAN = $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
-CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99
+#CPPFLAGS += -D DISABLE_ELF64
+CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99 -ffreestanding
 # -fno-leading-underscore
 CFLAGS  += $(CPPFLAGS)
-LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
+LDFLAGS  = -ffreestanding -nostdlib -g -Wl,-T,arch/$(ARCHDIR).ld -Map map.txt --export-dynamic -x
+LIBS := $(LIBGCC_PATH)
 
 ifeq ($(ARCH),native)
 XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN)) 
@@ -31,15 +33,15 @@ include ../Makefile.tpl
 # create libld-acess.so
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	$(LD) -shared -o $@ $<
+	$V$(LD) -shared -o $@ $<
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
 
 # Override .ao to look in the object prefix for the source
-$(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX)
+$(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX) Makefile
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
-	@$(AS) $(ASFLAGS) -o $@ $<
+	$V$(AS) $(ASFLAGS) -o $@ $<
 
 #.PRECIOUS: $(OBJ:%.ao=%.asm)
 
@@ -47,7 +49,7 @@ $(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX)
 $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): arch/$(ARCHDIR).$(ASSUFFIX).h arch/syscalls.s.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
-	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
+	$V$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
 
 $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): $(ACESSDIR)/KernelLand/Kernel/include/syscalls.h
 

@@ -1,0 +1,331 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * list (header)
+ * - List container
+ */
+#ifndef _LIBCXX_LIST_
+#define _LIBCXX_LIST_
+
+#include <cstddef>
+#include "allocator"
+#include "stdexcept"
+#include "utility"
+
+namespace std {
+
+namespace _bits {
+template <class ListType, class T> class list_iterator;
+template <class T> class list_item;
+}
+
+template <class T, class Alloc = allocator<T> >
+class list
+{
+	typedef ::std::_bits::list_item<T>	item_type;
+	typedef ::std::_bits::list_item<const T>	const_item_type;
+	friend class ::std::_bits::list_iterator<list, T>;
+	
+	typedef typename Alloc::template rebind<item_type>::other	item_allocator;
+public:
+	typedef T value_type;
+	typedef Alloc	allocator_type;
+	typedef typename allocator_type::reference	reference;
+	typedef typename allocator_type::const_reference	const_reference;
+	typedef typename allocator_type::pointer	pointer;
+	typedef typename allocator_type::const_pointer	const_pointer;
+	typedef _bits::list_iterator<list,T>	iterator;
+	typedef _bits::list_iterator<list,const T>	const_iterator;
+	typedef int	difference_type;
+	typedef size_t	size_type;
+
+private:
+	item_allocator	m_item_allocator;
+	allocator_type	m_allocator;
+	item_type	*m_start;
+	item_type	*m_end;
+	size_type	m_item_count;
+
+public:
+	list(const allocator_type& alloc = allocator_type()):
+		m_item_allocator(),
+		m_allocator(alloc),
+		m_start(0), m_end(0)
+	{
+	}
+	list(size_t n, const value_type& val = value_type(), const allocator_type& alloc = allocator_type()):
+		list()
+	{
+		assign(n, val);
+	}
+	list(const list& x);
+	~list() {
+		clear();
+	}
+	
+	list& operator =(const list& x);
+	
+	iterator begin() {
+		return iterator(*this, m_start);
+	}
+	const_iterator begin() const {
+		return const_iterator(*this, m_start);
+	}
+
+	iterator end() {
+		return iterator(*this, 0);
+	}
+	const_iterator end() const {
+		return const_iterator(*this, 0);
+	}
+	
+	bool empty() const {
+		return !m_start;
+	}
+	size_t size() const {
+		return m_item_count;
+	}
+	size_t max_size() const {
+		return (size_type)-1 / sizeof(item_type);
+	}
+	
+	T& front() {
+		return m_start->value;
+	}
+	const T& front() const {
+		return m_start->value;
+	}
+	T& back() {
+		return m_end->value;
+	}
+	const T& back() const {
+		return m_end->value;
+	}
+	
+	void assign(size_type n, const value_type& val) {
+		clear();
+		for( size_t i = 0; i < n; i ++ )
+		{
+			push_back(val);
+		}
+	}
+	
+	void push_front(const value_type& val) {
+		insert(front(), val);
+	}
+	void pop_front() {
+		erase(front());
+	}
+	void push_back(const value_type& val) {
+		insert(end(), val);
+	}
+	void pop_back() {
+		erase(end());
+	}
+	
+	template <class... Args>
+	iterator emplace(iterator position, Args&&... args) {
+		item_type *newi = m_item_allocator.allocate(1);
+		m_allocator.construct(&newi->value, ::std::forward<Args>(args)...);
+		return insert_item(position, newi);
+	}
+	
+	iterator insert(iterator position, const value_type& val) {
+		item_type *newi = m_item_allocator.allocate(1);
+		m_allocator.construct(&newi->value, val);
+		return insert_item(position, newi);
+	}
+	void insert(iterator position, size_type n, const value_type& val) {
+		for( size_type i = 0; i < n; i ++ )
+		{
+			position = insert(position, val);
+		}
+	}
+	iterator erase(iterator position) {
+		if( position == end() ) {
+		}
+		else {
+			item_type *oldi = position.m_cur;
+			++ position;
+			
+			if(oldi->prev)
+				oldi->prev->next = oldi->next;
+			else
+				m_start = oldi->next;
+			if(oldi->next)
+				oldi->next->prev = oldi->prev;
+			else
+				m_end = oldi->prev;
+
+			m_item_count --;
+			m_allocator.destroy(&oldi->value);
+			m_item_allocator.deallocate(oldi, 1);
+		}
+		return position;
+	}
+	
+	void clear() {
+		while( m_start ) {
+			item_type* item = m_start;
+			m_start = m_start->next;
+			delete item;
+		}
+		m_item_count = 0;
+	}
+
+	void splice(iterator position, list& x) {
+		splice(position, x, x.begin(), x.end());
+	}
+	void splice(iterator position, list& x, iterator i) {
+		splice(position, x, i, x.end());
+	}
+	void splice(iterator position, list& x, iterator first, iterator last);
+
+private:
+	class _equal
+	{
+		const value_type&	m_val;
+	public:
+		_equal(const value_type& val):
+			m_val(val)
+		{
+		};
+		bool operator() (const value_type& v1)
+		{
+			return m_val == v1;
+		}
+	};
+public:
+	void remove(const value_type& val) {
+		remove_if(_equal(val));
+	}
+	template <class Predicate> void remove_if(Predicate pred) {
+		for( iterator it = begin(); it != end(); )
+		{
+			if( pred(*it) )
+				it = erase(it);
+			else
+				++ it;
+		}
+	}
+	
+	void unique();
+	template <class BinaryPredicate> void unique(BinaryPredicate binary_pred);
+	
+	void merge(list& x);
+	template <class Compare> void merge(list& x, Compare comp);
+	
+	void sort();
+	template <class Compare> void sort(Compare comp);
+	
+	void reverse() throw();
+private:
+	iterator insert_item(iterator position, item_type *newi) {
+		m_item_count ++;
+		if( m_start == 0 ) {
+			newi->next = 0;
+			newi->prev = m_end;
+			m_start = newi;
+			m_end = newi;
+			return end();
+		}
+		if( position == end() ) {
+			newi->next = 0;
+			newi->prev = m_end;
+			//assert(m_end);
+			m_end->next = newi;
+			m_end = newi;
+		}
+		else if( position == begin() ) {
+			newi->next = m_start;
+			newi->prev = 0;
+			//assert(m_start);
+			m_start->prev = newi;
+			m_start = newi;
+		}
+		else {
+			newi->prev = position.m_cur->prev;
+			newi->next = position.m_cur;
+			position.m_cur->prev->next = newi;
+			position.m_cur->prev = newi;
+		}
+		return ++iterator(*this, newi);
+	}
+};
+
+
+namespace _bits {
+
+template <class T>
+struct list_item
+{
+	typedef T	value_type;
+	list_item<T>	*next;
+	list_item<T>	*prev;
+	value_type	value;
+};
+
+template <class ListType, class T>
+class list_iterator//:
+	//public bidirectional_iterator_tag;
+{
+	const ListType*	m_list;
+	list_item<T>	*m_cur;
+	friend ListType;
+public:
+	list_iterator(const list_iterator& x):
+		m_list(x.m_list),
+		m_cur (x.m_cur)
+	{
+	}
+	list_iterator& operator=(const list_iterator& x) {
+		m_list = x.m_list;
+		m_cur  = x.m_cur;
+	}
+	
+	bool operator == (const list_iterator& other) const {
+		return m_cur == other.m_cur;
+	}
+	bool operator != (const list_iterator& other) const {
+		return !(*this == other);
+	}
+	
+	T& operator * () {
+		return m_cur->value;
+	}
+	T& operator -> () {
+		return m_cur->value;
+	}
+	list_iterator& operator ++ () {
+		if(!m_cur)
+			throw ::std::logic_error("list iterator ++ on end");
+		m_cur = m_cur->next;
+		return *this;
+	}
+	list_iterator& operator -- () {
+		if( m_cur == m_list->m_start )
+			throw ::std::logic_error("list iterator -- on start");
+		if(!m_cur)
+			m_cur = m_list->m_end;
+		else
+			m_cur = m_cur->prev;
+		return *this;
+	}
+	
+private:
+	list_iterator(const ListType& list, list_item<T> *item):
+		m_list(&list),
+		m_cur(item)
+	{
+	}
+};
+
+};	// namespace _bits
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

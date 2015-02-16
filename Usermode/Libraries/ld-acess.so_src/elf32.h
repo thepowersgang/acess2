@@ -12,6 +12,7 @@ typedef uint16_t	Elf32_Half;
 typedef uint32_t	Elf32_Addr;
 typedef uint32_t	Elf32_Off;
 typedef uint32_t	Elf32_Word;
+typedef uint32_t	Elf32_Xword;	// < not strictly correct... but meh
 typedef int32_t 	Elf32_Sword;
 
 #define ELFCLASS32	1
@@ -26,19 +27,19 @@ typedef int32_t 	Elf32_Sword;
 */
 struct sElf32_Ehdr {
 	uint8_t	e_ident[16];	//!< Identifier Bytes
-	Elf32_Half	filetype;	//!< File Type
-	Elf32_Half	machine;	//!< Machine / Arch
-	Elf32_Word	version;	//!< Version (File?)
-	Elf32_Addr	entrypoint;	//!< Entry Point
-	Elf32_Off	phoff;	//!< Program Header Offset
-	Elf32_Word	shoff;	//!< Section Header Offset
-	Elf32_Word	flags;	//!< Flags
-	Elf32_Half	headersize;	//!< Header Size
-	Elf32_Half	phentsize;	//!< Program Header Entry Size
-	Elf32_Half	phentcount;	//!< Program Header Entry Count
-	Elf32_Half	shentsize;	//!< Section Header Entry Size
-	Elf32_Half	shentcount;	//!< Section Header Entry Count
-	Elf32_Half	shstrindex;	//!< Section Header String Table Index
+	Elf32_Half	e_filetype;	//!< File Type
+	Elf32_Half	e_machine;	//!< Machine / Arch
+	Elf32_Word	e_version;	//!< Version (File?)
+	Elf32_Addr	e_entry;	//!< Entry Point
+	Elf32_Off	e_phoff;	//!< Program Header Offset
+	Elf32_Word	e_shoff;	//!< Section Header Offset
+	Elf32_Word	e_flags;	//!< Flags
+	Elf32_Half	e_headersize;	//!< Header Size
+	Elf32_Half	e_phentsize;	//!< Program Header Entry Size
+	Elf32_Half	e_phnum;	//!< Program Header Entry Count
+	Elf32_Half	e_shentsize;	//!< Section Header Entry Size
+	Elf32_Half	e_shentcount;	//!< Section Header Entry Count
+	Elf32_Half	e_shstrindex;	//!< Section Header String Table Index
 };
 
 /**
@@ -112,14 +113,23 @@ struct sElf32_Shent {
 #endif
 
 struct elf_sym_s {
-	Elf32_Word	nameOfs;
-	Elf32_Addr	value;	//Address
-	Elf32_Word	size;
-	uint8_t	info;
-	uint8_t	other;
-	Elf32_Half	shndx;
+	Elf32_Word	st_name;
+	Elf32_Addr	st_value;	//Address
+	Elf32_Word	st_size;
+	uint8_t 	st_info;
+	uint8_t 	st_other;
+	Elf32_Half	st_shndx;
 };
 #define	STN_UNDEF	0	// Undefined Symbol
+
+#define ELF32_ST_BIND(i)	((i)>>4)
+#define ELF32_ST_TYPE(i)	((i)&0xF)
+
+enum {
+	STB_LOCAL,
+	STB_GLOBAL,
+	STB_WEAK,
+};
 
 enum {
 	PT_NULL,	//0
@@ -138,14 +148,14 @@ enum {
 #define PF_R	4
 
 struct sElf32_Phdr {
-	Elf32_Word	Type;
-	Elf32_Off	Offset;
-	Elf32_Addr	VAddr;
-	Elf32_Addr	PAddr;
-	Elf32_Word	FileSize;
-	Elf32_Word	MemSize;
-	Elf32_Word	Flags;
-	Elf32_Word	Align;
+	Elf32_Word	p_type;
+	Elf32_Off	p_offset;
+	Elf32_Addr	p_vaddr;
+	Elf32_Addr	p_paddr;
+	Elf32_Word	p_filesz;
+	Elf32_Word	p_memsz;
+	Elf32_Word	p_flags;
+	Elf32_Word	p_align;
 };
 
 struct elf32_rel_s {

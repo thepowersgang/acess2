@@ -8,6 +8,8 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <stdbool.h>
 #include "lib.h"
 
 #if 0
@@ -71,6 +73,7 @@ static const heap_head	_heap_zero_allocation;
 EXPORT void	*malloc(size_t bytes);
 void	*_malloc(size_t bytes, void *owner);
 EXPORT void	*calloc(size_t bytes, size_t count);
+bool	_libc_free(void *mem);
 EXPORT void	free(void *mem);
 EXPORT void	*realloc(void *mem, size_t bytes);
 EXPORT void	*sbrk(int increment);
@@ -222,25 +225,30 @@ EXPORT void *calloc(size_t __nmemb, size_t __size)
 */
 EXPORT void free(void *mem)
 {
+	if( !_libc_free(mem) ) {
+		Heap_Validate(1);
+		exit(0);
+	}
+}
+
+// Exported for libc++
+EXPORT bool _libc_free(void *mem)
+{
 	heap_head	*head = (heap_head*)mem - 1;
 
 	// Free of NULL or the zero allocation does nothing
 	if(!mem || mem == _heap_zero_allocation.data)
-		return ;
+		return true;
 	
 	// Sanity check the head address
 	if(head->magic != MAGIC) {
 		if( head->magic != MAGIC_FREE ) {
-			_SysDebug("Double free of %p", mem);
-			Heap_Validate(1);
-			exit(0);
+			_SysDebug("Double free of %p by %p", mem, __builtin_return_address(0));
 		}
 		else {
-			_SysDebug("Free of invalid pointer %p", mem);
-			Heap_Validate(1);
-			exit(0);
+			_SysDebug("Free of invalid pointer %p by ", mem, __builtin_return_address(0));
 		}
-		return;
+		return false;
 	}
 	
 	head->magic = MAGIC_FREE;
@@ -265,8 +273,9 @@ EXPORT void free(void *mem)
 		heap_foot *prevFoot = PREV_FOOT(head);
 		if( prevFoot->magic != MAGIC )
 		{
+			_SysDebug("Heap corruption, previous foot magic invalid");
 			Heap_Validate(1);
-			exit(1);
+			return false;
 		}
 		
 		heap_head *prevHead = prevFoot->header;
@@ -281,6 +290,8 @@ EXPORT void free(void *mem)
 			prevFoot->header = NULL;
 		}
 	}
+	
+	return true;
 }
 
 /**
@@ -308,7 +319,8 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 	
 	// Check for free space after the block
 	heap_head *nexthead = NEXT_HEAD(head);
-	if( nexthead && nexthead->magic == MAGIC_FREE && head->size + nexthead->size >= reqd_size )
+	assert( nexthead <= _heap_end );
+	if( nexthead != _heap_end && nexthead->magic == MAGIC_FREE && head->size + nexthead->size >= reqd_size )
 	{
 		// Split next block
 		if( head->size + nexthead->size > reqd_size )
@@ -337,12 +349,12 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 	void *ret = _malloc(bytes, __builtin_return_address(0));
 	if(ret == NULL)
 		return NULL;
+	heap_head *newhead = (heap_head*)ret - 1;
 	
-	//Copy Old Data
+	// Copy Old Data
+	assert( head->size < newhead->size );
 	size_t copy_size = head->size-sizeof(heap_head)-sizeof(heap_foot);
-	if( copy_size > bytes )
-		copy_size = bytes;
-	memcpy(ret, oldPos, bytes);
+	memcpy(ret, oldPos, copy_size);
 	free(oldPos);
 	
 	//Return

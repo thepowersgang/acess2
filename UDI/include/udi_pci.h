@@ -8,6 +8,9 @@
 #ifndef _UDI_PCI_H_
 #define _UDI_PCI_H_
 
+#if UDI_PCI_VERSION != 0x101
+# error "udi_pci.h requires UDI_PCI_VERSION set to 0x101"
+#endif
 #ifndef _UDI_PHYSIO_H_
 # error "udi_pci.h requires udi_physio.h"
 #endif

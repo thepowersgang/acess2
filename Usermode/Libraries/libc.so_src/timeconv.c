@@ -114,7 +114,7 @@ int64_t get_days_since_y2k(int64_t ts, int *h, int *m, int *s)
 	ts -= n_leap;
 	#endif
 	
-	int64_t	days = ts / 24*60*60;
+	int64_t	days = ts / (24*60*60);
 	int64_t seconds = ts % (24*60*60);
 	*s = (is_ls ? 60 : seconds % 60);
 	*m = (seconds/60 % 24);

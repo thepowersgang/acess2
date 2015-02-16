@@ -1,6 +1,7 @@
 ; AcessOS Microkernel Version
 ;
 ; desctab.asm
+%include "arch/x86/common.inc.asm"
 [BITS 32]
 
 
@@ -182,14 +183,14 @@ Isr0xED:
 	jmp .jmp
 
 [global Isr0xEE]
-[extern SchedulerBase]
+[extern Proc_EventTimer_LAPIC]
 ; AP's Timer Interrupt
 Isr0xEE:
 	push eax	; Line up with interrupt number
 	mov eax, dr1	; CPU Number
 	push eax
 	mov eax, [esp+4]	; Load EAX back
-	jmp SchedulerBase
+	jmp Proc_EventTimer_LAPIC
 ; Spurious Interrupt
 [global Isr0xEF]
 Isr0xEF:
@@ -201,7 +202,7 @@ Isr0xEF:
 ; - Timer
 [global Isr240]
 [global Isr240.jmp]
-[extern SchedulerBase]
+[extern Proc_EventTimer_PIT]
 [extern SetAPICTimerCount]
 Isr240:
 	push 0	; Line up with Argument in errors
@@ -211,7 +212,7 @@ Isr240.jmp:
 	%if USE_MP
 	jmp SetAPICTimerCount	; This is reset once the bus speed has been calculated
 	%else
-	jmp SchedulerBase
+	jmp Proc_EventTimer_PIT
 	%endif
 ; - Assignable
 %assign i	0xF1
@@ -254,11 +255,8 @@ ErrorCommon:
 ; --------------------------
 [extern SyscallHandler]
 SyscallCommon:
-	pusha
-	push ds
-	push es
-	push fs
-	push gs
+	PUSH_CC	; Actually a pusha
+	PUSH_SEG
 	
 	push esp
 	call SyscallHandler
@@ -286,17 +284,8 @@ SyscallCommon:
 [global IRQCommon_handled]
 IRQCommon_handled equ IRQCommon.handled
 IRQCommon:
-	pusha
-	push ds
-	push es
-	push fs
-	push gs
-	
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+	PUSH_CC
+	PUSH_SEG
 	
 	push esp
 	call IRQ_Handler

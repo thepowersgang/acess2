@@ -6,6 +6,7 @@
  * - Provides binary loading and type abstraction
  */
 #define DEBUG	0
+#define _POSIX_C_SOURCE	200809L	// needed for strdup
 #include "common.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -228,7 +229,7 @@ void Binary_SetReadyToUse(void *Base)
 	}
 }
 
-int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size)
+int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size, void *IgnoreBase)
 {
 	 int	i;
 	tBinary	*bin;
@@ -251,6 +252,7 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size)
 	// Search list of loaded binaries
 	for(bin = gLoadedBinaries; bin; bin = bin->Next)
 	{
+		if( bin->Base == IgnoreBase )	continue ;
 		if( !bin->Ready )	continue;
 		//printf(" Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
 		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value, Size) )

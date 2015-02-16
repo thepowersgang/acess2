@@ -1,0 +1,6 @@
+; Options for acess2
+
+pthread
+Driver
+
+;

@@ -20,7 +20,7 @@ extern  int	ICMP_Ping(tInterface *Interface, tIPv4 Addr);
 
 // === PROTOTYPES ===
  int	IPv4_Initialise();
- int	IPv4_RegisterCallback(int ID, tIPCallback Callback);
+// int	IPv4_RegisterCallback(int ID, tIPRxCallback Callback, );
 void	IPv4_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
 Uint32	IPv4_Netmask(int FixedBits);
@@ -28,7 +28,10 @@ Uint16	IPv4_Checksum(const void *Buf, size_t Length);
  int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
 // === GLOBALS ===
-tIPCallback	gaIPv4_Callbacks[256];
+struct {
+	tIPRxCallback*	rx_cb;
+	tIPErrorCallback*	err_cb;
+} gaIPv4_Callbacks[256];
 
 // === CODE ===
 /**
@@ -46,11 +49,12 @@ int IPv4_Initialise()
  * \param ID	8-bit packet type ID
  * \param Callback	Callback function
  */
-int IPv4_RegisterCallback(int ID, tIPCallback Callback)
+int IPv4_RegisterCallback(int ID, tIPRxCallback *RxCallback, tIPErrorCallback *ErrCallback)
 {
 	if( ID < 0 || ID > 255 )	return 0;
-	if( gaIPv4_Callbacks[ID] )	return 0;
-	gaIPv4_Callbacks[ID] = Callback;
+	if( gaIPv4_Callbacks[ID].rx_cb )	return 0;
+	gaIPv4_Callbacks[ID].rx_cb = RxCallback;
+	gaIPv4_Callbacks[ID].err_cb = ErrCallback;
 	return 1;
 }
 
@@ -66,14 +70,12 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
  */
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPStackBuffer *Buffer)
 {
-	tMacAddr	to;
 	tIPv4Header	hdr;
-	 int	length;
 
-	length = IPStack_Buffer_GetLength(Buffer);
+	int length = IPStack_Buffer_GetLength(Buffer);
 	
 	// --- Resolve destination MAC address
-	to = HWCache_Resolve(Iface, &Address);
+	tMacAddr to = HWCache_Resolve(Iface, &Address);
 	if( MAC_EQU(to, cMAC_ZERO) ) {
 		// No route to host
 		Log_Notice("IPv4", "No route to host %i.%i.%i.%i",
@@ -134,7 +136,6 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPS
 void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer)
 {
 	tIPv4Header	*hdr = Buffer;
-	tInterface	*iface;
 	Uint8	*data;
 	 int	dataLength;
 	 int	ret;
@@ -197,7 +198,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	data = &hdr->Options[0];
 	
 	// Get Interface (allowing broadcasts)
-	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
+	tInterface *iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
 	
 	// Firewall rules
 	if( iface ) {
@@ -255,12 +256,29 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	}
 	
 	// Send it on
-	if( !gaIPv4_Callbacks[hdr->Protocol] ) {
+	if( !gaIPv4_Callbacks[hdr->Protocol].rx_cb ) {
 		Log_Log("IPv4", "Unknown Protocol %i", hdr->Protocol);
 		return ;
 	}
 	
-	gaIPv4_Callbacks[hdr->Protocol]( iface, &hdr->Source, dataLength, data );
+	gaIPv4_Callbacks[hdr->Protocol].rx_cb( iface, &hdr->Source, dataLength, data );
+}
+
+/*
+ * Handles an error from the ICMPv4 code, 'Buf' contains part of an IPv4 packet
+ */
+void IPv4_HandleError(tInterface *Iface, tIPErrorMode Mode, size_t Length, const void *Buf)
+{
+	if(Length < sizeof(tIPv4Header))	return;
+	const tIPv4Header*	hdr = Buf;
+	if(hdr->Version != 4)	return;
+	
+	// Get Data and Data Length
+	size_t dataLength = MIN(Length, ntohs(hdr->TotalLength)) - sizeof(tIPv4Header);
+	const void *data = &hdr->Options[0];
+	
+	if( gaIPv4_Callbacks[hdr->Protocol].err_cb )
+		gaIPv4_Callbacks[hdr->Protocol].err_cb(Iface, Mode, &hdr->Source, dataLength, data);
 }
 
 /**
@@ -272,16 +290,14 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
  */
 tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 {
-	tInterface	*iface = NULL, *zero_iface = NULL;
-	Uint32	netmask;
-	Uint32	addr, this;
+	tInterface	*zero_iface = NULL;
 
 	ENTER("pAdapter xAddress bBroadcast", Adapter, Address, Broadcast);	
 
-	addr = ntohl( Address.L );
+	Uint32 addr = ntohl( Address.L );
 	LOG("addr = 0x%x", addr);
 	
-	for( iface = gIP_Interfaces; iface; iface = iface->Next)
+	for( tInterface *iface = gIP_Interfaces; iface; iface = iface->Next)
 	{
 		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
@@ -307,8 +323,8 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 		if( !Broadcast )	continue;
 		
 		// Check for broadcast
-		this = ntohl( ((tIPv4*)iface->Address)->L );
-		netmask = IPv4_Netmask(iface->SubnetBits);
+		Uint32 this = ntohl( ((tIPv4*)iface->Address)->L );
+		Uint32 netmask = IPv4_Netmask(iface->SubnetBits);
 		LOG("iface addr = 0x%x, netmask = 0x%x (bits = %i)", this, netmask, iface->SubnetBits);
 
 		if( (addr & netmask) == (this & netmask) && (addr & ~netmask) == (0xFFFFFFFF & ~netmask) )

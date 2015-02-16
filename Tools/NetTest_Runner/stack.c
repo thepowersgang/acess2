@@ -12,6 +12,8 @@
 
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_ARGS	16
 
@@ -53,6 +55,7 @@ void Stack_AddInterface(const char *Name, int AddrType, const void *Addr, int Ma
 		break;
 	default:
 		assert(AddrType == 4);
+		fprintf(stderr, "Stack_AddInterface: Bad address type %i\n", AddrType);
 		exit(1);
 	}
 }
@@ -63,14 +66,24 @@ void Stack_AddRoute(int Type, const void *Network, int MaskBits, const void *Nex
 
 void Stack_AddArg(const char *Fmt, ...)
 {
+	if( giNumStackArgs == MAX_ARGS ) {
+		fprintf(stderr, "ERROR: Too many arguments to stack, %i max\n", MAX_ARGS);
+		return ;
+	}
 	va_list	args;
+	
 	va_start(args, Fmt);
 	size_t len = vsnprintf(NULL, 0, Fmt, args);
 	va_end(args);
+
 	char *arg = malloc(len+1);
+	assert(arg);
+
 	va_start(args, Fmt);
 	vsnprintf(arg, len+1, Fmt, args);
 	va_end(args);
+	
+	assert( arg[len] == '\0' );
 	gasStackArgs[giNumStackArgs++] = arg;
 }
 
@@ -81,7 +94,7 @@ void sigchld_handler(int signum)
 	fprintf(stderr, "FAILURE: Child exited (%i)\n", status);
 }
 
-int Stack_Start(const char *Subcommand)
+int Stack_Start(const char *RunName, const char *Subcommand)
 {
 	Stack_AddArg(Subcommand);
 	
@@ -96,8 +109,8 @@ int Stack_Start(const char *Subcommand)
 	fcntl(giStack_InFD, F_SETFD, FD_CLOEXEC);
 
 	FILE	*fp;
-	fp = fopen("stdout.txt", "a"); fprintf(fp, "--- Startup\n"); fclose(fp);
-	fp = fopen("stderr.txt", "a"); fprintf(fp, "--- Startup\n"); fclose(fp);
+	fp = fopen("stdout.txt", "a"); fprintf(fp, "--- TEST: %s\n", RunName); fclose(fp);
+	fp = fopen("stderr.txt", "a"); fprintf(fp, "--- TEST: %s\n", RunName); fclose(fp);
 
 	posix_spawn_file_actions_t	fa;
 	posix_spawn_file_actions_init(&fa);
@@ -123,6 +136,10 @@ void Stack_Kill(void)
 		kill(giStack_PID, SIGTERM);
 		giStack_PID = 0;
 	}
+	
+	for( int i = 1; i < giNumStackArgs; i ++ )
+		free(gasStackArgs[i]);
+	giNumStackArgs = 1;
 }
 
 int Stack_SendCommand(const char *Fmt, ...)

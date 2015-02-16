@@ -8,6 +8,8 @@
 #ifndef _LIBCXX__CXXABI_H_
 #define _LIBCXX__CXXABI_H_
 
+#include <cstddef>
+
 #include <typeinfo>
 
 namespace __cxxabiv1 {
@@ -70,6 +72,13 @@ public:
 		__incomplete_class_mask = 0x10
 	};
 };
+
+extern "C" void* __dynamic_cast(
+		const void *sub,
+		const __class_type_info *src,
+		const __class_type_info *dst,
+		ptrdiff_t src2dst_offset
+		);
 
 };	// namespace __cxxabiv1
 

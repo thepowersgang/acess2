@@ -4,9 +4,11 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += 
-CFLAGS   += -Wall -Werror -Wextra
+CFLAGS   += -nostdlib -Wall -Werror -Wextra
 ASFLAGS  +=
-LDFLAGS  += -Map map.txt
+LDFLAGS  += -nostdlib
+PRELINK  := $(CRTI) $(CRTBEGINS) $(CRT0S)
+LIBS     += $(LIBGCC_PATH) $(CRTENDS) $(CRTN)
 
 INCFILES := stdio.h stdlib.h
 
@@ -19,7 +21,7 @@ OBJ += arch/$(ARCHDIR).ao
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libc.so
 ifeq ($(ARCHDIR),native)
- OBJ := $(filter-out heap.o,$(OBJ))
+ OBJ := $(filter-out heap.o,$(OBJ)) heap_native.o
  #LDFLAGS += -l c
  BIN = libc_acess.so
 endif
@@ -27,8 +29,8 @@ endif
 include ../Makefile.tpl
 
 EXP_%.txt: TEST_%.native
-	./$< > $@
-	rm $<
+	@./$< > $@
+	@rm $<
 EXP_strtoi.txt:
 	echo -n "" > $@
 

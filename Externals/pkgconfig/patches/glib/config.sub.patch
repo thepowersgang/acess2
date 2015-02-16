@@ -1,0 +1,8 @@
+--- glib/config.sub
++++ glib/config.sub
+@@ -1335,2 +1335,5 @@
+		;;
++	-acess2)
++		os=-acess2
++		;;
+	-solaris)

@@ -118,8 +118,15 @@ int BGA_Install(char **Arguments)
 	dev = PCI_GetDevice(0x1234, 0x1111, 0);
 	if(dev == -1)
 		base = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
-	else
-		base = PCI_GetBAR(dev, 0);
+	else {
+		Log_Debug("BGA", "BARs %x,%x,%x,%x,%x,%x",
+			PCI_GetBAR(dev, 0), PCI_GetBAR(dev, 1), PCI_GetBAR(dev, 2),
+			PCI_GetBAR(dev, 3), PCI_GetBAR(dev, 4), PCI_GetBAR(dev, 5));
+		base = PCI_GetValidBAR(dev, 0, PCI_BARTYPE_MEM);
+		// TODO: Qemu/bochs have MMIO versions of the registers in BAR2
+		// - This range is non-indexed
+		//mmio_base = PCI_GetValidBAR(dev, 2, PCI_BARTYPE_MEM);
+	}
 
 	// Map Framebuffer to hardware address
 	gBGA_Framebuffer = (void *) MM_MapHWPages(base, 768);	// 768 pages (3Mb)

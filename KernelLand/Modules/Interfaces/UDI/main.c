@@ -37,6 +37,10 @@ tUDI_DriverModule	*gpUDI_LoadedModules;
  */
 int UDI_Install(char **Arguments)
 {
+	if( Arguments && Arguments[0] && strcmp(Arguments[0], "disable") == 0 ) {
+		// Module disabled by user
+		return MODULE_ERR_NOTNEEDED;
+	}
 	Module_RegisterLoader( &gUDI_Loader );
 
 	Proc_SpawnWorker(UDI_int_DeferredThread, NULL);
@@ -121,10 +125,10 @@ static udi_boolean_t _get_token_bool(const char *str, const char **outstr)
 static udi_index_t _get_token_idx(const char *str, const char **outstr)
 {
 	char	*end;
-	int ret = strtol(str, &end, 10);
-	if( ret < 0 || ret > 255 ) {
-		Log_Notice("UDI", "Value '%.*s' out of range for udi_index_t",
-			end-str, str);
+	unsigned long ret = strtoul(str, &end, 10);
+	if( ret > 255 ) {
+		Log_Notice("UDI", "Value '%.*s' (0x%lx) out of range for udi_index_t",
+			end-str, str, ret);
 		*outstr = NULL;
 		return 0;
 	}
@@ -145,8 +149,8 @@ static udi_ubit16_t _get_token_uint16(const char *str, const char **outstr)
 	char	*end;
 	unsigned long ret = strtoul(str, &end, 10);
 	if( ret > 0xFFFF ) {
-		Log_Notice("UDI", "Value '%.*s' out of range for udi_ubit16_t",
-			end-str, str);
+		Log_Notice("UDI", "Value '%.*s' (0x%lx) out of range for udi_ubit16_t",
+			end-str, str, ret);
 		*outstr = NULL;
 		return 0;
 	}
@@ -419,12 +423,14 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 	 int	child_bind_index = 0;
 	 int	device_index = 0;
 	 int	next_unpop_region = 1;
+	#define IF_ERROR(op)	if(!str){error_hit=1;op;}
 	for( int i = 0; i < nLines; i ++ )
 	{
 		const char *str = udipropsptrs[i];
 		if( !*str )
 			continue ;
 		 int	sym = _get_token_sym_v(str, &str, true, caUDI_UdipropsNames);
+		//LOG("Processing option '%s'", (sym >= 0 ? caUDI_UdipropsNames[sym] : "ERR"));
 		switch(sym)
 		{
 		case UDIPROPS__properties_version:
@@ -439,7 +445,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 		case UDIPROPS__meta: {
 			tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
 			ml->meta_idx = _get_token_idx(str, &str);
-			if( !str )	continue;
+			IF_ERROR(continue);
 			ml->interface_name = str;
 			// TODO: May need to trim trailing spaces
 			ml->metalang = UDI_int_GetMetaLangByName(ml->interface_name);
@@ -455,7 +461,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
 			msg->locale = cur_locale;
 			msg->index = _get_token_uint16(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			msg->string = str;
 			//Log_Debug("UDI", "Message %i/%i: '%s'", msg->locale, msg->index, msg->string);
 			break;
@@ -467,7 +473,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 		case UDIPROPS__region:
 			{
 			udi_index_t rgn_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			// Search for region index (just in case internal_bind_ops appears earlier)
 			tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
 			if( rgn_idx > 0 )
@@ -516,7 +522,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 					rgn->OverrunTime = _get_token_uint32(str, &str);
 					break;
 				}
-				if( !str )	break ;
+				IF_ERROR(break);
 			}
 			break;
 			}
@@ -524,12 +530,13 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			{
 			tUDI_BindOps	*bind = &driver_module->Parents[parent_index++];
 			bind->meta_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			bind->region_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			bind->ops_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			bind->bind_cb_idx = _get_token_idx(str, &str);
+			IF_ERROR(continue);
 			if( *str ) {
 				// Expected EOL, didn't get it :(
 			}
@@ -541,9 +548,9 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			{
 			// Get region using index
 			udi_index_t meta = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			udi_index_t rgn_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			
 			// Search for region index (just in case the relevant 'region' comes after)
 			tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
@@ -569,11 +576,11 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			rgn->BindMeta = meta;
 			
 			rgn->PriBindOps = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			rgn->SecBindOps = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			rgn->BindCb = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			if( *str ) {
 				// TODO: Please sir, I want an EOL
 			}
@@ -583,10 +590,11 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			{
 			tUDI_BindOps	*bind = &driver_module->ChildBindOps[child_bind_index++];
 			bind->meta_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			bind->region_idx = _get_token_idx(str, &str);
-			if( !str )	continue ;
+			IF_ERROR(continue);
 			bind->ops_idx = _get_token_idx(str, &str);
+			IF_ERROR(continue);
 			if( *str ) {
 				// Expected EOL, didn't get it :(
 			}
@@ -607,26 +615,27 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			{
 			 int	n_attr = 0;
 			// Count properties (and validate)
-			_get_token_idx(str, &str);	// message
-			if( !str )	continue;
+			_get_token_uint16(str, &str);	// message
+			IF_ERROR(continue);
 			_get_token_idx(str, &str);	// meta
-			if( !str )	continue;
+			IF_ERROR(continue);
 			while( *str )
 			{
 				_get_token_str(str, &str, NULL);
-				if( !str )	break;
+				IF_ERROR(break);
 				_get_token_sym(str, &str, true, "string", "ubit32", "boolean", "array", NULL);
-				if( !str )	break;
+				IF_ERROR(break);
 				_get_token_str(str, &str, NULL);
-				if( !str )	break;
+				IF_ERROR(break);
 				n_attr ++;
 			}
 			// Rewind and actually parse
+			// - Eat the 'device' token and hence reset 'str'
 			_get_token_str(udipropsptrs[i], &str, NULL);
 			
 			tUDI_PropDevSpec *dev = NEW_wA(tUDI_PropDevSpec, Attribs, n_attr);
 			driver_module->Devices[device_index++] = dev;;
-			dev->MessageNum = _get_token_idx(str, &str);
+			dev->MessageNum = _get_token_uint16(str, &str);
 			dev->MetaIdx = _get_token_idx(str, &str);
 			dev->nAttribs = n_attr;
 			n_attr = 0;
@@ -634,10 +643,10 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			{
 				udi_instance_attr_list_t *at = &dev->Attribs[n_attr];
 				_get_token_str(str, &str, at->attr_name);
-				if( !str )	break;
+				IF_ERROR(break);
 				at->attr_type = _get_token_sym(str, &str, true,
 					" ", "string", "array", "ubit32", "boolean", NULL);
-				if( !str )	break;
+				IF_ERROR(break);
 				udi_ubit32_t	val;
 				switch( dev->Attribs[n_attr].attr_type )
 				{
@@ -662,7 +671,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 					UDI_ATTR32_SET(at->attr_value, _get_token_bool(str, &str));
 					break;
 				}
-				if( !str )	break;
+				IF_ERROR(break);
 				n_attr ++;
 			}
 			
@@ -675,7 +684,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 	}
 	free(udipropsptrs);
 	if( error_hit ) {
-		Log_Error("UDI", "Error encountered while parsing udiprops for '%s' (%p), bailing",
+		Log_Error("UDI", "Error encountered while parsing udiprops for '%s' (LoadBase=%p), bailing",
 			driver_module->ModuleName, LoadBase);
 		for( int i = 0; i < device_index; i ++ )
 			free(driver_module->Devices[i]);
@@ -688,10 +697,14 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 		free(driver_module);
 		return NULL;
 	}
+	ASSERTC(device_index, ==, driver_module->nDevices);
 
-	for( int i = 0; i < driver_module->nDevices; i ++ )
+	for( int i = 0; i < driver_module->nDevices; i ++ ) {
+		ASSERT(driver_module);
+		ASSERT(driver_module->Devices[i]);
 		driver_module->Devices[i]->Metalang = UDI_int_GetMetaLang(driver_module,
 			driver_module->Devices[i]->MetaIdx);
+	}
 	
 	// Sort message list
 	// TODO: Sort message list

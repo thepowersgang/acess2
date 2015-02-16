@@ -10,9 +10,10 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-USRLIBS := crt0.o acess.ld ld-acess.so libc.so libc++.so libposix.so
+USRLIBS := crt0.o ld-acess.so libc.so libposix.so libc++.so
 USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so libunicode.so libm.so
+USRLIBS += libaxwin4.so
 
 EXTLIBS := 
 #libspiderscript
@@ -23,6 +24,7 @@ USRAPPS += insmod
 USRAPPS += bomb lspci
 USRAPPS += ip dhcpclient ping telnet irc wget telnetd
 USRAPPS += axwin3 gui_ate gui_terminal
+USRAPPS += axwin4
 
 define targetclasses
  AI_$1      := $$(addprefix allinstall-,$$($1))
@@ -66,15 +68,31 @@ all-install:	install-Filesystem SyscallList ai-user ai-kmode
 clean:	clean-kmode clean-user
 install:	install-Filesystem SyscallList install-user install-kmode
 
-utest: $(USRLIBS:%=utest-%)
+utest-build: $(USRLIBS:%=utest-build-%)
+utest-run: $(USRLIBS:%=utest-run-%)
+utest: utest-build utest-run
 
-$(USRLIBS:%=utest-%): utest-%:
+utest-build-%:
 	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src generate_exp
-	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest-build
+utest-run-%:
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest-run -k
 
 # TODO: Module tests using DiskTool and NetTest
-mtest:
+mtest: mtest-build mtest-run
 	@echo > /dev/null
+mtest-build:
+	# Network
+	@echo "== Build Module Tests"
+	@echo "-- nativelib"
+	@CC=$(NCC) $(SUBMAKE) -C Tools/nativelib
+	@echo "-- NetTest"
+	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest
+	@echo "-- NetTest Runner"
+	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest_Runner
+mtest-run:
+	@echo "=== Network Module Test ==="
+	@cd Tools && ./nettest_runner
 
 SyscallList: include/syscalls.h
 include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst
@@ -85,13 +103,13 @@ _build_stmod  := BUILDTYPE=static $(SUBMAKE) -C KernelLand/Modules/
 _build_kernel := $(SUBMAKE) -C KernelLand/Kernel
 
 define rules
-$$(ALL_$1): all-%:
+$$(ALL_$1): all-%: $(CC)
 	+@echo === $2 && $3 all
-$$(AI_$1): allinstall-%:
+$$(AI_$1): allinstall-%: $(CC)
 	+@echo === $2 && $3 all install
-$$(CLEAN_$1): clean-%:
+$$(CLEAN_$1): clean-%: $(CC)
 	+@echo === $2 && $3 clean
-$$(INSTALL_$1): install-%:
+$$(INSTALL_$1): install-%: $(CC)
 	+@$3 install
 endef
 
@@ -100,13 +118,23 @@ $(eval $(call rules,MODULES,Module: $$*,$(_build_stmod)$$*))
 $(eval $(call rules,USRLIBS,User Library: $$*,$(SUBMAKE) -C Usermode/Libraries/$$*_src))
 $(eval $(call rules,EXTLIBS,External Library: $$*,$(SUBMAKE) -C Externals/$$*))
 $(eval $(call rules,USRAPPS,User Application: $$*,$(SUBMAKE) -C Usermode/Applications/$$*_src))
-all-Kernel:
+all-Kernel: $(CC)
 	+@echo === Kernel && $(_build_kernel) all
-allinstall-Kernel:
+allinstall-Kernel: $(CC)
 	+@echo === Kernel && $(_build_kernel) all install
-clean-Kernel:
+clean-Kernel: $(CC)
 	+@$(_build_kernel) clean
-install-Kernel:
+install-Kernel: $(CC)
 	@$(_build_kernel) install
-install-Filesystem:
+install-Filesystem: $(CC)
 	@$(SUBMAKE) install -C Usermode/Filesystem
+
+ifeq ($(ARCHDIR),native)
+.PHONY: $(CC)
+else
+$(CC):
+	@echo ---
+	@echo $(CC) does not exist, recompiling
+	@echo ---
+	make -C Externals/cross-compiler/ -f Makefile.cross
+endif

@@ -29,6 +29,7 @@ extern char	*strrchr(const char *str, int character);
 extern char	*strstr(const char *str1, const char *str2);
 extern size_t	strcspn(const char *haystack, const char *reject);
 extern size_t	strspn(const char *haystack, const char *accept);
+extern char	*strpbrk(const char *haystack, const char *accept);
 
 extern char	*strtok(char *str, const char *delim);
 extern char	*strtok_r(char *str, const char *delim, char **saveptr);

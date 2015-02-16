@@ -2,7 +2,7 @@
  * AcessOS Basic C Library
  * string.c
  */
-#include <acess/sys.h>
+//#include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -13,20 +13,19 @@
  * \fn EXPORT int strcmp(const char *s1, const char *s2)
  * \brief Compare two strings
  */
-EXPORT int strcmp(const char *s1, const char *s2)
+EXPORT int strcmp(const char *_s1, const char *_s2)
 {
-	while(*s1 && *s1 == *s2) {
-		s1++; s2++;
-	}
-	return (int)*s1 - (int)*s2;
+	return strncmp(_s1, _s2, SIZE_MAX);
 }
 
 /**
- * \fn EXPORT int strncmp(const char *s1, const char *s2)
- * \brief Compare two strings
+ * \fn EXPORT int strncmp(const char *s1, const char *s2, size_t n)
+ * \brief Compare two strings, stopping after n characters
  */
-EXPORT int strncmp(const char *s1, const char *s2, size_t n)
+EXPORT int strncmp(const char *_s1, const char *_s2, size_t n)
 {
+	const unsigned char*	s1 = (const unsigned char*)_s1;
+	const unsigned char*	s2 = (const unsigned char*)_s2;
 	while(n && *s1 && *s1 == *s2)
 	{
 		s1++; s2++;
@@ -38,23 +37,31 @@ EXPORT int strncmp(const char *s1, const char *s2, size_t n)
 		return (int)*s1 - (int)*s2;
 }
 
-EXPORT int strcasecmp(const char *s1, const char *s2)
+EXPORT int strcasecmp(const char *_s1, const char *_s2)
 {
-	 int	rv;
-	while( (rv = toupper(*s1) - toupper(*s2)) == 0 && *s1 != '\0' && *s2 != '\0' ) {
-		s1++; s2++;
-	}
-	return rv;
+	return strncasecmp(_s1, _s2, SIZE_MAX);
 }
 
-EXPORT int strncasecmp(const char *s1, const char *s2, size_t n)
+EXPORT int strncasecmp(const char *_s1, const char *_s2, size_t n)
 {
-	 int	rv = 0;
-	if( n == 0 )	return 0;
-	while(n -- && (rv = toupper(*s1) - toupper(*s2)) == 0 && *s1 != '\0' && *s2 != '\0') {
-		s1++; s2++;
+	const unsigned char*	s1 = (const unsigned char*)_s1;
+	const unsigned char*	s2 = (const unsigned char*)_s2;
+	while( n-- && *s1 && *s2 )
+	{
+		if( *s1 != *s2 )
+		{
+			int rv;
+			rv = toupper(*s1) - toupper(*s2);
+			if(rv != 0)
+				return rv;
+			rv = tolower(*s1) - tolower(*s2);
+			if(rv != 0)
+				return rv;
+		}
+		s1 ++;
+		s2 ++;
 	}
-	return rv;
+	return 0;
 }
 
 /**
@@ -80,8 +87,13 @@ EXPORT char *strcpy(char *dst, const char *src)
 EXPORT char *strncpy(char *dst, const char *src, size_t num)
 {
 	char *to = dst;
-	while(*src && num--)	*to++ = *src++;
-	*to = '\0';
+	while(num --)
+	{
+		if(*src)
+			*to++ = *src++;
+		else
+			*to++ = '\0';
+	}
 	return dst;
 }
 
@@ -118,9 +130,10 @@ EXPORT char *strncat(char *dst, const char *src, size_t n)
  */
 EXPORT size_t strlen(const char *str)
 {
-	size_t	retval;
-	for(retval = 0; *str != '\0'; str++, retval++);
-	return retval;
+	size_t	len = 0;
+	while(str[len] != '\0')
+		len ++;
+	return len;
 }
 
 /**
@@ -130,8 +143,9 @@ EXPORT size_t strlen(const char *str)
  */
 EXPORT size_t strnlen(const char *str, size_t maxlen)
 {
-	size_t	len;
-	for( len = 0; maxlen -- && *str; str ++, len ++ );
+	size_t	len = 0;
+	while( len < maxlen && str[len] != '\0' )
+		len ++;
 	return len;
 }
 
@@ -171,11 +185,12 @@ EXPORT char *strndup(const char *str, size_t maxlen)
  * \fn EXPORT char *strchr(char *str, int character)
  * \brief Locate a character in a string
  */
-EXPORT char *strchr(const char *str, int character)
+EXPORT char *strchr(const char *_str, int character)
 {
+	const unsigned char* str = (const unsigned char*)_str;
 	for(;*str;str++)
 	{
-		if(*str == character)
+		if( *str == character )
 			return (char*)str;
 	}
 	return NULL;
@@ -185,11 +200,10 @@ EXPORT char *strchr(const char *str, int character)
  * \fn EXPORT char *strrchr(char *str, int character)
  * \brief Locate the last occurance of a character in a string
  */
-EXPORT char *strrchr(const char *str, int character)
+EXPORT char *strrchr(const char *_str, int character)
 {
-	 int	i;
-	i = strlen(str)-1;
-	while(i--)
+	const unsigned char* str = (const unsigned char*)_str;
+	for( size_t i = strlen(_str); i--; )
 	{
 		if(str[i] == character)
 			return (void*)&str[i];
@@ -277,6 +291,8 @@ EXPORT void *memcpy(void *__dest, const void *__src, size_t count)
 	return __dest;
 }
 
+// TODO: memccpy (POSIX defined)
+
 /**
  * \fn EXPORT void *memmove(void *dest, const void *src, size_t count)
  * \brief Copy data in memory, avoiding overlap problems
@@ -316,7 +332,7 @@ EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
 	while(count--)
 	{
 		if( *p1 != *p2 )
-			return *p1 - *p2;
+			return (int)*p1 - (int)*p2;
 		p1 ++;
 		p2 ++;
 	}
@@ -332,11 +348,12 @@ EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
  */
 EXPORT void *memchr(const void *ptr, int value, size_t num)
 {
+	const unsigned char* buf = ptr;
 	while(num--)
 	{
-		if( *(const unsigned char*)ptr == (unsigned char)value )
-			return (void*)ptr;
-		ptr ++;
+		if( *buf == (unsigned char)value )
+			return (void*)buf;
+		buf ++;
 	}
 	return NULL;
 }
@@ -344,12 +361,13 @@ EXPORT void *memchr(const void *ptr, int value, size_t num)
 EXPORT size_t strcspn(const char *haystack, const char *reject)
 {
 	size_t	ret = 0;
-	 int	i;
 	while( *haystack )
 	{
-		for( i = 0; reject[i] && reject[i] == *haystack; i ++ );
-
-		if( reject[i] ) return ret;
+		for( int i = 0; reject[i]; i ++ )
+		{
+			if( reject[i] == *haystack )
+				return ret;
+		}
 		ret ++;
 	}
 	return ret;
@@ -358,15 +376,30 @@ EXPORT size_t strcspn(const char *haystack, const char *reject)
 EXPORT size_t strspn(const char *haystack, const char *accept)
 {
 	size_t	ret = 0;
-	 int	i;
 	while( *haystack )
 	{
-		for( i = 0; accept[i] && accept[i] == *haystack; i ++ );
-
-		if( !accept[i] )	return ret;
+		for( int i = 0; accept[i]; i ++ )
+		{
+			if( accept[i] != *haystack )
+				return ret;
+		}
 		ret ++;
 	}
 	return ret;
+}
+
+EXPORT char *strpbrk(const char *haystack, const char *accept)
+{
+	while( *haystack )
+	{
+		for( int i = 0; accept[i]; i ++ )
+		{
+			if( accept[i] == *haystack )
+				return (char*)haystack;
+		}
+		haystack ++;
+	}
+	return NULL;
 }
 
 char *strtok(char *str, const char *delim)

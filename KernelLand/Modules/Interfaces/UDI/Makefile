@@ -2,6 +2,7 @@
 #
 
 CPPFLAGS = -I../../../../UDI/include -Iinclude
+CPPFLAGS += -D UDI_VERSION=0x101 -D UDI_PHYSIO_VERSION=0x101 -D UDI_NIC_VERSION=0x101
 
 # - UDI Library Files
 LIB_OBJS := core/logging.o core/strmem.o core/imc.o core/mem.o core/buf.o

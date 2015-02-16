@@ -24,9 +24,9 @@ endif
 
 $(BDIR)/Makefile: _patch $(CONFIGSCRIPT) ../common_automake.mk Makefile 
 	mkdir -p $(BDIR)
-	cd $(BDIR) && $(CONFIGURE_ENV) PATH=$(PATH) $(CONFIGURE_LINE)
+	cd $(BDIR) && $(CONFIGURE_ENV) PATH="$(PATH)" $(CONFIGURE_LINE)
 
 _build: $(BDIR)/Makefile
-	PATH=$(PATH) make $(BTARGETS) -C $(BDIR)
-	PATH=$(PATH) make DESTDIR=$(OUTDIR) $(ITARGETS) -C $(BDIR)
+	PATH="$(PATH)" make $(BTARGETS) -C $(BDIR)
+	PATH="$(PATH)" make DESTDIR=$(OUTDIR) $(ITARGETS) -C $(BDIR)
 
