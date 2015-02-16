@@ -28,7 +28,7 @@ enum eClass
 {
 	CLASS_IN,
 	CLASS_CH,	// "Chaos"
-	CLASS_STAR = 255,
+	QCLASS_STAR = 255,
 };
 
 /**
