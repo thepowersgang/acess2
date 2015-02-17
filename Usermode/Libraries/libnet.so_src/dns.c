@@ -23,6 +23,10 @@ int DNS_Query(int ServerAType, const void *ServerAddr, const char *name, enum eT
 {
 	char	packet[512];
 	size_t packlen = DNS_int_EncodeQuery(packet, sizeof(packet), name, type, class);
+	if( packlen == 0 ) {
+		_SysDebug("DNS_Query - Serialising packet failed");
+		return 2;
+	}
 	
 	// Send and wait for reply
 	// - Lock
@@ -35,8 +39,8 @@ int DNS_Query(int ServerAType, const void *ServerAddr, const char *name, enum eT
 		// TODO: Correctly report this failure with a useful error code
 		return 1;
 	}
-	int rv = Net_UDP_SendTo(sock, 53, ServerAType, ServerAddr, pos, packet);
-	if( rv != pos ) {
+	int rv = Net_UDP_SendTo(sock, 53, ServerAType, ServerAddr, packlen, packet);
+	if( rv != packlen ) {
 		_SysDebug("DNS_Query - Write failed");
 		// TODO: Error reporting
 		_SysClose(sock);

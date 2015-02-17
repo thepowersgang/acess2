@@ -43,7 +43,7 @@ struct sDNSCallbackInfo
 
 // === PROTOTYPES ===
  int	int_lookupany_callback(void *info_v, int AddrType, const void *Addr);
-void	int_DNS_callback(void *info, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata);
+ int	int_DNS_callback(void *info, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata);
 
 // === GLOBALS ===
  int	giNumDNSServers;
@@ -127,22 +127,22 @@ int Net_Lookup_Addrs(const char *Name, void *cb_info, tNet_LookupAddrs_Callback 
 	return 1;
 }
 
-void int_DNS_callback(void *info_v, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata)
+int int_DNS_callback(void *info_v, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata)
 {
 	struct sDNSCallbackInfo	*info = info_v;
 	_SysDebug("int_DNS_callback(name='%s', type=%i, class=%i)", name, type, class);
 	
 	// Check type matches (if pattern was provided)
 	if( info->desired_type != QTYPE_STAR && type != info->desired_type )
-		return ;
+		return 0;
 	if( info->desired_class != QCLASS_STAR && class != info->desired_class )
-		return ;
+		return 0;
 	
 	switch( type )
 	{
 	case TYPE_A:
 		if( rdlength != 4 )
-			return ;
+			return 0;
 		info->callback( info->cb_info, 4, rdata );
 		break;
 	//case TYPE_AAAA:
@@ -155,6 +155,7 @@ void int_DNS_callback(void *info_v, const char *name, enum eTypes type, enum eCl
 		break;
 	}
 	info->got_value = true;
+	return 0;
 }
 
 int Net_Lookup_Name(int AddrType, const void *Addr, char *Dest[256])
