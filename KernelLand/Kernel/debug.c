@@ -8,7 +8,7 @@
 
 #define	DEBUG_MAX_LINE_LEN	256
 #define	LOCK_DEBUG_OUTPUT	0	// Avoid interleaving of output lines?
-#define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE to debug?
+#define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE/Debug to the VTerm
 
 // === IMPORTS ===
 extern void	KernelPanic_SetMode(void);
@@ -19,7 +19,6 @@ extern void	VT_SetTerminal(int TerminalID);
 // === PROTOTYPES ===
 static void	Debug_Putchar(char ch);
 static void	Debug_Puts(int bUseKTerm, const char *Str);
-void	Debug_DbgOnlyFmt(const char *format, va_list args);
 void	Debug_FmtS(int bUseKTerm, const char *format, ...);
 bool	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
@@ -83,11 +82,6 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 		VFS_Write(giDebug_KTerm, len, Str);
 		gbInPutChar = 0;
 	}
-}
-
-void Debug_DbgOnlyFmt(const char *format, va_list args)
-{
-	Debug_Fmt(0, format, args);
 }
 
 bool Debug_Fmt(int bUseKTerm, const char *format, va_list args)
@@ -166,12 +160,11 @@ void Debug(const char *Fmt, ...)
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
-	Debug_Puts(0, "Debug: ");
+	Debug_Puts(TRACE_TO_KTERM, "Debug: ");
 	va_start(args, Fmt);
-	Debug_DbgOnlyFmt(Fmt, args);
+	Debug_Fmt(TRACE_TO_KTERM, Fmt, args);
 	va_end(args);
-	Debug_PutCharDebug('\r');
-	Debug_PutCharDebug('\n');
+	Debug_Puts(TRACE_TO_KTERM, "\r\n");
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
 	#endif
