@@ -82,3 +82,11 @@ __divmod32_asm:
 	pop {r4}
 	mov pc, lr
 
+.globl __sync_fetch_and_and_4
+__sync_fetch_and_and_4:
+	mov r2, r0
+	ldr r0, [r2]
+	mov r3, r0
+	and r3, r1
+	str r3, [r2]
+	mov pc, lr
