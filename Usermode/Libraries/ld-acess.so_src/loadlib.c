@@ -18,10 +18,7 @@
 #define MAX_QUEUED_ENTRYPOINTS	8
 
 // === IMPORTS ===
-extern const struct {
-	void	*Value;
-	char	*Name;
-}	caLocalExports[];
+extern const tLocalExport	caLocalExports[];
 extern const int	ciNumLocalExports;
 extern char	**gEnvP;
 extern char	gLinkedBase[];
@@ -48,11 +45,9 @@ void ldacess_DumpLoadedLibraries(void)
 {
 	for( int i = 0; i < MAX_LOADED_LIBRARIES; i ++ )
 	{
-		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
-		_SysDebug("%p: %s",
-			gLoadedLibraries[i].Base,
-			gLoadedLibraries[i].Name
-			);
+		const tLoadedLib* ll = &gLoadedLibraries[i];
+		if(ll->Base == 0)	break;	// Last entry has Base set to NULL
+		_SysDebug("%p: %s", ll->Base, ll->Name);
 	}
 }
 
@@ -150,7 +145,6 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
  */
 void *IsFileLoaded(const char *file)
 {
-	 int	i;
 	DEBUGS("IsFileLoaded: (file='%s')", file);
 
 	// Applications link against either libld-acess.so or ld-acess.so
@@ -161,7 +155,7 @@ void *IsFileLoaded(const char *file)
 		return &gLinkedBase;
 	}
 
-	for( i = 0; i < MAX_LOADED_LIBRARIES; i++ )
+	for( int i = 0; i < MAX_LOADED_LIBRARIES; i++ )
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
 		DEBUGS(" strcmp('%s', '%s')", gLoadedLibraries[i].Name, file);
@@ -216,7 +210,6 @@ void AddLoaded(const char *File, void *base)
  */
 void Unload(void *Base)
 {	
-	 int	i, j;
 	 int	id;
 	char	*str;
 	for( id = 0; id < MAX_LOADED_LIBRARIES; id++ )
@@ -231,8 +224,8 @@ void Unload(void *Base)
 	str = gLoadedLibraries[id].Name;
 	
 	// Compact Loaded List
-	j = id;
-	for( i = j + 1; i < MAX_LOADED_LIBRARIES; i++, j++ )
+	int j = id;
+	for( int i = j + 1; i < MAX_LOADED_LIBRARIES; i++, j++ )
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;
 		// Compact String
@@ -256,14 +249,18 @@ void Unload(void *Base)
 */
 int GetSymbol(const char *name, void **Value, size_t *Size, void *IgnoreBase)
 {
+	ASSERT(name);
+	ASSERT(Value);
+	ASSERT(Size);
 	//SysDebug("GetSymbol: (%s)");
 	for( int i = 0; i < ciNumLocalExports; i ++ )
 	{
-		if( strcmp(caLocalExports[i].Name, name) == 0 ) {
-			*Value = caLocalExports[i].Value;
+		const tLocalExport* le = &caLocalExports[i];
+		if( strcmp(le->Name, name) == 0 ) {
+			*Value = le->Value;
 			if(Size)
 				*Size = 0;
-			//SysDebug("GetSymbol: Local %p+0x%x", *Value, 0);
+			DEBUGS("'%s' = Local %p+%#x", name, le->Value, 0);
 			return 1;
 		}
 	}
@@ -271,31 +268,34 @@ int GetSymbol(const char *name, void **Value, size_t *Size, void *IgnoreBase)
 	bool have_weak = false;	
 	for(int i = 0; i < MAX_LOADED_LIBRARIES && gLoadedLibraries[i].Base != 0; i ++)
 	{
+		const tLoadedLib* ll = &gLoadedLibraries[i];
 		// Allow ignoring the current module
-		if( gLoadedLibraries[i].Base == IgnoreBase ) {
+		if( ll->Base == IgnoreBase ) {
 			//SysDebug("GetSymbol: Ignore %p", gLoadedLibraries[i].Base);
 			continue ;
 		}
 		
-		//SysDebug(" GetSymbol: Trying 0x%x, '%s'",
-		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
+		//SysDebug(" GetSymbol: Trying 0x%x, '%s'", ll->Base, ll->Name);
 		void	*tmpval;
 		size_t	tmpsize;
-		int rv = GetSymbolFromBase(gLoadedLibraries[i].Base, name, &tmpval, &tmpsize);
+		int rv = GetSymbolFromBase(ll->Base, name, &tmpval, &tmpsize);
 		if(rv)
 		{
 			*Value = tmpval;
 			*Size = tmpsize;
 			if( rv == 1 ) {
+				DEBUGS("'%s' = %p '%s' Strong %p+%#x", name, ll->Base, ll->Name, *Value, *Size);
 				return 1;
 			}
 			have_weak = true;
 		}
 	}
 	if(have_weak) {
+		DEBUGS("'%s' = Weak %p+%#x", name, *Value, *Size);
 		return 2;
 	}
 	else {
+		DEBUGS("'%s' = ?", name);
 		return 0;
 	}
 }

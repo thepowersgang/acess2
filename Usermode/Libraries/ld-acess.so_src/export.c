@@ -26,10 +26,7 @@ extern void	_ZN4_sys5debugEPKcz(const char *,...);	// C++ "_sys::debug" used by 
 #define SYSCALL6(name,num)	EXP(name),
 
 // === CONSTANTS ===
-const struct {
-	void	*Value;
-	char	*Name;
-}	caLocalExports[] = {
+const tLocalExport caLocalExports[] = {
 	EXP(gLoadedLibraries),
 	EXP(_errno),
 	EXP(ldacess_DumpLoadedLibraries),
@@ -44,14 +41,6 @@ const struct {
 	{0, "__cxa_type_match"},
 	{0, "__cxa_begin_cleanup"},
 	#endif
-#if 0
-	EXP(__umoddi3),
-	EXP(__udivdi3),
-	EXP(__divsi3),
-	EXP(__modsi3),
-	EXP(__udivsi3),
-	EXP(__umodsi3)
-#endif
 };
 
 const int	ciNumLocalExports = sizeof(caLocalExports)/sizeof(caLocalExports[0]);

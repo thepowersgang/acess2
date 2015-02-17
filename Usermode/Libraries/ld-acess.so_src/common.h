@@ -18,6 +18,8 @@ typedef uint8_t 	Uint8;
 typedef uint16_t	Uint16;
 typedef uint32_t	Uint32;
 
+#define ASSERT(cnd) do { if( !(cnd) ) { _SysDebug("ASSERT: "#cnd" failed"); *(volatile int*)1 = 123; } } while(0)
+
 // HACK: Replace with underscored
 #define SysDebug	_SysDebug
 
@@ -31,6 +33,11 @@ typedef struct {
 	void	*Base;
 	char	*Name;
 }	tLoadedLib;
+
+typedef struct {
+	void	*Value;
+	const char	*Name;
+} tLocalExport;
 
 // === GLOBALS ===
 extern tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
