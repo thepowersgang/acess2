@@ -493,7 +493,13 @@ tTID Threads_WaitTID(int TID, int *Status)
 			
 			ret = dead_thread->TID;
 			// - Mark as dead (as opposed to undead)
-			ASSERTC(dead_thread->Status, ==, THREAD_STAT_ZOMBIE);
+			if( dead_thread->Status != THREAD_STAT_ZOMBIE ) {
+				Log_Error("Thread", "Thread %p(%i %s) is not ZOMBIE, instead %s",
+					dead_thread, dead_thread->TID, dead_thread->ThreadName,
+					(dead_thread->Status < ciTHREAD_STAT_COUNT ? casTHREAD_STAT[dead_thread->Status] : "?")
+					);
+				ASSERTC(dead_thread->Status, ==, THREAD_STAT_ZOMBIE);
+			}
 			dead_thread->Status = THREAD_STAT_DEAD;
 			// - Set return status
 			if(Status)
@@ -503,7 +509,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 		}
 		else
 		{
-			Log_Error("Threads", "TODO: Threads_WaitTID(TID=-1) - Any Child");
+			Log_Error("Threads", "TODO: Threads_WaitTID(TID=-1) - Woken with no child");
 		}
 		return ret;
 	}
@@ -627,17 +633,13 @@ void Threads_Exit(int TID, int Status)
  */
 void Threads_Kill(tThread *Thread, int Status)
 {
-	tMsg	*msg;
 	 int	isCurThread = Thread == Proc_GetCurThread();
 	
 	// TODO: Disown all children?
 	#if 1
 	{
-		tThread	*child;
 		// TODO: I should keep a .Children list
-		for(child = gAllThreads;
-			child;
-			child = child->GlobalNext)
+		for(tThread* child = gAllThreads; child; child = child->GlobalNext)
 		{
 			if(child->Parent == Thread)
 				child->Parent = &gThreadZero;
@@ -653,7 +655,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Clear Message Queue
 	while( Thread->Messages )
 	{
-		msg = Thread->Messages->Next;
+		tMsg	*msg = Thread->Messages->Next;
 		free( Thread->Messages );
 		Thread->Messages = msg;
 	}
@@ -701,8 +703,8 @@ void Threads_Kill(tThread *Thread, int Status)
 		if( !Threads_int_DelFromQueue( &gSleepingThreads, Thread ) )
 		{
 			Log_Warning("Threads",
-				"Threads_Kill - Thread %p(%i,%s) marked as sleeping, but not on list",
-				Thread, Thread->TID, Thread->ThreadName
+				"Threads_Kill - Thread "PRIthread_fmt" marked as sleeping, but not on list",
+				PRIthread_args(Thread)
 				);
 		}
 		break;
@@ -724,8 +726,6 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Save exit status
 	Thread->RetStatus = Status;
 
-	SHORTREL( &Thread->IsLocked );
-
 	Thread->Status = THREAD_STAT_ZOMBIE;
 	SHORTREL( &glThreadListLock );
 	// TODO: It's possible that we could be timer-preempted here, should disable that... somehow
@@ -735,7 +735,10 @@ void Threads_Kill(tThread *Thread, int Status)
 	Threads_PostEvent( Thread->Parent, THREAD_EVENT_DEADCHILD );
 	
 	// Process cleanup happens on reaping
-	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
+	Log("Thread "PRIthread_fmt" went *hurk* (%i) (isCurThread=%B)", PRIthread_args(Thread), Status, isCurThread);
+	//Log("Thread status = %i %s", Thread->Status, casTHREAD_STAT[Thread->Status]);
+	
+	SHORTREL( &Thread->IsLocked );
 	
 	// And, reschedule
 	if(isCurThread)

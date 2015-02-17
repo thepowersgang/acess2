@@ -143,6 +143,7 @@ static const char * const casTHREAD_STAT[] = {
 	"THREAD_STAT_DEAD",
 	"THREAD_STAT_BURIED"
 };
+static const unsigned int ciTHREAD_STAT_COUNT = sizeof(casTHREAD_STAT)/sizeof(casTHREAD_STAT[0]);
 
 // === GLOBALS ===
 extern BOOL	gaThreads_NoTaskSwitch[MAX_CPUS];
