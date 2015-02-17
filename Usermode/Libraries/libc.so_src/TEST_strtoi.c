@@ -18,14 +18,20 @@
 	char *end;\
 	errno = 0;\
 	t ret = strto##class(in, &end, base); \
-	if( ret != exp ) \
+	if( ret != exp ) { \
 		fprintf(stderr, "FAIL strto"#class"('%s') != "#exp" (act "fmt")\n", in, ret);\
-	if( end != in+ofs ) \
+		exit(1); \
+	} \
+	if( end != in+ofs ) { \
 		fprintf(stderr, "FAIL strto"#class"('%s') returned wrong end: %p (+%zi) instead of %p (+%zi)\n",\
 			in,end,end-in,in+ofs,(size_t)ofs);\
-	if( exp_errno != errno ) \
+		exit(1); \
+	} \
+	if( exp_errno != errno ) { \
 		fprintf(stderr, "FAIL strto"#class"('%s') returned wrong errno, exp '%s', got '%s'\n",\
 			in, strerror(exp_errno), strerror(errno));\
+		exit(1); \
+	} \
 }while(0)
 
 #define PRIMEBUF(fmt, val)	buf_len = snprintf(buf, sizeof(buf), fmt, val)

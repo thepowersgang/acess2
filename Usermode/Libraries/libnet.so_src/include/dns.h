@@ -39,8 +39,9 @@ enum eClass
  * \param class	Record class (may not be equal to requested)
  * \param rdlength	Length of data pointed to by 'rdata'
  * \param rdata	Record data
+ * \return Non-zero terminates parsing
  */
-typedef void	handle_record_t(void *info, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata);
+typedef int	handle_record_t(void *info, const char *name, enum eTypes type, enum eClass class, unsigned int ttl, size_t rdlength, const void *rdata);
 
 int DNS_Query(int ServerAType, const void *ServerAddr, const char *name, enum eTypes type, enum eClass class, handle_record_t* handle_record, void *info);
 

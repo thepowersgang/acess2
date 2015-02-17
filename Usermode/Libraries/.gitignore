@@ -1,2 +1,3 @@
 acess.ld
 TEST_*
+!TEST_*.c

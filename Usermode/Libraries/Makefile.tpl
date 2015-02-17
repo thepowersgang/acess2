@@ -63,9 +63,12 @@ _libs: $(HEADERS)
 
 utest: utest-build utest-run
 
-utest-build: $(UTESTS:%=TEST_%)
+utest-build: _ $(UTESTS:%=TEST_%)
 
-utest-run: $(UTESTS:%=runtest-%)
+utest-run: _ $(UTESTS:%=runtest-%)
+
+_:
+	@true
 
 $(UTESTS:%=runtest-%): runtest-%: TEST_%
 	@echo --- [TEST] $*
@@ -132,7 +135,7 @@ $(OUTPUTDIR)Libs/%:
 obj-native/%.no: %.c
 	@mkdir -p $(dir $@)
 	@echo [CC Native] -o $@
-	@$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h
+	@$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h -I $(ACESSDIR)/Usermode/Libraries/_utest_include/
 
 TEST_%: obj-native/TEST_%.no obj-native/%.no
 	@echo [CC Native] -o $@

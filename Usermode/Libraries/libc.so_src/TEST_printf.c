@@ -6,32 +6,40 @@
  * - Tests for printf.c
  */
 #include <stdio.h>
+#include <string.h>
+#include <utest_common.h>
 
-#define TST(_name, fmt, val) \
-	printf(_name" %"fmt" '"#val"': '"fmt"'\n", val)
+#define TST(_name, exp, fmt, val...) do { \
+	char buf[64]; \
+	snprintf(buf, sizeof(buf), fmt, ##val); \
+	if( strcmp(buf, exp) != 0 ) { \
+		fprintf(stderr, "FAIL: exp '%s' != got '%s'\n", exp, buf);\
+		exit(1); \
+	} \
+} while(0)
 
 int main(int argc, char *argv[])
 {
-	printf("Hello World!\n");
-	TST("String", "%s", "teststring");
-	TST("String", "%.5s", "teststring");
-	TST("String", "%10.5s", "teststring");
-	TST("String", "%-10.5s", "teststring");
+	TST("None", "Hello World!\n", "Hello World!\n");
+	TST("String", "teststring", "%s", "teststring");
+	TST("String", "tests",      "%.5s", "teststring");
+	TST("String", "     tests", "%10.5s", "teststring");
+	TST("String", "tests     ", "%-10.5s", "teststring");
 	
-	TST("Integer", "%i", 1234);
-	TST("Integer", "%d", 1234);
-	TST("Integer", "%u", 1234);
+	TST("Integer", "1234", "%i", 1234);
+	TST("Integer", "1234", "%d", 1234);
+	TST("Integer", "1234", "%u", 1234);
 	
-	TST("Float", "%f", 3.1414926535);
-	TST("Float", "%f", 10.0);
-	TST("Float", "%f", -0.0);
-	TST("Float", "%.10f", 3.1414926535);
-	TST("Float", "%e", 3.1415926535);
-	TST("Float", "%g", 3.1415926535);
-	TST("Float", "%E", 1000000000.00);
-	TST("Float", "%a", 16.0);
-	TST("Float", "%a", 1024.0);
-	TST("Float", "%a", 1023.0);
-	TST("Float", "%A", 1000000000.00);
+	TST("Float", "3.141593", "%f", 3.1415926535);
+	TST("Float", "10.000000",    "%f", 10.0);
+	TST("Float", "-0.000000", "%f", -0.0);
+	TST("Float", "3.1415926535", "%.10f", 3.1415926535);
+	TST("Float", "3.141593e+00", "%e", 3.1415926535);
+	TST("Float", "3.14159", "%g", 3.1415926535);
+	TST("Float", "1.000000E+09", "%E", 1000000000.00);
+	TST("Float", "0x1p+4", "%a", 16.0);
+	TST("Float", "0x1p+10", "%a", 1024.0);
+	TST("Float", "0x1.ff8p+9", "%a", 1023.0);
+	TST("Float", "0X1.DCD65P+29", "%A", 1000000000.00);
 	return 0;
 }
