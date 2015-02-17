@@ -75,6 +75,9 @@ void VT_KBCallBack(Uint32 Codepoint)
 		
 		switch(term->RawScancode)
 		{
+		case KEYSYM_DELETE:
+			// TODO: Reboot, or poke secure registered app
+			return;
 		case KEYSYM_F1 :	VT_SetTerminal(0);	return;
 		case KEYSYM_F2 :	VT_SetTerminal(1);	return;
 		case KEYSYM_F3 :	VT_SetTerminal(2);	return;
@@ -106,9 +109,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEYSYM_PGUP:
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
-			Log_Debug("VTerm", "ScrollUp - Old=%i, step=%i", term->ViewTopRow, scroll_step);
 			term->ViewTopRow = (term->ViewTopRow > scroll_step ? term->ViewTopRow - scroll_step : 0);
-			Log_Debug("VTerm", "ScrollUp - New=%i", term->ViewTopRow);
 			VT_int_UpdateScreen(term, 1);
 			return;
 		// - View down (text goes up)
@@ -116,9 +117,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
 			
-			Log_Debug("VTerm", "ScrollDown - Old=%i, max=%i", term->ViewTopRow, scroll_max);
 			term->ViewTopRow = MIN(term->ViewTopRow + scroll_step, scroll_max);
-			Log_Debug("VTerm", "ScrollDown - New=%i", term->ViewTopRow);
 			VT_int_UpdateScreen(term, 1);
 			return;
 		}
