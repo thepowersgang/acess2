@@ -311,7 +311,7 @@ void MM_DumpTables_Print(tVAddr Start, Uint32 Orig, size_t Size, void *Node)
 {
 	if( (Orig & ~(PAGE_SIZE-1)) == giMM_ZeroPage )
 	{
-		Log( "0x%08x => ZERO + 0x%08x (%s%s%s%s%s) %p",
+		Log(" 0x%08x => ZERO + 0x%08x (%s%s%s%s%s) %p",
 			Start,
 			Size,
 			(Orig & PF_NOPAGE ? "P" : "-"),
