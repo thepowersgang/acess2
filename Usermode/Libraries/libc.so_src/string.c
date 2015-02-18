@@ -184,15 +184,16 @@ EXPORT char *strndup(const char *str, size_t maxlen)
 /**
  * \fn EXPORT char *strchr(char *str, int character)
  * \brief Locate a character in a string
+ * \note The terminating NUL is part of the string
  */
 EXPORT char *strchr(const char *_str, int character)
 {
 	const unsigned char* str = (const unsigned char*)_str;
-	for(;*str;str++)
+	do
 	{
 		if( *str == character )
 			return (char*)str;
-	}
+	} while( *str++ );
 	return NULL;
 }
 
@@ -203,11 +204,12 @@ EXPORT char *strchr(const char *_str, int character)
 EXPORT char *strrchr(const char *_str, int character)
 {
 	const unsigned char* str = (const unsigned char*)_str;
-	for( size_t i = strlen(_str); i--; )
+	size_t	i = strlen(_str);
+	do
 	{
 		if(str[i] == character)
 			return (void*)&str[i];
-	}
+	} while( i -- );
 	return NULL;
 }
 
