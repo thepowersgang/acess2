@@ -9,21 +9,20 @@
 Uint	VFS_int_CheckACLs(tVFS_ACL *ACLs, int Num, int bDeny, Uint Perms, tUID UID, tGID GID);
 
 // === GLOBALS ===
-tVFS_ACL	gVFS_ACL_EveryoneRWX = { {1,-1}, {0,VFS_PERM_ALL} };
-tVFS_ACL	gVFS_ACL_EveryoneRW = { {1,-1}, {0,VFS_PERM_ALL^VFS_PERM_EXEC} };
-tVFS_ACL	gVFS_ACL_EveryoneRX = { {1,-1}, {0,VFS_PERM_READ|VFS_PERM_EXEC} };
-tVFS_ACL	gVFS_ACL_EveryoneRO = { {1,-1}, {0,VFS_PERM_READ} };
+tVFS_ACL	gVFS_ACL_EveryoneRWX = { VFS_GROUP_ANY, {0,VFS_PERM_ALL} };
+tVFS_ACL	gVFS_ACL_EveryoneRW  = { VFS_GROUP_ANY, {0,VFS_PERM_ALL^VFS_PERM_EXEC} };
+tVFS_ACL	gVFS_ACL_EveryoneRX  = { VFS_GROUP_ANY, {0,VFS_PERM_READ|VFS_PERM_EXEC} };
+tVFS_ACL	gVFS_ACL_EveryoneRO  = { VFS_GROUP_ANY, {0,VFS_PERM_READ} };
 
 // === CODE ===
 Uint VFS_int_CheckACLs(tVFS_ACL *ACLs, int Num, int bDeny, Uint Perms, tUID UID, tGID GID)
 {
-	 int	i;
-	for(i = 0; i < Num; i ++ )
+	for(int i = 0; i < Num; i ++ )
 	{
 		if(ACLs[i].Perm.Inv)
 			continue;	// Ignore ALLOWs
 		// Check if the entry applies to this case
-		if(ACLs[i].Ent.ID != 0x7FFFFFFF)
+		if(ACLs[i].Ent.ID != VFS_ACLENT_ALL)
 		{
 			if(!ACLs[i].Ent.Group) {
 				if(ACLs[i].Ent.ID != UID)	continue;
@@ -95,7 +94,7 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 	// Root can do anything
 	if(Dest->Ent.Group == 0 && Dest->Ent.ID == 0) {
 		Dest->Perm.Inv = 0;
-		Dest->Perm.Perms = -1;
+		Dest->Perm.Perms = VFS_PERM_ALL;
 		return 1;
 	}
 	
@@ -149,7 +148,7 @@ tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
 	if(Mode & 0010)	ret[1].Perm.Perms |= VFS_PERM_EXEC;
 	
 	// Global
-	ret[2].Ent.Group = 1; ret[2].Ent.ID = -1;
+	ret[2].Ent.Group = 1; ret[2].Ent.ID = VFS_ACLENT_ALL;
 	ret[2].Perm.Inv = 0;  ret[2].Perm.Perms = 0;
 	if(Mode & 0004)	ret[2].Perm.Perms |= VFS_PERM_READ;
 	if(Mode & 0002)	ret[2].Perm.Perms |= VFS_PERM_WRITE;

@@ -19,9 +19,9 @@
 static const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
 static const int	NRX_TIMEOUT = 250;	// Not expect RX timeout (timeout=success)
 static const int	RETX_TIMEOUT = 1000;	// OS PARAM - Retransmit timeout
-static const int	LOST_TIMEOUT = 1000;	// OS PARAM - Time before sending an ACK 
-static const int	DACK_TIMEOUT = 500;	// OS PARAM - Timeout for delayed ACKs
-static const size_t	DACK_BYTES = 4096;	// OS PARAM - Threshold for delayed ACKs
+//static const int	LOST_TIMEOUT = 1000;	// OS PARAM - Time before sending an ACK 
+//static const int	DACK_TIMEOUT = 500;	// OS PARAM - Timeout for delayed ACKs
+//static const size_t	DACK_BYTES = 4096;	// OS PARAM - Threshold for delayed ACKs
 
 bool Test_TCP_Basic(void)
 {

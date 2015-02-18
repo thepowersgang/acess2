@@ -70,6 +70,10 @@ enum eVFS_SeekDirs
  * \}
  */
 
+#define VFS_ACLENT_ALL	0x7FFFFFFF
+#define VFS_GROUP_ANY	{1, VFS_ACLENT_ALL}	//!< Rules for all users
+#define VFS_USER_NOBODY	{0, VFS_ACLENT_ALL}	//!< Rules for nobody
+
 /**
  * \brief MMap protection flags
  * \{
