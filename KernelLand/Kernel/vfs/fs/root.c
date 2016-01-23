@@ -36,12 +36,12 @@ tRamFS_File	RootFS_Files[MAX_FILES];
 tVFS_ACL	RootFS_DirACLs[3] = {
 	{{0,0}, {0,VFS_PERM_ALL}},	// Owner (Root)
 	{{1,0}, {0,VFS_PERM_ALL}},	// Group (Root)
-	{{0,-1}, {0,VFS_PERM_ALL^VFS_PERM_WRITE}}	// World (Nobody)
+	{VFS_USER_NOBODY, {0,VFS_PERM_ALL^VFS_PERM_WRITE}}	// World (Nobody)
 };
 tVFS_ACL	RootFS_FileACLs[3] = {
 	{{0,0}, {0,VFS_PERM_ALL^VFS_PERM_EXEC}},	// Owner (Root)
 	{{1,0}, {0,VFS_PERM_ALL^VFS_PERM_EXEC}},	// Group (Root)
-	{{0,-1}, {0,VFS_PERM_READ}}	// World (Nobody)
+	{VFS_USER_NOBODY, {0,VFS_PERM_READ}}	// World (Nobody)
 };
 tVFS_NodeType	gRootFS_DirType = {
 	.TypeName = "RootFS-Dir",

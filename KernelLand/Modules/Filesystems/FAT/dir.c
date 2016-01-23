@@ -734,7 +734,7 @@ tVFS_Node *FAT_Mknod(tVFS_Node *DirNode, const char *Name, Uint Flags)
 /**
  * \brief Internal - Checks if a character is valid in an 8.3 filename
  */
-static inline int is_valid_83_char(char ch)
+static inline int is_valid_83_char(unsigned char ch)
 {
 	if( '0' <= ch && ch <= '9' )
 		return 1;

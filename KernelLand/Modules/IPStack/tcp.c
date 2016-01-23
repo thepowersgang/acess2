@@ -1432,7 +1432,7 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case 7:	// Connect
 		if(conn->LocalPort == 0xFFFF)
 			conn->LocalPort = TCP_GetUnusedPort();
-		if(conn->RemotePort == -1)
+		if(conn->RemotePort == 0xFFFF)
 			LEAVE_RET('i', 0);
 
 		{
