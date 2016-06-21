@@ -31,7 +31,7 @@ int ACPICA_Initialise(void)
 	ACPI_STATUS	rv;
 
 	#ifdef ACPI_DEBUG_OUTPUT
-	AcpiDbgLevel = ACPI_DB_ALL;
+	AcpiDbgLevel = ACPI_LV_ALL;
 	#endif
 
 	rv = AcpiInitializeSubsystem();
@@ -83,7 +83,7 @@ ACPI_STATUS AcpiOsTerminate(void)
 
 ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void)
 {
-	ACPI_SIZE	val;
+	ACPI_PHYSICAL_ADDRESS	val;
 	ACPI_STATUS	rv;
 
 	if( gACPI_RSDPOverride )
@@ -238,7 +238,7 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
 	if( PhysicalAddress < ONEMEG ) {
 		ASSERTCR(Length, <=, ONEMEG-PhysicalAddress, NULL);
-		return (void*)(KERNEL_BASE | PhysicalAddress);
+		return (void*)(KERNEL_BASE | (uintptr_t)(PhysicalAddress));
 	}
 	
 	Uint	ofs = PhysicalAddress & (PAGE_SIZE-1);
@@ -518,10 +518,10 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
 {
 	void *ptr;
 	if( Address < ONEMEG ) {
-		ptr = (void*)(KERNEL_BASE | Address);
+		ptr = (void*)(KERNEL_BASE | (uintptr_t)Address);
 	}
 	else {
-		ptr = (char*)MM_MapTemp(Address) + (Address & 0xFFF);
+		ptr = (char*)MM_MapTemp(Address) + ((uintptr_t)Address & 0xFFF);
 	}
 
 	switch(Width)
@@ -545,7 +545,7 @@ ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT3
 {
 	void *ptr;
 	if( Address < ONEMEG ) {
-		ptr = (void*)(KERNEL_BASE | Address);
+		ptr = (void*)(KERNEL_BASE | (uintptr_t)Address);
 	}
 	else {
 		ptr = (char*)MM_MapTemp(Address) + (Address & 0xFFF);

@@ -572,13 +572,13 @@ int AHCI_DoFIS(tAHCI_Port *Port, int bWrite,
 	while( ofs < OutSize )
 	{
 		tPAddr	phys = MM_GetPhysAddr( (char*)OutData + ofs );
-		ASSERT( !(phys & 3) );
-		// TODO: must be 4 byte aligned, and handle 64-bit addressing
 		size_t	len = MIN(OutSize - ofs, PAGE_SIZE - (phys % PAGE_SIZE));
+		// TODO: must be 4 byte aligned, and handle 64-bit addressing
+		ASSERT( !(phys & 3) );
+		// TODO: count must be even, and not more than 4MB
 		ASSERT( !(len & 1) );
 		ASSERT( len < 4*1024*1024 );
 		LOG("PRDTL[%i] = %P+%i", prdtl, phys, len);
-		// TODO: count must be even.
 		AHCI_int_SetAddr(Port->Ctrlr, &cmdt->PRDT[prdtl].DBA, phys);
 		cmdt->PRDT[prdtl].DBC = len-1;
 		prdtl ++;

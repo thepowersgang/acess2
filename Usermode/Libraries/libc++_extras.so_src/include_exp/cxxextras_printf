@@ -238,7 +238,8 @@ namespace _printf
 	constexpr bool val_fmt_prec_arg(const char *fmt, PrintfFlags item)
 	{
 		//static_assert(false, "Too few arguments when getting precision modifier");
-		return false ? false : throw "Too few arguments when getting precision modifier";
+		//return false ? false : throw "Too few arguments when getting precision modifier";
+		return false;
 	}
 	template <typename ...Args>
 	constexpr bool val_fmt_prec(const char * fmt, PrintfFlags item, Args... args)
@@ -274,7 +275,8 @@ namespace _printf
 	constexpr bool val_fmt_width_arg(const char *fmt, PrintfFlags item)
 	{
 		//static_assert(false, "Too few arguments when reading width for width modifier");
-		return false ? false : throw "Too few arguments when reading width for width modifier";
+		//return false ? false : throw "Too few arguments when reading width for width modifier";
+		return false;
 	}
 	template <typename ...Args>
 	constexpr bool val_fmt_width(const char * fmt, PrintfFlags item, Args... args)

@@ -13,7 +13,7 @@ LIBS     += -lc++
 include ../Makefile.tpl
 
 %.native: %.cpp
-	$(NCXX) $< -o $@ -Wall -std=c++11 -I include_exp/
+	$(NCXX) $< -o $@ -Wall -std=c++14 -O3 -I include_exp/
 
 TEST_cprintf.native: include_exp/cxxextras_printf
 

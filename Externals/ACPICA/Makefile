@@ -33,11 +33,18 @@ CPPFLAGS        += -I $(ACPICAROOT)source/include -D _ACESS -D __KERNEL__
 CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
 ifneq ($(ACPI_DEBUG),no)
-  CPPFLAGS += -D ACPI_DEBUG_OUTPUT=1 -D ACPI_DISASSEMBLER=1
+  CPPFLAGS += -D ACPI_DEBUG_OUTPUT=1
+  #CPPFLAGS += -D ACPI_DEBUGGER=1
+  CPPFLAGS += -D ACPI_DISASSEMBLER=1
 endif
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 
 SRCS := $(wildcard $(COMPDIR)*/*.c)
+SRCS := $(filter-out $(COMPDIR)debugger/%,$(SRCS))
+ifeq ($(ACPI_DEBUG),no)
+  SRCS := $(filter-out $(COMPDIR)disassembler/%,$(SRCS))
+  SRCS := $(filter-out %/resources/rsdump.c,$(SRCS))
+endif
 OBJS := $(SRCS:$(COMPDIR)%.c=obj-$(ARCH)/%.o)
 
 ACENV_H := $(ACPICAROOT)source/include/platform/acenv.h
