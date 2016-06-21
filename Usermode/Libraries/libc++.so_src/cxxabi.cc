@@ -49,6 +49,12 @@ extern "C" void __cxa_bad_typeid ()
 	//throw ::std::bad_typeid;
 }
 
+extern "C" void __cxa_throw_bad_array_new_length ()
+{
+	_SysDebug("__cxa_throw_bad_array_new_length");
+	for(;;);
+}
+
 extern "C" void* __dynamic_cast(
 	const void *sub,
 	const __cxxabiv1::__class_type_info *src,
