@@ -155,6 +155,8 @@ int Stack_SendCommand(const char *Fmt, ...)
 	
 	write(giStack_InFD, command, len);
 	write(giStack_InFD, "\n", 1);
+	// HACK: Sleep to ensure that the child does the command
+	sleep(1);
 	return 0;
 }
 
