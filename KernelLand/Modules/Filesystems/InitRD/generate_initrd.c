@@ -20,7 +20,9 @@ enum eToken {
 };
 
 struct sLexer {
+	const char* filename;
 	FILE*	file;
+	unsigned int cur_line;
 	enum eToken	last_tok;
 	char*	string;
 };
@@ -48,7 +50,8 @@ struct sDirEnts {
 };
 typedef struct sDirEnts	tDirEnts;
 
-tLexer	Lex_Init(FILE* fp);
+tLexer	Lex_Init(const char* filename, FILE* fp);
+void	Lex_Advance(struct sLexer* lex);
 void	Lex_Consume(struct sLexer* lex);
 char*	Lex_ConsumeYield(struct sLexer* lex);
 void	Lex_Error(struct sLexer* lex, const char* message);
@@ -93,7 +96,7 @@ int main(int argc, const char *argv[])
 		perror("Unable to open input file");
 		return 1;
 	}
-	struct sLexer lex = Lex_Init(fp);
+	struct sLexer lex = Lex_Init(infile, fp);
 	
 	tOutState os = {
 		1,
@@ -405,7 +408,7 @@ enum eToken get_token_int(FILE* ifp,  char** string)
 		return TOK_IDENT; }
 	case '"': {
 		size_t len = 0;
-		char *s = NULL;
+		char *s = malloc(1);
 		while((ch = fgetc(ifp)) != '"')
 		{
 			len += 1;
@@ -426,51 +429,51 @@ enum eToken get_token_int(FILE* ifp,  char** string)
 		exit(1);
 	}
 }
-enum eToken get_token(FILE* ifp,  char** string)
-{
-	enum eToken rv;
 
-	*string = NULL;
-	do {
-		assert(*string == NULL);
-		rv = get_token_int(ifp, string);
-		//printf("get_token: rv=%i '%s'\n", rv, *string);
-	} while( rv == TOK_COMMENT );
-	
-	return rv;
-}
-
-tLexer Lex_Init(FILE* fp)
+tLexer Lex_Init(const char* filename, FILE* fp)
 {
 	tLexer	rv;
+	rv.filename = filename;
 	rv.file = fp;
 	rv.string = NULL;
-	rv.last_tok = get_token(rv.file, &rv.string);
+	rv.cur_line = 0;
+	rv.last_tok = TOK_NEWLINE;
+	Lex_Advance(&rv);
 	return rv;
+}
+void Lex_Advance(struct sLexer* lex)
+{
+	do {
+		assert(lex->string == NULL);
+		if( lex->last_tok == TOK_NEWLINE ) {
+			lex->cur_line += 1;
+		}
+		lex->last_tok = get_token_int(lex->file, &lex->string);
+	} while( lex->last_tok == TOK_COMMENT );
 }
 void Lex_Consume(struct sLexer* lex)
 {
 	free(lex->string);
 	lex->string = NULL;
-	lex->last_tok = get_token(lex->file, &lex->string);
+	Lex_Advance(lex);
 }
 char* Lex_ConsumeYield(struct sLexer* lex)
 {
 	char* rv = lex->string;
 	lex->string = NULL;
-	lex->last_tok = get_token(lex->file, &lex->string);
+	Lex_Advance(lex);
 	return rv;
 }
 void Lex_Error(struct sLexer* lex, const char* string)
 {
 	(void)lex;
-	fprintf(stderr, "Parse error: %s\n", string);
+	fprintf(stderr, "%s:%u: Parse error: %s\n", lex->filename, lex->cur_line, string);
 	exit(1);
 }
 void Lex_Expect(struct sLexer* lex, enum eToken exp)
 {
 	if( lex->last_tok != exp ) {
-		fprintf(stderr, "Unexpected token %i, expected %i\n", lex->last_tok, exp);
+		fprintf(stderr, "%s:%u: Unexpected token %i \"%s\", expected %i\n", lex->filename, lex->cur_line, lex->last_tok, lex->string, exp);
 		exit(1);
 	}
 }
