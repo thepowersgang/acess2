@@ -19,11 +19,6 @@ enum eToken {
 	TOK_STRING,
 };
 
-struct sPath {
-	const struct sPath*	prev;
-	const char*	name;
-};
-
 struct sLexer {
 	FILE*	file;
 	enum eToken	last_tok;
@@ -34,8 +29,11 @@ typedef struct sLexer	tLexer;
 struct sOutState {
 	unsigned int	next_inode_idx;
 	FILE*	out_c;
-	FILE*	out_dep;
 	FILE*	out_ldopts;
+	
+	//FILE*	out_dep;
+	char**	dependencies;
+	unsigned int	num_dependencies;
 };
 typedef struct sOutState	tOutState;
 
@@ -56,8 +54,9 @@ char*	Lex_ConsumeYield(struct sLexer* lex);
 void	Lex_Error(struct sLexer* lex, const char* message);
 void	Lex_Expect(struct sLexer* lex, enum eToken exp);
 
-void	ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eToken end, const struct sPath* parent_path);
-void	AddFile(tOutState* os, tDirEnts* dents, bool is_opt, const struct sPath* dir_path, const char* name, const char* path);
+void	ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eToken end);
+void	AddFile(tOutState* os, tDirEnts* dents, bool is_opt, const char* name, const char* path);
+char*	strdup(const char* s);
 
 int main(int argc, const char *argv[])
 {
@@ -99,8 +98,9 @@ int main(int argc, const char *argv[])
 	tOutState os = {
 		1,
 		fopen(outfile_c, "w"),
-		fopen(outfile_dep, "w"),
 		fopen(outfile_ldopts, "w"),
+		//fopen(outfile_dep, "w"),
+		NULL, 0,
 		};
 	
 	fprintf(os.out_c,
@@ -115,20 +115,31 @@ int main(int argc, const char *argv[])
 	
 	fprintf(os.out_ldopts, "--format binary\n");
 	
-	struct sPath path = {NULL, ""};
-	ProcessDir(&lex, &os, 0, TOK_EOF, &path);
+	ProcessDir(&lex, &os, 0, TOK_EOF);
 	
-	fprintf(os.out_c,
-		"tVFS_Node * const gInitRD_FileList[] = {"
-		//"&gInitRD_RootNode"
-		);
+	// --- Finalize the C file (node list)
+	fprintf(os.out_c, "tVFS_Node * const gInitRD_FileList[] = {");
 	for(unsigned int i = 0; i < os.next_inode_idx; i ++ )
 		fprintf(os.out_c, "&INITRD_%u, ", i);
 	fprintf(os.out_c, "};\n");
 	
+	// --- Close running output files
 	fclose(os.out_c);
-	fclose(os.out_dep);
 	fclose(os.out_ldopts);
+	
+	// --- Write the dependency file
+	FILE*	depfile = fopen(outfile_dep, "w");
+	assert(depfile);
+	fprintf(depfile, "%s:", outfile_c);
+	for(unsigned int i = 0; i < os.num_dependencies; i ++)
+		fprintf(depfile, " %s", os.dependencies[i]);
+	fprintf(depfile, "\n");
+	for(unsigned int i = 0; i < os.num_dependencies; i ++) {
+		fprintf(depfile, "%s:\n", os.dependencies[i]);
+		free(os.dependencies[i]);
+	}
+	free(os.dependencies);
+	fclose(depfile);
 	
 	return 0;
 }
@@ -140,10 +151,11 @@ void add_dir_ent(tDirEnts* dents, const char* name, unsigned int inode) {
 	
 	dents->num_ents += 1;
 	dents->ents = realloc( dents->ents, sizeof(tDirEnt*) * dents->num_ents );
+	assert(dents->ents);
 	dents->ents[dents->num_ents-1] = de;
 }
 
-void ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eToken end, const struct sPath* parent_path)
+void ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eToken end)
 {
 	tDirEnts	dents = { 0, NULL };
 	while( lex->last_tok != end )
@@ -164,8 +176,7 @@ void ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eTok
 
 			unsigned int child_inode = os->next_inode_idx ++;
 			
-			struct sPath path = {parent_path, name};
-			ProcessDir(lex, os, child_inode, TOK_BRACE_CLOSE, &path);
+			ProcessDir(lex, os, child_inode, TOK_BRACE_CLOSE);
 			
 			add_dir_ent(&dents, name, child_inode);
 			
@@ -187,7 +198,7 @@ void ProcessDir(struct sLexer* lex, tOutState* os, unsigned int inode, enum eTok
 			}
 			Lex_Expect(lex, TOK_NEWLINE);
 			
-			AddFile(os, &dents, is_optional, parent_path, name, path);
+			AddFile(os, &dents, is_optional, name, path);
 			
 			free(name);
 			free(path);
@@ -296,7 +307,7 @@ size_t ld_mangle(char* out, const char* in) {
 	return rv;
 }
 
-void AddFile(tOutState* os, tDirEnts* dents, bool is_opt, const struct sPath* dir_path, const char* name, const char* path)
+void AddFile(tOutState* os, tDirEnts* dents, bool is_opt, const char* name, const char* path)
 {
 	char* realpath;
 	{
@@ -344,7 +355,12 @@ void AddFile(tOutState* os, tDirEnts* dents, bool is_opt, const struct sPath* di
 		, node_idx, file_size, node_idx, binary_sym
 		);
 	free(binary_sym);
-	free(realpath);
+	
+	os->num_dependencies += 1;
+	os->dependencies = realloc( os->dependencies, sizeof(*os->dependencies) * os->num_dependencies );
+	assert(os->dependencies);
+	os->dependencies[os->num_dependencies-1] = realpath;
+	//free(realpath);
 
 	add_dir_ent(dents, name, node_idx);
 }
@@ -379,6 +395,7 @@ enum eToken get_token_int(FILE* ifp,  char** string)
 		while( isalnum(ch) ) {
 			len += 1;
 			s = realloc(s, len+1);
+			assert(s);
 			s[len-1] = ch;
 			
 			ch = fgetc(ifp);
@@ -393,6 +410,7 @@ enum eToken get_token_int(FILE* ifp,  char** string)
 		{
 			len += 1;
 			s = realloc(s, len+1);
+			assert(s);
 			s[len-1] = ch;
 		}
 		s[len] = '\0';
@@ -445,6 +463,7 @@ char* Lex_ConsumeYield(struct sLexer* lex)
 }
 void Lex_Error(struct sLexer* lex, const char* string)
 {
+	(void)lex;
 	fprintf(stderr, "Parse error: %s\n", string);
 	exit(1);
 }
@@ -454,5 +473,14 @@ void Lex_Expect(struct sLexer* lex, enum eToken exp)
 		fprintf(stderr, "Unexpected token %i, expected %i\n", lex->last_tok, exp);
 		exit(1);
 	}
+}
+
+char* strdup(const char* s)
+{
+	char* rv = malloc(strlen(s) + 1);
+	if( rv == NULL )
+		return NULL;
+	strcpy(rv, s);
+	return rv;
 }
 
