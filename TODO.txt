@@ -58,7 +58,43 @@ TODO:
  > Port freetype for nice font support
  > Configuration (via lib/server)
 
+- AxWin4
+ > Resolution Independence
+ > Alt-Space, x maximise (and other menu options)
+
 - Omnispeak
  > Debug speed issues (tracing agian)
  > Port to AxWin3
  > (DONE) Trace memory corruption
+
+- libc
+ > Floating point (printf, AND scanf)
+  - problem - decimal to binary exponent handling
+
+=== MISC ===
+- System/integration tests:
+ > Run qemu with -kernel and init set to a test suite, compare SysDebug output
+ > Module testing of IP stack in progress.
+- Kernel/IP - SCTP Support
+- Kernel/IPStack - IPv6 support
+ > Partial (ICMPv6 ND in progress)
+- Cairo port?
+- Kernel/Caching - Support procfs flush command?
+ > Allows updating of the floppy image without reboot
+- Common 'NeedsBounceBuffer' function?
+- ### Tegra2 - Create small testing driver/kernel for fiddling with graphics (shorter reboot and faster operation)
+- Log to partition?
+- Discardable initialisation section?
+- ACPI Shutdown/reboot
+- Module dependencies as a double-nul terminated string in separate section
+ > Allow reading of dependency list before linking
+- KittyOS - Replacement init for Acess that streams pictures from /r/aww
+- HFS/HFS+ Driver
+- CD/DVD Driver
+- PCIe SSD Interface - http://www.nvmexpress.org/
+- Stack-based physical memory manager (with DMA region for range allocations)
+ > Integrate physical and virtual MM code such that PMM requests the actual mapping (and can grab the next pointer out)
+- mmap(MAP_IMMUTABLE) :: Map pages such that they never change underneath you (isn't this MAP_PRIVATE?)
+- Locking for VFS handles - Prevent closing while an operation is outstanding
+- Userland threads
+- DNS Lookups
