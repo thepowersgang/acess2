@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 int ParseArguments(int argc, char *argv[])
 {
 	 int	opt;
-	while( (opt = getopt(argc, argv, "hC:c:f:a:")) != -1 )
+	while( (opt = getopt(argc, argv, "hC:c:f:a:v")) != -1 )
 	{
 		switch(opt)
 		{
@@ -129,6 +129,9 @@ int ParseArguments(int argc, char *argv[])
 			break;
 		case 'a':
 			gsOpt_ABIName = optarg;
+			break;
+		case 'v':
+			gbTraceEnabled = true;
 			break;
 		case '?':
 			Usage(argv[0]);

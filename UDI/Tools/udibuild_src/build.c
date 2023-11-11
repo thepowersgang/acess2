@@ -108,7 +108,7 @@ int Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops)
 	free(abidir);
 	
 	char *udiprops_c = get_udipropsfile(opts, abi);
-	char *cmd = mkstr("%s -r %s -o bin/%s/%s -s %s",// %s.o",
+	char *cmd = mkstr("%s -r %s -o bin/%s/%s %s",// %s.o",
 		linker, IniFile_Get(opts, abi, "LDFLAGS", ""),
 		abi, udiprops->ModuleName, objfiles_str, udiprops_c
 		);
