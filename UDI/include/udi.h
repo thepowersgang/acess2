@@ -30,6 +30,8 @@ typedef uint32_t	udi_ubit32_t;	/* unsigned 32-bit: 0..232-1 */
 
 #if UDI_ABI_is_ia32
 #include "udi/arch/ia32.h"
+#elif UDI_ABI_is_amd64
+#include "udi/arch/amd64.h"
 #else
 #error "Unknown UDI ABI"
 #endif

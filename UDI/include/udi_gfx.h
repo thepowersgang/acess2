@@ -9,7 +9,7 @@
  *     <Public Domain>
  *
  * Origin:
- *     http:/*www.d-rift.nl/combuster/mos3/?p=viewsource&file=/include/common/udi_gfx.h*/
+ *     http://www.d-rift.nl/combuster/mos3/?p=viewsource&file=/include/common/udi_gfx.h
  */
 
 /* note that the specification, and thus, the contents of this file is not fixed.*/
