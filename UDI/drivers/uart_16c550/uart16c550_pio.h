@@ -45,7 +45,7 @@ udi_pio_trans_t	uart_pio_tx[] = {
 	{UDI_PIO_STORE+UDI_PIO_DIRECT+UDI_PIO_R0, UDI_PIO_2BYTE, UDI_PIO_R3},
 	//PIO_op_RI(LOAD, R0, 2, UDI_PIO_R3),
 	PIO_op_RI(SUB, R0, 2, UDI_PIO_R2),
-	{UDI_PIO_CSKIP+UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_NZ},
+	{UDI_PIO_CSKIP+UDI_PIO_R0, UDI_PIO_4BYTE, UDI_PIO_NZ},
 	{UDI_PIO_BRANCH, 0, 3},
 	
 	// Load byte into R1 (and increment R3)
