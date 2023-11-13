@@ -155,6 +155,11 @@ void DumpInterface(const char *Name)
 	 int	type;
 	char	path[sizeof(IPSTACK_ROOT)+1+FILENAME_MAX+1] = IPSTACK_ROOT"/";
 	
+	if(strlen(Name) + 1 > sizeof(path) - strlen(path)) {
+		fprintf(stderr, "Bad interface name '%s' (name too long)\n", Name);
+		return;
+	}
+	
 	strcat(path, Name);
 	
 	fd = _SysOpen(path, OPENFLAG_READ);
